@@ -56,8 +56,8 @@ export default function ProfilePage() {
         </Link>
       </PageHeader>
 
-      <div className="flex items-center gap-6">
-        <Avatar photoURL={profile.photoURL} name={profile.username} size={88} />
+      <div className="flex items-center gap-4">
+        <Avatar photoURL={profile.photoURL} name={profile.username} size={76} />
         <div className="min-w-0 flex-1">
           <div className="mb-2 truncate font-semibold">{profile.displayName}</div>
           <div className="grid grid-cols-3 gap-2">

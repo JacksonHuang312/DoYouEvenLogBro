@@ -20,7 +20,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#000000",
+  // Lets the layout extend under the iPhone home bar; safe-area padding keeps controls clear of it.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

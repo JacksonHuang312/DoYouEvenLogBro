@@ -1,32 +1,20 @@
 "use client";
 
-import { ChevronDown, ClipboardList, MoreHorizontal, Plus, X } from "lucide-react";
+import { ChevronDown, ClipboardList, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
+import { ExerciseCard } from "@/components/ExerciseCard";
 import { ExercisePicker } from "@/components/ExercisePicker";
-import { NumberCell } from "@/components/NumberCell";
 import { RestTimer } from "@/components/RestTimer";
 import { Spinner } from "@/components/Spinner";
-import { ExerciseThumb, PageHeader } from "@/components/ui";
+import { OverflowMenu, PageHeader } from "@/components/ui";
 import { useWorkout } from "@/components/WorkoutProvider";
 import { alertDialog, confirmDialog, errorDialog } from "@/lib/dialog";
-import * as Draft from "@/lib/draft";
-import type { DraftExercise } from "@/lib/draft";
 import { formatClock } from "@/lib/format";
 import { deleteRoutine, useRoutines } from "@/lib/routines";
-import type { Routine, SetType, Unit } from "@/lib/types";
-import { formatNumber, kgTo, toKg } from "@/lib/units";
-
-const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
-
-const SET_TYPE_STYLE: Record<SetType, string> = {
-  normal: "bg-surface-2 text-white",
-  warmup: "bg-amber-500/20 text-amber-400",
-  drop: "bg-purple-500/20 text-purple-400",
-  failure: "bg-red-500/20 text-red-400",
-};
+import type { Routine } from "@/lib/types";
 
 export default function WorkoutPage() {
   const { draft } = useWorkout();
@@ -76,10 +64,7 @@ function WorkoutHome() {
 }
 
 function RoutineCard({ routine, uid, onStart }: { routine: Routine; uid: string; onStart: () => void }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   async function onDelete() {
-    setMenuOpen(false);
     if (
       !(await confirmDialog({
         title: `Delete "${routine.name}"?`,
@@ -96,21 +81,24 @@ function RoutineCard({ routine, uid, onStart }: { routine: Routine; uid: string;
     <section className="rounded-2xl bg-surface p-4">
       <div className="flex items-start gap-2">
         <h3 className="flex-1 text-xl font-semibold">{routine.name}</h3>
-        <div className="relative">
-          <button aria-label="Routine options" onClick={() => setMenuOpen((o) => !o)} className="p-1">
-            <MoreHorizontal size={22} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-8 z-10 w-40 overflow-hidden rounded-xl bg-surface-2 shadow-lg">
+        <OverflowMenu label="Routine options">
+          {(close) => (
+            <>
               <Link href={`/routines/${routine.id}`} className="block px-4 py-3">
                 Edit routine
               </Link>
-              <button onClick={onDelete} className="w-full px-4 py-3 text-left text-red-400">
+              <button
+                onClick={() => {
+                  close();
+                  void onDelete();
+                }}
+                className="w-full px-4 py-3 text-left text-red-400"
+              >
                 Delete routine
               </button>
-            </div>
+            </>
           )}
-        </div>
+        </OverflowMenu>
       </div>
       <p className="mb-4 mt-1 line-clamp-2 text-muted">{routine.exercises.map((e) => e.name).join(", ")}</p>
       <button onClick={onStart} className="w-full rounded-xl bg-accent py-3 text-lg font-medium">
@@ -210,6 +198,8 @@ function ActiveWorkout() {
       </button>
 
       <RestTimer />
+      {/* Room to scroll the last set above the floating rest timer. */}
+      {draft.restEndsAt != null && <div aria-hidden className="h-20" />}
       {picking && (
         <ExercisePicker
           uid={profile.uid}
@@ -221,131 +211,5 @@ function ActiveWorkout() {
         />
       )}
     </div>
-  );
-}
-
-function ExerciseCard({
-  exercise: ex,
-  unit,
-  isFirst,
-  isLast,
-}: {
-  exercise: DraftExercise;
-  unit: Unit;
-  isFirst: boolean;
-  isLast: boolean;
-}) {
-  const { update } = useWorkout();
-  const labels = Draft.setLabels(ex.sets);
-  const iconBtn = "rounded px-2 py-1 text-muted hover:bg-surface-2 disabled:opacity-30";
-
-  return (
-    <section className="rounded-xl bg-surface p-3">
-      <div className="mb-2 flex items-center gap-1">
-        <ExerciseThumb exerciseId={ex.exerciseId} size={40} />
-        <h2 className="ml-2 flex-1 text-lg font-semibold text-accent">{ex.name}</h2>
-        <button aria-label="Move up" disabled={isFirst} className={iconBtn} onClick={() => update((w) => Draft.moveExercise(w, ex.key, -1))}>
-          ↑
-        </button>
-        <button aria-label="Move down" disabled={isLast} className={iconBtn} onClick={() => update((w) => Draft.moveExercise(w, ex.key, 1))}>
-          ↓
-        </button>
-        <button
-          aria-label="Remove exercise"
-          className={iconBtn}
-          onClick={async () => {
-            const ok = await confirmDialog({
-              title: `Remove ${ex.name}?`,
-              message: "Its sets in this workout will be removed too.",
-              confirmLabel: "Remove",
-              destructive: true,
-            });
-            if (ok) update((w) => Draft.removeExercise(w, ex.key));
-          }}
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      <label className="mb-2 flex items-center gap-2 text-sm text-muted">
-        Rest timer
-        <select
-          value={ex.restSec}
-          onChange={(e) => update((w) => Draft.setRest(w, ex.key, Number(e.target.value)))}
-          className="rounded bg-surface-2 px-2 py-1 text-white"
-        >
-          {REST_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s === 0 ? "Off" : formatClock(s * 1000)}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="grid grid-cols-[2.5rem_1fr_4.5rem_4rem_2.5rem_1.5rem] items-center gap-x-2 gap-y-1.5 text-sm">
-        <span className="text-center text-xs text-muted">SET</span>
-        <span className="text-xs text-muted">PREVIOUS</span>
-        <span className="text-center text-xs text-muted">{unit.toUpperCase()}</span>
-        <span className="text-center text-xs text-muted">REPS</span>
-        <span className="text-center text-xs text-muted">✓</span>
-        <span />
-
-        {ex.sets.map((set, i) => {
-          const prev = ex.previous?.[i];
-          const prevWeight = prev?.weightKg != null ? formatNumber(kgTo(unit, prev.weightKg)) : undefined;
-          return (
-            <div key={set.key} className="contents">
-              <button
-                title="Tap to change set type"
-                onClick={() => update((w) => Draft.cycleSetType(w, ex.key, set.key))}
-                className={`h-8 rounded-md font-semibold ${SET_TYPE_STYLE[set.type]}`}
-              >
-                {labels[i]}
-              </button>
-              <span className="truncate rounded-md py-1.5 text-muted">
-                {prev ? `${prevWeight ?? "BW"} × ${prev.reps}` : "-"}
-              </span>
-              <NumberCell
-                key={unit}
-                label="Weight"
-                decimal
-                value={set.weightKg == null ? null : kgTo(unit, set.weightKg)}
-                placeholder={prevWeight}
-                onChange={(v) =>
-                  update((w) => Draft.updateSet(w, ex.key, set.key, { weightKg: v == null ? null : toKg(unit, v) }))
-                }
-              />
-              <NumberCell
-                label="Reps"
-                value={set.reps}
-                placeholder={prev ? String(prev.reps) : undefined}
-                onChange={(v) => update((w) => Draft.updateSet(w, ex.key, set.key, { reps: v }))}
-              />
-              <button
-                aria-label={set.done ? "Mark set not done" : "Mark set done"}
-                onClick={() => update((w) => Draft.toggleDone(w, ex.key, set.key))}
-                className={`h-8 rounded-md font-bold ${set.done ? "bg-green-600 text-white" : "bg-surface-2 text-muted"}`}
-              >
-                ✓
-              </button>
-              <button
-                aria-label="Delete set"
-                onClick={() => update((w) => Draft.removeSet(w, ex.key, set.key))}
-                className="h-8 rounded-md text-muted/60 hover:text-red-400"
-              >
-                ✕
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={() => update((w) => Draft.addSet(w, ex.key))}
-        className="mt-3 w-full rounded-lg bg-surface-2 py-2 text-sm font-medium"
-      >
-        + Add set
-      </button>
-    </section>
   );
 }

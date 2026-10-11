@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- remote thumbnails/avatars; next/image would need per-host config */
-import { ChevronLeft, Dumbbell } from "lucide-react";
+import { ChevronLeft, Dumbbell, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useCustomExercises } from "@/lib/customExercises";
@@ -101,6 +101,28 @@ export function BackHeader({ title, href, right }: { title: string; href: string
       </Link>
       <h1 className="flex-1 truncate text-center font-semibold">{title}</h1>
       <div className="flex w-16 justify-end pr-2">{right}</div>
+    </div>
+  );
+}
+
+/** "⋯" button with a dropdown that closes on selection or on any tap outside it. */
+export function OverflowMenu({ label, children }: { label: string; children: (close: () => void) => React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+  return (
+    <div className="relative">
+      <button aria-label={label} aria-expanded={open} onClick={() => setOpen((o) => !o)} className="p-2">
+        <MoreHorizontal size={22} />
+      </button>
+      {open && (
+        <>
+          {/* Invisible full-screen layer: tapping anywhere else closes the menu. */}
+          <div aria-hidden className="fixed inset-0 z-10" onClick={close} />
+          <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-xl bg-surface-2 shadow-lg">
+            {children(close)}
+          </div>
+        </>
+      )}
     </div>
   );
 }

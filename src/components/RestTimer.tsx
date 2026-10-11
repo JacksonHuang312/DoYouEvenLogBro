@@ -47,7 +47,8 @@ export function RestTimer() {
   const btn = "rounded-md bg-surface-2 px-3 py-1.5 text-sm";
 
   return (
-    <div className="fixed inset-x-0 bottom-14 z-10 mx-auto max-w-xl px-4 pb-[env(safe-area-inset-bottom)]">
+    // Sits just above the 4rem tab bar, which itself sits above the iPhone home bar.
+    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] z-10 mx-auto max-w-xl px-4">
       <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
         <div className="h-1 bg-accent" style={{ width: `${pct}%` }} />
         <div className="flex items-center gap-2 p-3">

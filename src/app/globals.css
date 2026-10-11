@@ -20,4 +20,15 @@
 
 body {
   @apply bg-black text-white;
+  /* No grey flash when tapping buttons on mobile. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS Safari zooms the page when focusing a field under 16px; keep fields at 16px on touch screens. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
 }

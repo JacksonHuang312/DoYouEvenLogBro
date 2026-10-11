@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <WorkoutProvider uid={user.uid}>
       <CustomExercisesProvider uid={user.uid}>
-        <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-4">{children}</main>
+        <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-[calc(4rem+env(safe-area-inset-bottom)+2rem)] pt-[max(1rem,env(safe-area-inset-top))]">{children}</main>
         <BottomNav />
       </CustomExercisesProvider>
     </WorkoutProvider>

@@ -1,13 +1,11 @@
 "use client";
 
-import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { setLabels } from "@/lib/draft";
 import { formatRelativeDay, formatShortDuration } from "@/lib/format";
 import type { LoggedSet, Unit, UserProfile, Workout } from "@/lib/types";
 import { formatWeight, kgTo } from "@/lib/units";
-import { Avatar, ExerciseThumb, Stat } from "./ui";
+import { Avatar, ExerciseThumb, OverflowMenu, Stat } from "./ui";
 
 export function formatSet(unit: Unit, set: LoggedSet) {
   return `${formatWeight(unit, set.weightKg)} × ${set.reps}`;
@@ -38,7 +36,6 @@ export function WorkoutPost({
   profile: UserProfile;
   onDelete?: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const hidden = workout.exercises.length - PREVIEW_EXERCISES;
 
   return (
@@ -50,24 +47,19 @@ export function WorkoutPost({
           <div className="text-sm text-muted">{formatRelativeDay(workout.startedAt)}</div>
         </div>
         {onDelete && (
-          <div className="relative">
-            <button aria-label="Workout options" onClick={() => setMenuOpen((o) => !o)} className="p-1">
-              <MoreHorizontal size={22} />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-8 z-10 w-44 overflow-hidden rounded-xl bg-surface-2 shadow-lg">
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete();
-                  }}
-                  className="w-full px-4 py-3 text-left text-red-400"
-                >
-                  Delete workout
-                </button>
-              </div>
+          <OverflowMenu label="Workout options">
+            {(close) => (
+              <button
+                onClick={() => {
+                  close();
+                  onDelete();
+                }}
+                className="w-full px-4 py-3 text-left text-red-400"
+              >
+                Delete workout
+              </button>
             )}
-          </div>
+          </OverflowMenu>
         )}
       </div>
 

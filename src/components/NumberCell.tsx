@@ -51,7 +51,7 @@ export function NumberCell({
         setSynced(n);
         onChange(n);
       }}
-      className={`w-full rounded-md bg-surface-2 px-2 py-1.5 text-center tabular-nums outline-none placeholder:text-muted/60 focus:ring-2 focus:ring-accent ${className}`}
+      className={`w-full rounded-md bg-surface-2 px-1 py-1.5 text-center tabular-nums outline-none placeholder:text-muted/60 focus:ring-2 focus:ring-accent ${className}`}
     />
   );
 }
