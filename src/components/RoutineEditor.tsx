@@ -61,7 +61,7 @@ export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: R
         {exercises.map((ex, i) => (
           <section key={`${ex.exerciseId}-${i}`} className="rounded-xl bg-surface p-4">
             <div className="flex items-center gap-3">
-              <ExerciseThumb exerciseId={ex.exerciseId} name={ex.name} size={40} />
+              <ExerciseThumb exerciseId={ex.exerciseId} size={40} />
               <h2 className="flex-1 text-lg font-semibold text-accent">{ex.name}</h2>
               <button
                 aria-label={`Remove ${ex.name}`}

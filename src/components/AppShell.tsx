@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { CustomExercisesProvider } from "@/lib/customExercises";
 import { useAuth } from "./AuthProvider";
 import { BottomNav } from "./BottomNav";
 import { Spinner } from "./Spinner";
@@ -22,8 +23,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkoutProvider uid={user.uid}>
-      <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-4">{children}</main>
-      <BottomNav />
+      <CustomExercisesProvider uid={user.uid}>
+        <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-4">{children}</main>
+        <BottomNav />
+      </CustomExercisesProvider>
     </WorkoutProvider>
   );
 }

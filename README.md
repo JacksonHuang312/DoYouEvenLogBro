@@ -34,7 +34,7 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
 | `usernames/{handle}` | `{ uid }`, written only alongside the profile so handles are unique |
 | `users/{uid}/workouts/{id}` | Finished workout: exercises → sets (`type`, `weightKg`, `reps`) |
 | `users/{uid}/routines/{id}` | Saved workout templates: exercises with set count and rest time |
-| `users/{uid}/customExercises/{id}` | User-created exercises (ids start with `c_`) |
+| `users/{uid}/customExercises/{id}` | User-created exercises (ids start with `c_`), with an optional 192px JPEG photo stored inline as `imageData` |
 
 Usernames can be changed once every 7 days. The change is one batch that claims the new handle,
 releases the old one and sets `usernameChangedAt` to server time; `firestore.rules` enforces all of it.

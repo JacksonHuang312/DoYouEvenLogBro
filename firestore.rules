@@ -114,11 +114,20 @@ service cloud.firestore {
 
       match /customExercises/{exerciseId} {
         function validExercise(data) {
-          return data.keys().hasOnly(['name', 'muscle', 'equipment', 'category'])
+          return data.keys().hasOnly(['name', 'muscle', 'equipment', 'category', 'imageData'])
             && data.name is string && data.name.size() > 0 && data.name.size() <= 80
             && data.muscle is string && data.muscle.size() <= 40
             && data.equipment is string && data.equipment.size() <= 40
-            && data.category is string && data.category.size() <= 40;
+            && data.category is string && data.category.size() <= 40
+            && (!('imageData' in data) || validImage(data.imageData));
+        }
+
+        // Optional photo: a small JPEG data URL (the app makes 192px thumbnails, ~10-25 KB).
+        // Must match MAX_IMAGE_DATA_CHARS in src/lib/image.ts.
+        function validImage(image) {
+          return image is string
+            && image.size() <= 150000
+            && image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+=*$');
         }
 
         allow read, delete: if isUser(uid);

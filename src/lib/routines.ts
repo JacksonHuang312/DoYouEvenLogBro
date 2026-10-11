@@ -17,9 +17,15 @@ export function newRoutineId(uid: string) {
 export function useRoutines(uid: string) {
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   useEffect(() => {
-    return onSnapshot(query(routinesCol(uid), orderBy("updatedAt", "desc")), (snap) => {
-      setRoutines(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Routine));
-    });
+    return onSnapshot(
+      query(routinesCol(uid), orderBy("updatedAt", "desc")),
+      (snap) => setRoutines(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Routine)),
+      (err) => {
+        // Show an empty list rather than spinning forever.
+        console.error("Couldn't load routines", err);
+        setRoutines([]);
+      },
+    );
   }, [uid]);
   return routines;
 }

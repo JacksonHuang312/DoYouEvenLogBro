@@ -6,9 +6,11 @@ import { useEffect, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { ExerciseMeta } from "@/components/ExercisePicker";
 import { Spinner } from "@/components/Spinner";
-import { BackHeader } from "@/components/ui";
+import { BackHeader, ExerciseThumb } from "@/components/ui";
 import { formatSet, SetList } from "@/components/WorkoutSummary";
-import { deleteCustomExercise, useExercises } from "@/lib/exercises";
+import { PhotoPicker } from "@/components/PhotoPicker";
+import { deleteCustomExercise, setCustomExerciseImage } from "@/lib/customExercises";
+import { useExercises } from "@/lib/exercises";
 import { formatDate } from "@/lib/format";
 import type { LoggedSet, Workout } from "@/lib/types";
 import { listWorkoutsWithExercise } from "@/lib/workouts";
@@ -18,7 +20,7 @@ export function ExerciseDetail() {
   const id = decodeURIComponent(params.id);
   const profile = useProfile();
   const router = useRouter();
-  const exercise = useExercises(profile.uid).find((e) => e.id === id);
+  const exercise = useExercises().find((e) => e.id === id);
   const [history, setHistory] = useState<Workout[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,18 @@ export function ExerciseDetail() {
   return (
     <div className="space-y-4">
       <BackHeader title="Exercise" href="/exercises" />
+      {exercise?.custom ? (
+        <PhotoPicker
+          value={exercise.imageData ?? null}
+          onChange={(imageData) =>
+            setCustomExerciseImage(profile.uid, id, imageData).catch((e: Error) =>
+              alert(`Couldn't update photo: ${e.message}`),
+            )
+          }
+        />
+      ) : (
+        <ExerciseThumb exerciseId={id} size={88} />
+      )}
       <div>
         <h1 className="text-2xl font-bold">{exercise?.name ?? sessions[0]?.workout.exercises.find((e) => e.exerciseId === id)?.name ?? "Exercise"}</h1>
         {exercise && <ExerciseMeta exercise={exercise} />}

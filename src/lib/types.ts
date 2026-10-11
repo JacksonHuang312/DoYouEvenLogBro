@@ -11,6 +11,8 @@ export interface Exercise {
   equipment: string;
   muscle: string;
   custom?: boolean;
+  /** Custom exercises only: optional 192px JPEG data URL. */
+  imageData?: string;
 }
 
 export interface UserProfile {

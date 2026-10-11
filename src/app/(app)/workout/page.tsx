@@ -217,7 +217,7 @@ function ExerciseCard({
   return (
     <section className="rounded-xl bg-surface p-3">
       <div className="mb-2 flex items-center gap-1">
-        <ExerciseThumb exerciseId={ex.exerciseId} name={ex.name} size={40} />
+        <ExerciseThumb exerciseId={ex.exerciseId} size={40} />
         <h2 className="ml-2 flex-1 text-lg font-semibold text-accent">{ex.name}</h2>
         <button aria-label="Move up" disabled={isFirst} className={iconBtn} onClick={() => update((w) => Draft.moveExercise(w, ex.key, -1))}>
           ↑

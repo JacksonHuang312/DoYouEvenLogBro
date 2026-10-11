@@ -71,7 +71,7 @@ export function WorkoutDetail() {
               href={`/exercises/${encodeURIComponent(ex.exerciseId)}`}
               className="mb-3 flex items-center gap-3"
             >
-              <ExerciseThumb exerciseId={ex.exerciseId} name={ex.name} size={40} />
+              <ExerciseThumb exerciseId={ex.exerciseId} size={40} />
               <span className="text-lg font-semibold text-accent">{ex.name}</span>
             </Link>
             <div className="mb-1 flex gap-4 px-2 text-xs uppercase text-muted">

@@ -79,7 +79,7 @@ export function WorkoutPost({
         <ul className="space-y-3 pt-4">
           {workout.exercises.slice(0, PREVIEW_EXERCISES).map((ex, i) => (
             <li key={i} className="flex items-center gap-4">
-              <ExerciseThumb exerciseId={ex.exerciseId} name={ex.name} />
+              <ExerciseThumb exerciseId={ex.exerciseId} />
               <span className="truncate">
                 {ex.sets.length} {ex.sets.length === 1 ? "set" : "sets"} {ex.name}
               </span>

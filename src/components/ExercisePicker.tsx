@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { EQUIPMENT, MUSCLES, searchExercises, useExercises } from "@/lib/exercises";
 import type { Exercise } from "@/lib/types";
+import { CustomExerciseForm } from "./CustomExerciseForm";
 import { ExerciseThumb } from "./ui";
 
 /** Search box plus muscle/equipment filters, shared by the picker and the Exercises tab. */
-export function useExerciseSearch(uid: string) {
-  const all = useExercises(uid);
+export function useExerciseSearch() {
+  const all = useExercises();
   const [query, setQuery] = useState("");
   const [muscle, setMuscle] = useState("");
   const [equipment, setEquipment] = useState("");
@@ -53,7 +54,7 @@ export function useExerciseSearch(uid: string) {
     </div>
   );
 
-  return { results, filters };
+  return { results, filters, query };
 }
 
 export function ExerciseMeta({ exercise }: { exercise: Exercise }) {
@@ -75,8 +76,9 @@ export function ExercisePicker({
   onAdd: (list: Exercise[]) => void;
   onClose: () => void;
 }) {
-  const { results, filters } = useExerciseSearch(uid);
+  const { results, filters, query } = useExerciseSearch();
   const [selected, setSelected] = useState<Exercise[]>([]);
+  const [creating, setCreating] = useState(false);
 
   const toggle = (ex: Exercise) =>
     setSelected((s) =>
@@ -91,9 +93,26 @@ export function ExercisePicker({
             Cancel
           </button>
           <h2 className="font-semibold">Add exercises</h2>
-          <span className="w-12" />
+          <button onClick={() => setCreating((c) => !c)} className="font-medium text-accent">
+            {creating ? "Close" : "Create"}
+          </button>
         </div>
-        {filters}
+        {creating ? (
+          <div className="mb-3">
+            <CustomExerciseForm
+              uid={uid}
+              initialName={query}
+              onCancel={() => setCreating(false)}
+              onCreated={(ex) => {
+                // Pre-select the new exercise so it's one tap to add.
+                setSelected((s) => [...s, ex]);
+                setCreating(false);
+              }}
+            />
+          </div>
+        ) : (
+          filters
+        )}
         <ul className="mt-3 flex-1 divide-y divide-line overflow-y-auto pb-24">
           {results.map((ex) => {
             const order = selected.findIndex((x) => x.id === ex.id);
@@ -105,7 +124,7 @@ export function ExercisePicker({
                     order >= 0 ? "bg-accent/15" : ""
                   }`}
                 >
-                  <ExerciseThumb exerciseId={ex.id} name={ex.name} />
+                  <ExerciseThumb exerciseId={ex.id} />
                   <span className="flex-1">
                     <span className="block">{ex.name}</span>
                     <ExerciseMeta exercise={ex} />
@@ -119,7 +138,16 @@ export function ExercisePicker({
               </li>
             );
           })}
-          {results.length === 0 && <li className="py-8 text-center text-muted">No matches</li>}
+          {results.length === 0 && (
+            <li className="space-y-3 py-8 text-center text-muted">
+              <p>No matches</p>
+              {!creating && (
+                <button onClick={() => setCreating(true)} className="rounded-lg bg-surface px-4 py-2 text-accent">
+                  Create &quot;{query.trim() || "custom exercise"}&quot;
+                </button>
+              )}
+            </li>
+          )}
         </ul>
       </div>
       {selected.length > 0 && (

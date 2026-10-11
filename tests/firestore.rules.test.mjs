@@ -191,3 +191,37 @@ describe("routines", () => {
     await assertFails(setDoc(doc(dbAs("alice"), "users", "alice", "routines", "r1"), { ...routine, exercises: [] }));
   });
 });
+
+describe("custom exercise photos", () => {
+  const exercise = { name: "Hack Squat", muscle: "quadriceps", equipment: "machine", category: "strength" };
+  const jpeg = `data:image/jpeg;base64,${Buffer.alloc(15_000, 7).toString("base64")}`;
+  const ref = (uid) => doc(dbAs(uid), "users", "alice", "customExercises", "c_abc123");
+
+  test("can be created without a photo", async () => {
+    await seedUser("alice", "alice", 8);
+    await assertSucceeds(setDoc(ref("alice"), exercise));
+  });
+
+  test("can be created with a small JPEG photo", async () => {
+    await seedUser("alice", "alice", 8);
+    await assertSucceeds(setDoc(ref("alice"), { ...exercise, imageData: jpeg }));
+  });
+
+  test("rejects photos over the size limit", async () => {
+    await seedUser("alice", "alice", 8);
+    const huge = `data:image/jpeg;base64,${Buffer.alloc(120_000, 7).toString("base64")}`;
+    await assertFails(setDoc(ref("alice"), { ...exercise, imageData: huge }));
+  });
+
+  test("rejects anything that isn't a JPEG data URL", async () => {
+    await seedUser("alice", "alice", 8);
+    await assertFails(setDoc(ref("alice"), { ...exercise, imageData: "https://evil.example/tracker.png" }));
+    await assertFails(setDoc(ref("alice"), { ...exercise, imageData: "data:image/svg+xml;base64,PHN2Zz4=" }));
+  });
+
+  test("other users can't set your exercise's photo", async () => {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 30);
+    await assertFails(setDoc(ref("bob"), { ...exercise, imageData: jpeg }));
+  });
+});

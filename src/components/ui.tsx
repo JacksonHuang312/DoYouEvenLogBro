@@ -1,37 +1,60 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- remote thumbnails/avatars; next/image would need per-host config */
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Dumbbell } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useCustomExercises } from "@/lib/customExercises";
 
 const IMAGE_CDN = "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises";
 
-/** Illustration for a library exercise (free-exercise-db); custom exercises have none. */
-function exerciseImageUrl(exerciseId: string): string | null {
-  return exerciseId.startsWith("c_") ? null : `${IMAGE_CDN}/${encodeURIComponent(exerciseId)}/0.jpg`;
+/** Illustration for a library exercise (free-exercise-db). */
+function libraryImageUrl(exerciseId: string) {
+  return `${IMAGE_CDN}/${encodeURIComponent(exerciseId)}/0.jpg`;
 }
 
-/** Circular exercise illustration (white background like Hevy's), or the initial for custom exercises. */
-export function ExerciseThumb({ exerciseId, name, size = 44 }: { exerciseId: string; name: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  const src = failed ? null : exerciseImageUrl(exerciseId);
+/** The default image: a dumbbell on gray, used when an exercise has no photo. */
+export function DefaultExerciseImage({ size }: { size: number }) {
   return (
     <span
-      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-lg font-semibold text-black"
+      className="flex shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted"
       style={{ width: size, height: size }}
     >
-      {src ? <img
-          src={src}
-          alt=""
-          loading="lazy"
-          onError={() => setFailed(true)}
-          // Catches images that already failed before React attached onError (server-rendered HTML).
-          ref={(el) => {
-            if (el?.complete && el.naturalWidth === 0) setFailed(true);
-          }}
-          className="h-full w-full object-cover"
-        /> : name.charAt(0).toUpperCase()}
+      <Dumbbell size={size * 0.5} />
+    </span>
+  );
+}
+
+/**
+ * Circular exercise image: the library illustration, a custom exercise's own photo,
+ * or the default dumbbell image. `src` overrides the lookup (e.g. a photo being previewed).
+ */
+export function ExerciseThumb({ exerciseId, src, size = 44 }: { exerciseId?: string; src?: string | null; size?: number }) {
+  const custom = useCustomExercises();
+  // Remember which URL failed, so a new photo gets a fresh attempt.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  let url = src;
+  if (url === undefined && exerciseId) {
+    url = exerciseId.startsWith("c_")
+      ? (custom.find((e) => e.id === exerciseId)?.imageData ?? null)
+      : libraryImageUrl(exerciseId);
+  }
+  if (!url || url === failedUrl) return <DefaultExerciseImage size={size} />;
+
+  return (
+    <span className="shrink-0 overflow-hidden rounded-full bg-white" style={{ width: size, height: size }}>
+      <img
+        src={url}
+        alt=""
+        loading="lazy"
+        onError={() => setFailedUrl(url)}
+        // Catches images that already failed before React attached onError (server-rendered HTML).
+        ref={(el) => {
+          if (el?.complete && el.naturalWidth === 0) setFailedUrl(url);
+        }}
+        className="h-full w-full object-cover"
+      />
     </span>
   );
 }
