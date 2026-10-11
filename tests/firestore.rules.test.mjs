@@ -346,3 +346,72 @@ describe("shared workouts, likes and comments", () => {
     await assertFails(deleteDoc(workoutRef(dbAs("bob"))));
   });
 });
+
+describe("comment replies", () => {
+  const workout = {
+    name: "Chest back",
+    startedAt: Date.now() - 3_600_000,
+    endedAt: Date.now(),
+    exercises: [],
+    exerciseIds: [],
+    volumeKg: 0,
+    setCount: 0,
+  };
+  const path = ["users", "alice", "workouts", "w1", "comments"];
+  const ref = (db, id) => doc(db, ...path, id);
+  const comment = (uid, extra = {}) => ({
+    authorUid: uid,
+    authorUsername: uid,
+    authorPhotoURL: null,
+    text: "hey",
+    createdAt: serverTimestamp(),
+    ...extra,
+  });
+
+  async function seedThread() {
+    await seedUser("alice", "alice", 30);
+    await seedUser("bob", "bob", 30);
+    await seedUser("carol", "carol", 30);
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "users", "alice", "workouts", "w1"), workout));
+    await setDoc(ref(dbAs("bob"), "top"), comment("bob"));
+  }
+
+  test("can reply to a top-level comment", async () => {
+    await seedThread();
+    await assertSucceeds(setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "top", replyToUsername: "bob" })));
+  });
+
+  test("can't reply to a reply (one level deep only)", async () => {
+    await seedThread();
+    await setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "top", replyToUsername: "bob" }));
+    await assertFails(setDoc(ref(dbAs("bob"), "r2"), comment("bob", { parentId: "r1", replyToUsername: "carol" })));
+  });
+
+  test("can't reply to a comment that doesn't exist", async () => {
+    await seedThread();
+    await assertFails(setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "nope" })));
+  });
+
+  test("replyToUsername must be a valid handle on a reply", async () => {
+    await seedThread();
+    await assertFails(setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "top", replyToUsername: "Not A Handle!" })));
+    await assertFails(setDoc(ref(dbAs("carol"), "r2"), comment("carol", { replyToUsername: "bob" })));
+  });
+
+  test("a comment's author can delete it together with its replies", async () => {
+    await seedThread();
+    await setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "top", replyToUsername: "bob" }));
+    const db = dbAs("bob");
+    const batch = writeBatch(db);
+    batch.delete(ref(db, "r1"));
+    batch.delete(ref(db, "top"));
+    await assertSucceeds(batch.commit());
+  });
+
+  test("other users can't delete someone's reply", async () => {
+    await seedThread();
+    await seedUser("dave", "dave", 30);
+    await setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "top", replyToUsername: "bob" }));
+    await assertFails(deleteDoc(ref(dbAs("dave"), "r1")));
+  });
+});

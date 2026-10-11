@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   setDoc,
   type Timestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import { firebase } from "./firebase";
@@ -25,6 +26,24 @@ export interface WorkoutComment {
   authorPhotoURL: string | null;
   text: string;
   createdAt: Timestamp;
+  /** Set on replies: the top-level comment this belongs under (one level deep). */
+  parentId?: string;
+  /** Set on replies: who's being answered, shown as "@username". */
+  replyToUsername?: string;
+}
+
+/** A top-level comment with its replies, oldest first. */
+export interface CommentThreadData {
+  comment: WorkoutComment;
+  replies: WorkoutComment[];
+}
+
+/** Groups a flat, time-ordered comment list into threads. Replies whose parent is gone are dropped. */
+export function groupThreads(comments: WorkoutComment[]): CommentThreadData[] {
+  const threads = new Map<string, CommentThreadData>();
+  for (const c of comments) if (!c.parentId) threads.set(c.id, { comment: c, replies: [] });
+  for (const c of comments) if (c.parentId) threads.get(c.parentId)?.replies.push(c);
+  return [...threads.values()];
 }
 
 export const MAX_COMMENT_LENGTH = 500;
@@ -103,18 +122,32 @@ export function useComments(ownerUid: string, workoutId: string) {
   return comments;
 }
 
-export function addComment(ownerUid: string, workoutId: string, author: UserProfile, text: string) {
+/** Posts a comment, or a reply when `replyTo` is given (it attaches to that top-level comment). */
+export function addComment(
+  ownerUid: string,
+  workoutId: string,
+  author: UserProfile,
+  text: string,
+  replyTo?: { parentId: string; username: string },
+) {
   return addDoc(commentsCol(ownerUid, workoutId), {
     authorUid: author.uid,
     authorUsername: author.username,
     authorPhotoURL: author.photoURL,
     text: text.trim().slice(0, MAX_COMMENT_LENGTH),
     createdAt: serverTimestamp(),
+    ...(replyTo ? { parentId: replyTo.parentId, replyToUsername: replyTo.username } : {}),
   });
 }
 
-export function deleteComment(ownerUid: string, workoutId: string, commentId: string) {
-  return deleteDoc(doc(commentsCol(ownerUid, workoutId), commentId));
+/** Deletes a comment; for a top-level comment, pass its replies so the thread goes with it. */
+export function deleteComment(ownerUid: string, workoutId: string, commentId: string, replyIds: string[] = []) {
+  const col = commentsCol(ownerUid, workoutId);
+  if (replyIds.length === 0) return deleteDoc(doc(col, commentId));
+  const batch = writeBatch(firebase().db);
+  for (const id of replyIds) batch.delete(doc(col, id));
+  batch.delete(doc(col, commentId));
+  return batch.commit();
 }
 
 /**

@@ -45,7 +45,7 @@ export function WorkoutPost({
   const commentBox = useRef<HTMLTextAreaElement>(null);
 
   return (
-    <article className="-mx-4 border-b-8 border-surface px-4 py-5">
+    <article className="-mx-4 border-surface px-4 py-5 not-last:border-b-8">
       <div className="mb-3 flex items-center gap-3">
         <Avatar photoURL={profile.photoURL} name={profile.username} />
         <div className="min-w-0 flex-1">

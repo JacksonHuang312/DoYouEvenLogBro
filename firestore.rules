@@ -125,12 +125,26 @@ service cloud.firestore {
         }
 
         match /comments/{commentId} {
+          function commentPath(id) {
+            return /databases/$(database)/documents/users/$(uid)/workouts/$(workoutId)/comments/$(id);
+          }
+
+          // Replies are one level deep: parentId must point at an existing top-level comment.
+          function validReply(data) {
+            return (!('parentId' in data)
+                || (data.parentId is string
+                  && exists(commentPath(data.parentId))
+                  && !('parentId' in get(commentPath(data.parentId)).data)))
+              && (!('replyToUsername' in data) || ('parentId' in data && validHandle(data.replyToUsername)));
+          }
+
           allow read: if canReadWorkouts(uid);
           // Author fields must match the commenter's real profile, so nobody can post as someone else.
           allow create: if signedIn()
             && canReadWorkouts(uid)
             && exists(workoutPath())
-            && request.resource.data.keys().hasOnly(['authorUid', 'authorUsername', 'authorPhotoURL', 'text', 'createdAt'])
+            && request.resource.data.keys().hasOnly(['authorUid', 'authorUsername', 'authorPhotoURL', 'text', 'createdAt', 'parentId', 'replyToUsername'])
+            && validReply(request.resource.data)
             && request.resource.data.authorUid == request.auth.uid
             && request.resource.data.authorUsername == get(userPath(request.auth.uid)).data.username
             && (request.resource.data.authorPhotoURL == null
@@ -139,8 +153,13 @@ service cloud.firestore {
             && request.resource.data.text.size() > 0
             && request.resource.data.text.size() <= 500
             && request.resource.data.createdAt == request.time;
-          // The author can delete their comment; the workout owner can delete any comment on it.
-          allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || request.auth.uid == uid);
+          // The author can delete their comment; the workout owner can delete any comment on it;
+          // and a comment's author can delete the replies under it (deleting a thread removes its replies).
+          allow delete: if signedIn()
+            && (resource.data.authorUid == request.auth.uid
+              || request.auth.uid == uid
+              || ('parentId' in resource.data
+                && get(commentPath(resource.data.parentId)).data.authorUid == request.auth.uid));
           allow update: if false;
         }
       }

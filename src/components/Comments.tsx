@@ -1,23 +1,33 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { formatDayAndTime } from "@/lib/format";
-import { addComment, deleteComment, MAX_COMMENT_LENGTH, type WorkoutComment, workoutPath } from "@/lib/social";
+import {
+  addComment,
+  deleteComment,
+  groupThreads,
+  MAX_COMMENT_LENGTH,
+  type WorkoutComment,
+  workoutPath,
+} from "@/lib/social";
 import { useAuth } from "./AuthProvider";
 import { promptSignIn } from "./SocialBar";
 import { Avatar } from "./ui";
 
-/** How many of the latest comments a feed post shows before "View all". */
+/** How many of the latest comment threads a feed post shows before "View all". */
 const PREVIEW_COUNT = 2;
 
+type ReplyTarget = { parentId: string; username: string };
+
 /**
- * Comment list + "Write a comment" box, like Hevy. The caller loads the comments
- * (useComments) so it can share them with the comment count.
- * - "full": every comment (the workout page).
- * - "preview": the latest few with a "View all" link (feed posts).
+ * Comment threads + "Write a comment" box, like Hevy. Replies are one level deep and
+ * collapsed under their comment. The caller loads the comments (useComments) so it can
+ * share them with the comment count.
+ * - "full": every thread (the workout page).
+ * - "preview": the latest few threads with a "View all" link (feed posts).
  */
 export function CommentThread({
   ownerUid,
@@ -30,25 +40,53 @@ export function CommentThread({
   workoutId: string;
   comments: WorkoutComment[] | null;
   variant: "full" | "preview";
-  inputRef?: React.Ref<HTMLTextAreaElement>;
+  /** The comment box; the caller focuses it from its 💬 button, and Reply focuses it too. */
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   const { user, profile, signIn } = useAuth();
   const viewerUid = profile ? user!.uid : null;
-  const list = comments ?? [];
-  const shown = variant === "preview" ? list.slice(-PREVIEW_COUNT) : list;
-  const hidden = list.length - shown.length;
+  const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  async function onDelete(commentId: string) {
-    const ok = await confirmDialog({ title: "Delete comment?", confirmLabel: "Delete", destructive: true });
-    if (ok) deleteComment(ownerUid, workoutId, commentId).catch((e) => errorDialog("Couldn't delete comment", e));
+  const list = comments ?? [];
+  const threads = groupThreads(list);
+  const shown = variant === "preview" ? threads.slice(-PREVIEW_COUNT) : threads;
+
+  const expand = (id: string) => setExpanded((s) => new Set(s).add(id));
+  const toggle = (id: string) =>
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  function startReply(target: ReplyTarget) {
+    if (!viewerUid) return void promptSignIn(signIn, "reply");
+    setReplyTo(target);
+    inputRef.current?.focus();
   }
+
+  async function onDelete(c: WorkoutComment, replyIds: string[]) {
+    const ok = await confirmDialog({
+      title: replyIds.length ? "Delete comment and its replies?" : "Delete comment?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    if (replyTo?.parentId === c.id) setReplyTo(null);
+    deleteComment(ownerUid, workoutId, c.id, replyIds).catch((e) => errorDialog("Couldn't delete comment", e));
+  }
+
+  // Comment authors, the workout owner, and (for replies) the thread starter may delete.
+  const canDelete = (c: WorkoutComment, threadAuthor: string) =>
+    !!viewerUid && (viewerUid === c.authorUid || viewerUid === ownerUid || (!!c.parentId && viewerUid === threadAuthor));
 
   return (
     <div>
       {variant === "full" && comments?.length === 0 && (
         <p className="mb-4 text-sm text-muted">No comments yet. Say something nice.</p>
       )}
-      {hidden > 0 && (
+      {threads.length > shown.length && (
         <Link href={`${workoutPath(ownerUid, workoutId)}#comments`} className="mb-3 block text-sm text-muted">
           View all {list.length} comments
         </Link>
@@ -56,28 +94,60 @@ export function CommentThread({
 
       {shown.length > 0 && (
         <ul className="mb-4 space-y-4">
-          {shown.map((c) => (
-            <li key={c.id} className="flex gap-3">
-              <Avatar photoURL={c.authorPhotoURL} name={c.authorUsername} size={40} />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-x-1.5">
-                  <span className="font-semibold">{c.authorUsername}</span>
-                  <span className="text-sm text-muted">· {formatDayAndTime(c.createdAt.toMillis())}</span>
-                </div>
-                <p className="whitespace-pre-wrap break-words">{c.text}</p>
-              </div>
-              {viewerUid && (viewerUid === c.authorUid || viewerUid === ownerUid) && (
-                <button aria-label="Delete comment" onClick={() => onDelete(c.id)} className="self-start p-2 text-muted">
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </li>
-          ))}
+          {shown.map(({ comment, replies }) => {
+            const open = expanded.has(comment.id);
+            return (
+              <li key={comment.id}>
+                <CommentRow
+                  comment={comment}
+                  onReply={() => startReply({ parentId: comment.id, username: comment.authorUsername })}
+                  onDelete={
+                    canDelete(comment, comment.authorUid)
+                      ? () => onDelete(comment, replies.map((r) => r.id))
+                      : undefined
+                  }
+                />
+                {replies.length > 0 && (
+                  <div className="ml-13 mt-2">
+                    <button onClick={() => toggle(comment.id)} className="flex items-center gap-2 text-sm text-muted">
+                      <span className="h-px w-6 bg-muted/50" />
+                      {open ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+                    </button>
+                    {open && (
+                      <ul className="mt-3 space-y-3">
+                        {replies.map((r) => (
+                          <li key={r.id}>
+                            <CommentRow
+                              comment={r}
+                              small
+                              onReply={() => startReply({ parentId: comment.id, username: r.authorUsername })}
+                              onDelete={canDelete(r, comment.authorUid) ? () => onDelete(r, []) : undefined}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
       {profile ? (
-        <CommentForm ownerUid={ownerUid} workoutId={workoutId} inputRef={inputRef} />
+        <CommentForm
+          ownerUid={ownerUid}
+          workoutId={workoutId}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          onPosted={(target) => {
+            // Show the reply you just posted.
+            if (target) expand(target.parentId);
+            setReplyTo(null);
+          }}
+          inputRef={inputRef}
+        />
       ) : (
         <button
           onClick={() => promptSignIn(signIn, "comment")}
@@ -90,15 +160,57 @@ export function CommentThread({
   );
 }
 
-/** Avatar + pill-shaped box + "Post", matching Hevy's comment row. */
+function CommentRow({
+  comment: c,
+  small = false,
+  onReply,
+  onDelete,
+}: {
+  comment: WorkoutComment;
+  small?: boolean;
+  onReply: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <div className="flex gap-3">
+      <Avatar photoURL={c.authorPhotoURL} name={c.authorUsername} size={small ? 32 : 40} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-1.5">
+          <span className="font-semibold">{c.authorUsername}</span>
+          <span className="text-sm text-muted">· {formatDayAndTime(c.createdAt.toMillis())}</span>
+        </div>
+        <p className="whitespace-pre-wrap break-words">
+          {c.replyToUsername && <span className="text-accent">@{c.replyToUsername} </span>}
+          {c.text}
+        </p>
+        <button onClick={onReply} className="mt-0.5 text-sm font-medium text-muted">
+          Reply
+        </button>
+      </div>
+      {onDelete && (
+        <button aria-label="Delete comment" onClick={onDelete} className="self-start p-2 text-muted">
+          <Trash2 size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Avatar + pill-shaped box + "Post", matching Hevy's comment row. Shows who you're replying to. */
 function CommentForm({
   ownerUid,
   workoutId,
+  replyTo,
+  onCancelReply,
+  onPosted,
   inputRef,
 }: {
   ownerUid: string;
   workoutId: string;
-  inputRef?: React.Ref<HTMLTextAreaElement>;
+  replyTo: ReplyTarget | null;
+  onCancelReply: () => void;
+  onPosted: (replyTo: ReplyTarget | null) => void;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   const { profile } = useAuth();
   const [text, setText] = useState("");
@@ -109,8 +221,9 @@ function CommentForm({
     if (!profile || !text.trim()) return;
     setPosting(true);
     try {
-      await addComment(ownerUid, workoutId, profile, text);
+      await addComment(ownerUid, workoutId, profile, text, replyTo ?? undefined);
       setText("");
+      onPosted(replyTo);
     } catch (err) {
       await errorDialog("Couldn't post comment", err);
     } finally {
@@ -120,31 +233,41 @@ function CommentForm({
 
   if (!profile) return null;
   return (
-    <form onSubmit={onPost} className="flex items-center gap-3">
-      <Avatar photoURL={profile.photoURL} name={profile.username} size={36} />
-      <textarea
-        ref={inputRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter posts, Shift+Enter adds a line (desktop). Phones use the Post button.
-          if (e.key === "Enter" && !e.shiftKey && matchMedia("(pointer: fine)").matches) {
-            e.preventDefault();
-            e.currentTarget.form?.requestSubmit();
-          }
-        }}
-        placeholder="Write a comment..."
-        aria-label="Write a comment"
-        maxLength={MAX_COMMENT_LENGTH}
-        rows={1}
-        className="field-sizing-content max-h-32 min-h-10 flex-1 resize-none rounded-2xl bg-surface-2 px-4 py-2 outline-none placeholder:text-muted focus:ring-2 focus:ring-accent"
-      />
-      <button
-        disabled={!text.trim() || posting}
-        className="px-1 font-medium text-accent disabled:text-muted"
-      >
-        Post
-      </button>
+    <form onSubmit={onPost}>
+      {replyTo && (
+        <div className="mb-2 flex items-center justify-between rounded-lg bg-surface px-3 py-1.5 text-sm text-muted">
+          <span>
+            Replying to <span className="text-accent">@{replyTo.username}</span>
+          </span>
+          <button type="button" aria-label="Cancel reply" onClick={onCancelReply} className="p-1">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <Avatar photoURL={profile.photoURL} name={profile.username} size={36} />
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter posts, Shift+Enter adds a line (desktop). Phones use the Post button.
+            if (e.key === "Enter" && !e.shiftKey && matchMedia("(pointer: fine)").matches) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+            if (e.key === "Escape" && replyTo) onCancelReply();
+          }}
+          placeholder={replyTo ? `Reply to @${replyTo.username}...` : "Write a comment..."}
+          aria-label="Write a comment"
+          maxLength={MAX_COMMENT_LENGTH}
+          rows={1}
+          className="field-sizing-content max-h-32 min-h-10 flex-1 resize-none rounded-2xl bg-surface-2 px-4 py-2 outline-none placeholder:text-muted focus:ring-2 focus:ring-accent"
+        />
+        <button disabled={!text.trim() || posting} className="px-1 font-medium text-accent disabled:text-muted">
+          Post
+        </button>
+      </div>
     </form>
   );
 }
