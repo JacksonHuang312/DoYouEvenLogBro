@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createCustomExercise } from "@/lib/customExercises";
+import { errorDialog } from "@/lib/dialog";
 import { EQUIPMENT, MUSCLES } from "@/lib/exercises";
 import type { Exercise } from "@/lib/types";
 import { PhotoPicker } from "./PhotoPicker";
@@ -34,7 +35,7 @@ export function CustomExerciseForm({
       equipment,
       ...(imageData ? { imageData } : {}),
     });
-    saved.catch((err: Error) => alert(`Couldn't save exercise: ${err.message}`));
+    saved.catch((err) => errorDialog("Couldn't save exercise", err));
     onCreated(exercise);
   }
 

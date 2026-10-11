@@ -8,6 +8,7 @@ import { useProfile } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
 import { Avatar, PageHeader, Stat } from "@/components/ui";
 import { WorkoutPost } from "@/components/WorkoutSummary";
+import { confirmDialog, errorDialog } from "@/lib/dialog";
 import type { Workout } from "@/lib/types";
 import { countWorkouts, deleteWorkout, listWorkouts, listWorkoutsSince } from "@/lib/workouts";
 
@@ -33,12 +34,18 @@ export default function ProfilePage() {
 
   const totals = useMemo(() => weeklyTotals(chartData, metric, profile.unit), [chartData, metric, profile.unit]);
 
-  function onDelete(id: string) {
-    if (!confirm("Delete this workout? This can't be undone.")) return;
+  async function onDelete(id: string) {
+    const ok = await confirmDialog({
+      title: "Delete workout?",
+      message: "This can't be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     setRecent((ws) => ws?.filter((w) => w.id !== id) ?? null);
     setChartData((ws) => ws.filter((w) => w.id !== id));
     setCount((c) => (c == null ? c : c - 1));
-    deleteWorkout(profile.uid, id).catch((e: Error) => alert(e.message));
+    deleteWorkout(profile.uid, id).catch((e) => errorDialog("Couldn't delete workout", e));
   }
 
   return (

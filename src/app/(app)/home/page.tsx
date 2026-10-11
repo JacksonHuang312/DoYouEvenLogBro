@@ -6,6 +6,7 @@ import { useProfile } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
 import { PageHeader } from "@/components/ui";
 import { WorkoutPost } from "@/components/WorkoutSummary";
+import { confirmDialog, errorDialog } from "@/lib/dialog";
 import type { Workout } from "@/lib/types";
 import { deleteWorkout, listWorkouts } from "@/lib/workouts";
 
@@ -21,10 +22,16 @@ export default function HomePage() {
       .catch((e: Error) => setError(e.message));
   }, [profile.uid]);
 
-  function onDelete(id: string) {
-    if (!confirm("Delete this workout? This can't be undone.")) return;
+  async function onDelete(id: string) {
+    const ok = await confirmDialog({
+      title: "Delete workout?",
+      message: "This can't be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     setWorkouts((ws) => ws?.filter((w) => w.id !== id) ?? null);
-    deleteWorkout(profile.uid, id).catch((e: Error) => alert(e.message));
+    deleteWorkout(profile.uid, id).catch((e) => errorDialog("Couldn't delete workout", e));
   }
 
   return (

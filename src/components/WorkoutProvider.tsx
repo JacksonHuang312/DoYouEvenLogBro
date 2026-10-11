@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { alertDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
 import type { Exercise, Routine } from "@/lib/types";
@@ -96,7 +97,10 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
     saveWorkout(uid, workout).catch((err) => {
       console.error(err);
       setDraft(draft);
-      alert(`Couldn't save your workout, it's been restored. (${err.message})`);
+      void alertDialog({
+        title: "Couldn't save workout",
+        message: `Your workout has been restored so nothing is lost. (${err.message})`,
+      });
     });
     return workout.id;
   }, [draft, uid]);

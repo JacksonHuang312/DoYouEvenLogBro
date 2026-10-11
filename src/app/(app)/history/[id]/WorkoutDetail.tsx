@@ -8,6 +8,7 @@ import { useProfile } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
 import { Avatar, ExerciseThumb } from "@/components/ui";
 import { SetList, WorkoutStats } from "@/components/WorkoutSummary";
+import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { formatDate } from "@/lib/format";
 import type { Workout } from "@/lib/types";
 import { deleteWorkout, getWorkout } from "@/lib/workouts";
@@ -36,9 +37,15 @@ export function WorkoutDetail() {
     );
   }
 
-  function onDelete() {
-    if (!confirm("Delete this workout? This can't be undone.")) return;
-    deleteWorkout(profile.uid, id).catch((e: Error) => alert(e.message));
+  async function onDelete() {
+    const ok = await confirmDialog({
+      title: "Delete workout?",
+      message: "This can't be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    deleteWorkout(profile.uid, id).catch((e) => errorDialog("Couldn't delete workout", e));
     router.replace("/home");
   }
 

@@ -3,6 +3,7 @@
 import { Minus, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { errorDialog } from "@/lib/dialog";
 import { DEFAULT_REST_SEC } from "@/lib/draft";
 import { formatClock } from "@/lib/format";
 import { saveRoutine } from "@/lib/routines";
@@ -27,7 +28,7 @@ export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: R
     if (!canSave) return;
     // Not awaited: the routines listener shows it immediately, even offline.
     saveRoutine(uid, { ...initial, name: name.trim().slice(0, 100), exercises }).catch((e: Error) =>
-      alert(`Couldn't save routine: ${e.message}`),
+      errorDialog("Couldn't save routine", e),
     );
     router.push("/workout");
   }

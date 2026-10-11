@@ -11,6 +11,7 @@ import { RestTimer } from "@/components/RestTimer";
 import { Spinner } from "@/components/Spinner";
 import { ExerciseThumb, PageHeader } from "@/components/ui";
 import { useWorkout } from "@/components/WorkoutProvider";
+import { alertDialog, confirmDialog, errorDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftExercise } from "@/lib/draft";
 import { formatClock } from "@/lib/format";
@@ -77,10 +78,18 @@ function WorkoutHome() {
 function RoutineCard({ routine, uid, onStart }: { routine: Routine; uid: string; onStart: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  function onDelete() {
+  async function onDelete() {
     setMenuOpen(false);
-    if (!confirm(`Delete "${routine.name}"?`)) return;
-    deleteRoutine(uid, routine.id).catch((e: Error) => alert(e.message));
+    if (
+      !(await confirmDialog({
+        title: `Delete "${routine.name}"?`,
+        message: "Workouts you've already logged from it are kept.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
+    deleteRoutine(uid, routine.id).catch((e) => errorDialog("Couldn't delete routine", e));
   }
 
   return (
@@ -127,21 +136,37 @@ function ActiveWorkout() {
   const [picking, setPicking] = useState(false);
   if (!draft) return null;
 
-  function onFinish() {
+  async function onFinish() {
     const sets = draft!.exercises.flatMap((e) => e.sets);
     if (!sets.some((s) => s.done)) {
-      alert("Complete at least one set first (tap the check mark).");
+      await alertDialog({
+        title: "No completed sets",
+        message: "Tap the check mark on at least one set before finishing.",
+      });
       return;
     }
-    if (sets.some((s) => !s.done) && !confirm("Unchecked sets won't be saved. Finish workout?")) {
+    if (
+      sets.some((s) => !s.done) &&
+      !(await confirmDialog({
+        title: "Finish workout?",
+        message: "Unchecked sets won't be saved.",
+        confirmLabel: "Finish",
+      }))
+    ) {
       return;
     }
     const id = finish();
     if (id) router.push(`/history/${id}`);
   }
 
-  function onDiscard() {
-    if (confirm("Discard this workout? This can't be undone.")) discard();
+  async function onDiscard() {
+    const ok = await confirmDialog({
+      title: "Discard workout?",
+      message: "This can't be undone.",
+      confirmLabel: "Discard",
+      destructive: true,
+    });
+    if (ok) discard();
   }
 
   return (
@@ -228,7 +253,15 @@ function ExerciseCard({
         <button
           aria-label="Remove exercise"
           className={iconBtn}
-          onClick={() => confirm(`Remove ${ex.name}?`) && update((w) => Draft.removeExercise(w, ex.key))}
+          onClick={async () => {
+            const ok = await confirmDialog({
+              title: `Remove ${ex.name}?`,
+              message: "Its sets in this workout will be removed too.",
+              confirmLabel: "Remove",
+              destructive: true,
+            });
+            if (ok) update((w) => Draft.removeExercise(w, ex.key));
+          }}
         >
           <X size={18} />
         </button>

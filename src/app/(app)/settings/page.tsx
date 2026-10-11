@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth, useProfile } from "@/components/AuthProvider";
 import { BackHeader } from "@/components/ui";
+import { errorDialog } from "@/lib/dialog";
 import { changeUsername, nextUsernameChangeAt, updateProfile, USERNAME_PATTERN } from "@/lib/profile";
 import type { UserProfile } from "@/lib/types";
 
@@ -110,7 +111,7 @@ export default function SettingsPage() {
 
   // Not awaited: the profile listener applies the change instantly, even offline.
   const save = (patch: Parameters<typeof updateProfile>[1]) =>
-    updateProfile(profile.uid, patch).catch((e: Error) => alert(e.message));
+    updateProfile(profile.uid, patch).catch((e) => errorDialog("Couldn't save setting", e));
 
   return (
     <div className="space-y-6">

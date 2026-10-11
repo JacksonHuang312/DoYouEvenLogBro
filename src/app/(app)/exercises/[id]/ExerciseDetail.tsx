@@ -10,6 +10,7 @@ import { BackHeader, ExerciseThumb } from "@/components/ui";
 import { formatSet, SetList } from "@/components/WorkoutSummary";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { deleteCustomExercise, setCustomExerciseImage } from "@/lib/customExercises";
+import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { useExercises } from "@/lib/exercises";
 import { formatDate } from "@/lib/format";
 import type { LoggedSet, Workout } from "@/lib/types";
@@ -41,9 +42,17 @@ export function ExerciseDetail() {
       null,
     );
 
-  function onDelete() {
-    if (!confirm("Delete this custom exercise? Past workouts keep their sets.")) return;
-    deleteCustomExercise(profile.uid, id).catch((e: Error) => alert(e.message));
+  async function onDelete() {
+    if (
+      !(await confirmDialog({
+        title: "Delete exercise?",
+        message: "Past workouts keep their sets.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
+    deleteCustomExercise(profile.uid, id).catch((e) => errorDialog("Couldn't delete exercise", e));
     router.replace("/exercises");
   }
 
@@ -54,8 +63,8 @@ export function ExerciseDetail() {
         <PhotoPicker
           value={exercise.imageData ?? null}
           onChange={(imageData) =>
-            setCustomExerciseImage(profile.uid, id, imageData).catch((e: Error) =>
-              alert(`Couldn't update photo: ${e.message}`),
+            setCustomExerciseImage(profile.uid, id, imageData).catch((e) =>
+              errorDialog("Couldn't update photo", e),
             )
           }
         />
