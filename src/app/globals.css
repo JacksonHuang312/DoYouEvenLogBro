@@ -24,6 +24,39 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * Hover / press feedback for everything tappable, in one place.
+ * In @layer base so a component's own utilities (e.g. hover:bg-surface) still win.
+ */
+@layer base {
+  :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"]) {
+    transition:
+      transform 120ms ease,
+      filter 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  /* Mouse/trackpad only: on touch screens a tap would leave :hover stuck on. */
+  @media (hover: hover) and (pointer: fine) {
+    :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"]):hover {
+      filter: brightness(1.2);
+    }
+  }
+
+  /* Pressed (finger down or mouse button held): shrink slightly and dim, like iOS. */
+  :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"]):active {
+    filter: brightness(0.8);
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :is(button, a[href], select, summary, [role="button"]):active {
+      transform: none;
+    }
+  }
+}
+
 /* iOS Safari zooms the page when focusing a field under 16px; keep fields at 16px on touch screens. */
 @media (pointer: coarse) {
   input,
