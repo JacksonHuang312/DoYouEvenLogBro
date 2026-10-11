@@ -1,6 +1,7 @@
 import { type FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
-import { type Auth, getAuth } from "firebase/auth";
+import { type Auth, connectAuthEmulator, getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import {
+  connectFirestoreEmulator,
   type Firestore,
   getFirestore,
   initializeFirestore,
@@ -16,6 +17,12 @@ const config = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+/**
+ * Local development/testing against the Firebase emulators (`npm run emulators`).
+ * Off unless NEXT_PUBLIC_FIREBASE_EMULATOR=1, so normal builds always talk to the real project.
+ */
+const USE_EMULATORS = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1";
 
 let instance: { app: FirebaseApp; auth: Auth; db: Firestore } | undefined;
 
@@ -44,7 +51,16 @@ export function firebase() {
       // Already initialized (e.g. after a hot reload).
       db = getFirestore(app);
     }
-    instance = { app, auth: getAuth(app), db };
+    const auth = getAuth(app);
+    if (USE_EMULATORS) {
+      connectFirestoreEmulator(db, "127.0.0.1", 8080);
+      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+      // Lets automated browser tests sign in as seeded emulator users (no Google popup).
+      Object.assign(window, {
+        __emulatorSignIn: (email: string, password: string) => signInWithEmailAndPassword(auth, email, password),
+      });
+    }
+    instance = { app, auth, db };
   }
   return instance;
 }

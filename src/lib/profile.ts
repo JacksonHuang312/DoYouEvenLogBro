@@ -82,6 +82,14 @@ export async function changeUsername(profile: UserProfile, username: string) {
   await batch.commit();
 }
 
+/** Any user's public profile (needed to show a shared workout's author). */
+export async function getProfile(uid: string): Promise<UserProfile | null> {
+  const snap = await getDoc(doc(firebase().db, "users", uid));
+  return snap.exists()
+    ? ({ uid: snap.id, ...snap.data({ serverTimestamps: "estimate" }) } as UserProfile)
+    : null;
+}
+
 export function updateProfile(
   uid: string,
   patch: Partial<Pick<UserProfile, "unit" | "isPrivate" | "displayName">>,

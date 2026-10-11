@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:rules": "node --test tests/firestore.rules.test.mjs",
-    "emulators": "firebase emulators:start --only firestore --project demo-dyelb",
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-dyelb",
     "test:rules:ci": "firebase emulators:exec --only firestore --project demo-dyelb \"npm run test:rules\""
   },
   "dependencies": {

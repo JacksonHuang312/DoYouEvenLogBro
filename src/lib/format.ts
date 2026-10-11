@@ -38,3 +38,9 @@ export function formatShortDuration(ms: number): string {
   const m = totalMin % 60;
   return h ? `${h}h ${m}min` : `${m}min`;
 }
+
+/** "Yesterday at 7:59 PM", "Today at 9:03 AM", or a date with time. */
+export function formatDayAndTime(ms: number): string {
+  const time = new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${formatRelativeDay(ms)} at ${time}`;
+}

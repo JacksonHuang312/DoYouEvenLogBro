@@ -8,7 +8,7 @@ import { useWorkout } from "./WorkoutProvider";
 const TABS = [
   { href: "/home", label: "Home", Icon: House, match: ["/home"] },
   { href: "/workout", label: "Workout", Icon: Dumbbell, match: ["/workout", "/routines"] },
-  { href: "/profile", label: "Profile", Icon: User, match: ["/profile", "/exercises", "/settings", "/history"] },
+  { href: "/profile", label: "Profile", Icon: User, match: ["/profile", "/exercises", "/settings"] },
 ];
 
 export function BottomNav() {

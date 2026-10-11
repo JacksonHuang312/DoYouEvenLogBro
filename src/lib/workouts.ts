@@ -10,6 +10,7 @@ import {
   query,
   setDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { firebase } from "./firebase";
 import type { Workout } from "./types";
@@ -23,8 +24,21 @@ export function saveWorkout(uid: string, workout: Workout) {
   return setDoc(doc(workoutsCol(uid), id), data);
 }
 
-export function deleteWorkout(uid: string, id: string) {
-  return deleteDoc(doc(workoutsCol(uid), id));
+/** Deletes a workout along with its likes and comments, so they aren't left orphaned. */
+export async function deleteWorkout(uid: string, id: string) {
+  const ref = doc(workoutsCol(uid), id);
+  const [likes, comments] = await Promise.all([
+    getDocs(collection(ref, "likes")),
+    getDocs(collection(ref, "comments")),
+  ]);
+  // A batch holds 500 writes; chunk in case a workout went viral.
+  const refs = [...likes.docs, ...comments.docs].map((d) => d.ref);
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(firebase().db);
+    refs.slice(i, i + 450).forEach((r) => batch.delete(r));
+    await batch.commit();
+  }
+  await deleteDoc(ref);
 }
 
 export async function getWorkout(uid: string, id: string): Promise<Workout | null> {

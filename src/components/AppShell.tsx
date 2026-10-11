@@ -21,10 +21,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loading || !user || !profile) return <Spinner />;
 
+  return <SignedInChrome uid={user.uid}>{children}</SignedInChrome>;
+}
+
+/** Page frame for a signed-in user: workout + custom-exercise state, content column, tab bar. */
+export function SignedInChrome({ uid, children }: { uid: string; children: React.ReactNode }) {
   return (
-    <WorkoutProvider uid={user.uid}>
-      <CustomExercisesProvider uid={user.uid}>
-        <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-[calc(4rem+env(safe-area-inset-bottom)+2rem)] pt-[max(1rem,env(safe-area-inset-top))]">{children}</main>
+    <WorkoutProvider uid={uid}>
+      <CustomExercisesProvider uid={uid}>
+        <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-[calc(4rem+env(safe-area-inset-bottom)+2rem)] pt-[max(1rem,env(safe-area-inset-top))]">
+          {children}
+        </main>
         <BottomNav />
       </CustomExercisesProvider>
     </WorkoutProvider>

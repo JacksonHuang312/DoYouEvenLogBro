@@ -14,6 +14,7 @@ import { useWorkout } from "@/components/WorkoutProvider";
 import { alertDialog, confirmDialog, errorDialog } from "@/lib/dialog";
 import { formatClock } from "@/lib/format";
 import { deleteRoutine, useRoutines } from "@/lib/routines";
+import { workoutPath } from "@/lib/social";
 import type { Routine } from "@/lib/types";
 
 export default function WorkoutPage() {
@@ -144,7 +145,7 @@ function ActiveWorkout() {
       return;
     }
     const id = finish();
-    if (id) router.push(`/history/${id}`);
+    if (id) router.push(workoutPath(profile.uid, id));
   }
 
   async function onDiscard() {

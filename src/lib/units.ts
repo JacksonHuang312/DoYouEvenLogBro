@@ -17,5 +17,5 @@ export function formatNumber(n: number): string {
 
 export function formatWeight(unit: Unit, kg: number | null): string {
   if (kg == null) return "BW";
-  return `${formatNumber(kgTo(unit, kg))} ${unit}`;
+  return `${formatNumber(kgTo(unit, kg))} ${unit === "lb" ? "lbs" : "kg"}`;
 }

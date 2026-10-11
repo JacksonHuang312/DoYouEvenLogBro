@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { setLabels } from "@/lib/draft";
 import { formatRelativeDay, formatShortDuration } from "@/lib/format";
+import { useComments, workoutPath } from "@/lib/social";
 import type { LoggedSet, Unit, UserProfile, Workout } from "@/lib/types";
 import { formatWeight, kgTo } from "@/lib/units";
+import { CommentThread } from "./Comments";
+import { SocialBar } from "./SocialBar";
 import { Avatar, ExerciseThumb, OverflowMenu, Stat } from "./ui";
 
 export function formatSet(unit: Unit, set: LoggedSet) {
@@ -37,6 +41,8 @@ export function WorkoutPost({
   onDelete?: () => void;
 }) {
   const hidden = workout.exercises.length - PREVIEW_EXERCISES;
+  const comments = useComments(profile.uid, workout.id);
+  const commentBox = useRef<HTMLTextAreaElement>(null);
 
   return (
     <article className="-mx-4 border-b-8 border-surface px-4 py-5">
@@ -63,7 +69,7 @@ export function WorkoutPost({
         )}
       </div>
 
-      <Link href={`/history/${workout.id}`} className="block">
+      <Link href={workoutPath(profile.uid, workout.id)} className="block">
         <h2 className="mb-3 text-xl font-semibold">{workout.name}</h2>
         <div className="border-b border-line pb-3">
           <WorkoutStats workout={workout} unit={profile.unit} />
@@ -84,6 +90,23 @@ export function WorkoutPost({
           </div>
         )}
       </Link>
+      <div className="mt-3 border-t border-line pt-1">
+        <SocialBar
+          workout={workout}
+          author={profile}
+          commentCount={comments?.length ?? null}
+          onCommentClick={() => commentBox.current?.focus()}
+        />
+      </div>
+      <div className="mt-2">
+        <CommentThread
+          ownerUid={profile.uid}
+          workoutId={workout.id}
+          comments={comments}
+          variant="preview"
+          inputRef={commentBox}
+        />
+      </div>
     </article>
   );
 }

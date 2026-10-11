@@ -12,6 +12,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
@@ -223,5 +224,125 @@ describe("custom exercise photos", () => {
     await seedUser("alice", "alice", 8);
     await seedUser("bob", "bob", 30);
     await assertFails(setDoc(ref("bob"), { ...exercise, imageData: jpeg }));
+  });
+});
+
+describe("shared workouts, likes and comments", () => {
+  const workout = {
+    name: "Chest back",
+    startedAt: Date.now() - 3_600_000,
+    endedAt: Date.now(),
+    exercises: [{ exerciseId: "Pullups", name: "Pull Up", sets: [{ type: "normal", weightKg: null, reps: 4 }] }],
+    exerciseIds: ["Pullups"],
+    volumeKg: 0,
+    setCount: 1,
+  };
+
+  async function seedWorkout(ownerUid, { isPrivate = false } = {}) {
+    await seedUser(ownerUid, ownerUid, 30);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "users", ownerUid), { isPrivate }, { merge: true });
+      await setDoc(doc(db, "users", ownerUid, "workouts", "w1"), workout);
+    });
+  }
+
+  const workoutRef = (db) => doc(db, "users", "alice", "workouts", "w1");
+  const likeRef = (db, liker) => doc(db, "users", "alice", "workouts", "w1", "likes", liker);
+  const commentRef = (db, id = "c1") => doc(db, "users", "alice", "workouts", "w1", "comments", id);
+  const comment = (uid, username) => ({
+    authorUid: uid,
+    authorUsername: username,
+    authorPhotoURL: null,
+    text: "Nice lift!",
+    createdAt: serverTimestamp(),
+  });
+  const anon = () => env.unauthenticatedContext().firestore();
+
+  test("a public workout opens from a link, even signed out", async () => {
+    await seedWorkout("alice");
+    await assertSucceeds(getDoc(workoutRef(anon())));
+    await assertSucceeds(getDoc(workoutRef(dbAs("bob"))));
+    await assertSucceeds(getDoc(doc(anon(), "users", "alice")));
+  });
+
+  test("a private account's workout only opens for its owner", async () => {
+    await seedWorkout("alice", { isPrivate: true });
+    await seedUser("bob", "bob", 30);
+    await assertFails(getDoc(workoutRef(anon())));
+    await assertFails(getDoc(workoutRef(dbAs("bob"))));
+    await assertSucceeds(getDoc(workoutRef(dbAs("alice"))));
+  });
+
+  test("signed-out visitors can't list profiles", async () => {
+    await seedWorkout("alice");
+    await assertFails(getDocs(collection(anon(), "users")));
+  });
+
+  test("a user can like and unlike a public workout", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await assertSucceeds(setDoc(likeRef(dbAs("bob"), "bob"), { createdAt: serverTimestamp() }));
+    await assertSucceeds(deleteDoc(likeRef(dbAs("bob"), "bob")));
+  });
+
+  test("can't like as someone else, signed out, or on a private workout", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await assertFails(setDoc(likeRef(dbAs("bob"), "carol"), { createdAt: serverTimestamp() }));
+    await assertFails(setDoc(likeRef(anon(), "bob"), { createdAt: serverTimestamp() }));
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "users", "alice"), { isPrivate: true }, { merge: true }));
+    await assertFails(setDoc(likeRef(dbAs("bob"), "bob"), { createdAt: serverTimestamp() }));
+  });
+
+  test("can't remove someone else's like, but the owner can clear it", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await seedUser("carol", "carol", 30);
+    await setDoc(likeRef(dbAs("bob"), "bob"), { createdAt: serverTimestamp() });
+    await assertFails(deleteDoc(likeRef(dbAs("carol"), "bob")));
+    await assertSucceeds(deleteDoc(likeRef(dbAs("alice"), "bob")));
+  });
+
+  test("a user can comment under their own name", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await assertSucceeds(setDoc(commentRef(dbAs("bob")), comment("bob", "bob")));
+    await assertSucceeds(getDocs(collection(anon(), "users", "alice", "workouts", "w1", "comments")));
+  });
+
+  test("can't comment as someone else or with a fake username", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await assertFails(setDoc(commentRef(dbAs("bob")), comment("alice", "alice")));
+    await assertFails(setDoc(commentRef(dbAs("bob")), comment("bob", "alice")));
+    await assertFails(setDoc(commentRef(anon()), comment("bob", "bob")));
+  });
+
+  test("comments can't be empty, too long, or edited", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await assertFails(setDoc(commentRef(dbAs("bob")), { ...comment("bob", "bob"), text: "" }));
+    await assertFails(setDoc(commentRef(dbAs("bob")), { ...comment("bob", "bob"), text: "x".repeat(501) }));
+    await setDoc(commentRef(dbAs("bob")), comment("bob", "bob"));
+    await assertFails(setDoc(commentRef(dbAs("bob")), { ...comment("bob", "bob"), text: "edited" }));
+  });
+
+  test("only the author or the workout owner can delete a comment", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await seedUser("carol", "carol", 30);
+    await setDoc(commentRef(dbAs("bob"), "c1"), comment("bob", "bob"));
+    await setDoc(commentRef(dbAs("bob"), "c2"), comment("bob", "bob"));
+    await assertFails(deleteDoc(commentRef(dbAs("carol"), "c1")));
+    await assertSucceeds(deleteDoc(commentRef(dbAs("bob"), "c1")));
+    await assertSucceeds(deleteDoc(commentRef(dbAs("alice"), "c2")));
+  });
+
+  test("other users still can't change someone's workout", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    await assertFails(setDoc(workoutRef(dbAs("bob")), workout));
+    await assertFails(deleteDoc(workoutRef(dbAs("bob"))));
   });
 });

@@ -147,7 +147,7 @@ export default function SettingsPage() {
         <label className="flex items-center justify-between p-4">
           <span>
             Private account
-            <span className="block text-xs text-muted">Only approved followers can see your workouts</span>
+            <span className="block text-xs text-muted">Only you can see your workouts. Shared links won&apos;t open for others.</span>
           </span>
           <input
             type="checkbox"

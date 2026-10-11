@@ -19,6 +19,12 @@ service cloud.firestore {
       return /databases/$(database)/documents/users/$(uid);
     }
 
+    // Workouts (and their likes/comments) are readable by the owner, or by anyone
+    // (signed in or not, e.g. via a shared link) when the owner's account is public.
+    function canReadWorkouts(uid) {
+      return isUser(uid) || get(userPath(uid)).data.isPrivate == false;
+    }
+
     function handlePath(handle) {
       return /databases/$(database)/documents/usernames/$(handle);
     }
@@ -70,8 +76,9 @@ service cloud.firestore {
           && !existsAfter(handlePath(oldHandle));
       }
 
-      // Profiles are public to signed-in users (needed for search and follows later).
-      allow read: if signedIn();
+      // A single profile is public (shared workout links show the author); listing needs sign-in.
+      allow get: if true;
+      allow list: if signedIn();
       allow create: if isUser(uid)
         && validProfile(request.resource.data)
         && request.resource.data.usernameChangedAt == request.time
@@ -95,9 +102,47 @@ service cloud.firestore {
             && data.setCount is int && data.setCount <= 1000;
         }
 
-        // Owner only for now. Phase 4 opens reads to followers, respecting isPrivate.
-        allow read, delete: if isUser(uid);
+        function workoutPath() {
+          return /databases/$(database)/documents/users/$(uid)/workouts/$(workoutId);
+        }
+
+        allow read: if canReadWorkouts(uid);
+        allow delete: if isUser(uid);
         allow create, update: if isUser(uid) && validWorkout(request.resource.data);
+
+        // users/{uid}/workouts/{id}/likes/{likerUid}: one like per user, id = liker's uid.
+        match /likes/{likerUid} {
+          allow read: if canReadWorkouts(uid);
+          allow create: if signedIn()
+            && request.auth.uid == likerUid
+            && canReadWorkouts(uid)
+            && exists(workoutPath())
+            && request.resource.data.keys().hasOnly(['createdAt'])
+            && request.resource.data.createdAt == request.time;
+          // The liker can unlike; the workout owner can clear likes when deleting the workout.
+          allow delete: if signedIn() && (request.auth.uid == likerUid || request.auth.uid == uid);
+          allow update: if false;
+        }
+
+        match /comments/{commentId} {
+          allow read: if canReadWorkouts(uid);
+          // Author fields must match the commenter's real profile, so nobody can post as someone else.
+          allow create: if signedIn()
+            && canReadWorkouts(uid)
+            && exists(workoutPath())
+            && request.resource.data.keys().hasOnly(['authorUid', 'authorUsername', 'authorPhotoURL', 'text', 'createdAt'])
+            && request.resource.data.authorUid == request.auth.uid
+            && request.resource.data.authorUsername == get(userPath(request.auth.uid)).data.username
+            && (request.resource.data.authorPhotoURL == null
+              || (request.resource.data.authorPhotoURL is string && request.resource.data.authorPhotoURL.size() <= 2048))
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 500
+            && request.resource.data.createdAt == request.time;
+          // The author can delete their comment; the workout owner can delete any comment on it.
+          allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || request.auth.uid == uid);
+          allow update: if false;
+        }
       }
 
       match /routines/{routineId} {

@@ -13,6 +13,7 @@ import { deleteCustomExercise, setCustomExerciseImage } from "@/lib/customExerci
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { useExercises } from "@/lib/exercises";
 import { formatDate } from "@/lib/format";
+import { workoutPath } from "@/lib/social";
 import type { LoggedSet, Workout } from "@/lib/types";
 import { listWorkoutsWithExercise } from "@/lib/workouts";
 
@@ -88,7 +89,7 @@ export function ExerciseDetail() {
       {!history && !error && <Spinner />}
       {history?.length === 0 && <p className="text-sm text-muted">Not logged yet.</p>}
       {sessions.map(({ workout, sets }) => (
-        <Link key={workout.id} href={`/history/${workout.id}`} className="block rounded-xl bg-surface p-4">
+        <Link key={workout.id} href={workoutPath(profile.uid, workout.id)} className="block rounded-xl bg-surface p-4">
           <div className="mb-2 text-sm text-muted">
             {workout.name} · {formatDate(workout.startedAt)}
           </div>
