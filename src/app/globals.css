@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Hevy-style dark palette: pure black, iOS gray surfaces, iOS blue accent. */
+@theme {
+  --color-surface: #1c1c1e;
+  --color-surface-2: #2c2c2e;
+  --color-line: #2c2c2e;
+  --color-muted: #8e8e93;
+  --color-accent: #0a84ff;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-black text-white;
+}

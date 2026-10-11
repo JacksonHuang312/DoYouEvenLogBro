@@ -2,15 +2,32 @@
   "name": "doyouevenlogbro",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test:rules": "node --test tests/firestore.rules.test.mjs",
+    "emulators": "firebase emulators:start --only firestore --project demo-dyelb",
+    "test:rules:ci": "firebase emulators:exec --only firestore --project demo-dyelb \"npm run test:rules\""
+  },
+  "dependencies": {
+    "firebase": "^13.0.0",
+    "lucide-react": "^1.55.0",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
-    "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.0",
+    "firebase-tools": "^15.33.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

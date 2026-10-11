@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "workouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "exerciseIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "startedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

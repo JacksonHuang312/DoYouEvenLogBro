@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validHandle(handle) {
+      return handle is string && handle.matches('^[a-z0-9_]{3,20}$');
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function handlePath(handle) {
+      return /databases/$(database)/documents/usernames/$(handle);
+    }
+
+    // usernames/{handle} -> { uid }. Written only together with the user doc
+    // (onboarding transaction or username-change batch), so a handle can't be hijacked.
+    match /usernames/{handle} {
+      allow get: if signedIn();
+      allow list: if false;
+      // Create only: a batch set() on an existing handle is an update, which is denied,
+      // so nobody can take a handle that's already claimed.
+      allow create: if signedIn()
+        && validHandle(handle)
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(userPath(request.auth.uid)).data.username == handle;
+      allow update: if false;
+      // Only your own handle, and only when the same batch moves your profile off it.
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && getAfter(userPath(request.auth.uid)).data.username != handle;
+    }
+
+    match /users/{uid} {
+      function validProfile(data) {
+        return data.keys().hasOnly(['username', 'usernameChangedAt', 'displayName', 'photoURL', 'unit', 'isPrivate', 'createdAt'])
+          && validHandle(data.username)
+          && data.usernameChangedAt is timestamp
+          && data.displayName is string && data.displayName.size() <= 50
+          && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
+          && data.unit in ['kg', 'lb']
+          && data.isPrivate is bool
+          && data.createdAt is number;
+      }
+
+      function usernameUnchanged() {
+        return request.resource.data.username == resource.data.username
+          && request.resource.data.usernameChangedAt == resource.data.usernameChangedAt;
+      }
+
+      // Once a week: the old handle is released and the new one is claimed in the same batch.
+      function validUsernameChange() {
+        let oldHandle = resource.data.username;
+        let newHandle = request.resource.data.username;
+        return newHandle != oldHandle
+          && request.time >= resource.data.usernameChangedAt + duration.value(7, 'd')
+          && request.resource.data.usernameChangedAt == request.time
+          && getAfter(handlePath(newHandle)).data.uid == uid
+          && !existsAfter(handlePath(oldHandle));
+      }
+
+      // Profiles are public to signed-in users (needed for search and follows later).
+      allow read: if signedIn();
+      allow create: if isUser(uid)
+        && validProfile(request.resource.data)
+        && request.resource.data.usernameChangedAt == request.time
+        && getAfter(handlePath(request.resource.data.username)).data.uid == uid;
+      allow update: if isUser(uid)
+        && validProfile(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (usernameUnchanged() || validUsernameChange());
+      // Account deletion goes through the Admin SDK, which bypasses rules.
+      allow delete: if false;
+
+      match /workouts/{workoutId} {
+        function validWorkout(data) {
+          return data.keys().hasOnly(['name', 'startedAt', 'endedAt', 'exercises', 'exerciseIds', 'volumeKg', 'setCount'])
+            && data.name is string && data.name.size() <= 100
+            && data.startedAt is number
+            && data.endedAt is number && data.endedAt >= data.startedAt
+            && data.exercises is list && data.exercises.size() <= 50
+            && data.exerciseIds is list && data.exerciseIds.size() <= 50
+            && data.volumeKg is number
+            && data.setCount is int && data.setCount <= 1000;
+        }
+
+        // Owner only for now. Phase 4 opens reads to followers, respecting isPrivate.
+        allow read, delete: if isUser(uid);
+        allow create, update: if isUser(uid) && validWorkout(request.resource.data);
+      }
+
+      match /routines/{routineId} {
+        function validRoutine(data) {
+          return data.keys().hasOnly(['name', 'exercises', 'updatedAt'])
+            && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+            && data.exercises is list && data.exercises.size() > 0 && data.exercises.size() <= 50
+            && data.updatedAt is number;
+        }
+
+        allow read, delete: if isUser(uid);
+        allow create, update: if isUser(uid) && validRoutine(request.resource.data);
+      }
+
+      match /customExercises/{exerciseId} {
+        function validExercise(data) {
+          return data.keys().hasOnly(['name', 'muscle', 'equipment', 'category'])
+            && data.name is string && data.name.size() > 0 && data.name.size() <= 80
+            && data.muscle is string && data.muscle.size() <= 40
+            && data.equipment is string && data.equipment.size() <= 40
+            && data.category is string && data.category.size() <= 40;
+        }
+
+        allow read, delete: if isUser(uid);
+        allow create, update: if isUser(uid)
+          && exerciseId.matches('^c_[A-Za-z0-9]+$')
+          && validExercise(request.resource.data);
+      }
+    }
+  }
+}
