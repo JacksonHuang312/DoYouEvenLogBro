@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { errorDialog } from "@/lib/dialog";
 import { DEFAULT_REST_SEC } from "@/lib/draft";
-import { formatClock } from "@/lib/format";
 import { saveRoutine } from "@/lib/routines";
 import type { Routine, RoutineExercise } from "@/lib/types";
 import { ExercisePicker } from "./ExercisePicker";
+import { RestPicker } from "./RestPicker";
 import { ExerciseThumb } from "./ui";
 
-const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 const MAX_SETS = 20;
 
 export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: Routine; isNew: boolean }) {
@@ -93,20 +92,11 @@ export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: R
                   <Plus size={16} />
                 </button>
               </div>
-              <label className="flex items-center gap-2 text-muted">
-                Rest
-                <select
-                  value={ex.restSec}
-                  onChange={(e) => patch(i, { restSec: Number(e.target.value) })}
-                  className="rounded-md bg-surface-2 px-2 py-1 text-white"
-                >
-                  {REST_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s === 0 ? "Off" : formatClock(s * 1000)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <RestPicker
+                value={ex.restSec}
+                exerciseName={ex.name}
+                onChange={(sec) => patch(i, { restSec: sec })}
+              />
             </div>
           </section>
         ))}

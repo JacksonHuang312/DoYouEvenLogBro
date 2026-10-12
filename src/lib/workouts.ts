@@ -8,7 +8,6 @@ import {
   limit,
   orderBy,
   query,
-  setDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -19,12 +18,31 @@ function workoutsCol(uid: string) {
   return collection(firebase().db, "users", uid, "workouts");
 }
 
-export function saveWorkout(uid: string, workout: Workout) {
-  const { id, ...data } = workout;
-  return setDoc(doc(workoutsCol(uid), id), data);
+/** The workout's photo doc. Kept out of the workout doc so lists and the calendar stay light. */
+function photoRef(uid: string, workoutId: string) {
+  return doc(workoutsCol(uid), workoutId, "photos", "main");
 }
 
-/** Deletes a workout along with its likes and comments, so they aren't left orphaned. */
+/**
+ * Saves (creates or overwrites) a workout. `photo`: a JPEG data URL to store, null to delete
+ * the existing one, or undefined to leave it alone. Likes and comments are untouched.
+ */
+export function saveWorkout(uid: string, workout: Workout, photo?: string | null) {
+  const { id, ...data } = workout;
+  const batch = writeBatch(firebase().db);
+  batch.set(doc(workoutsCol(uid), id), data);
+  if (photo) batch.set(photoRef(uid, id), { data: photo });
+  else if (photo === null) batch.delete(photoRef(uid, id));
+  return batch.commit();
+}
+
+/** The workout's photo as a JPEG data URL, or null if it has none. */
+export async function getWorkoutPhoto(uid: string, workoutId: string): Promise<string | null> {
+  const snap = await getDoc(photoRef(uid, workoutId));
+  return snap.exists() ? (snap.data().data as string) : null;
+}
+
+/** Deletes a workout along with its photo, likes and comments, so nothing is left orphaned. */
 export async function deleteWorkout(uid: string, id: string) {
   const ref = doc(workoutsCol(uid), id);
   const [likes, comments] = await Promise.all([
@@ -33,6 +51,7 @@ export async function deleteWorkout(uid: string, id: string) {
   ]);
   // A batch holds 500 writes; chunk in case a workout went viral.
   const refs = [...likes.docs, ...comments.docs].map((d) => d.ref);
+  refs.push(photoRef(uid, id));
   for (let i = 0; i < refs.length; i += 450) {
     const batch = writeBatch(firebase().db);
     refs.slice(i, i + 450).forEach((r) => batch.delete(r));

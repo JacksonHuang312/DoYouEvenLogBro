@@ -1,17 +1,15 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Check, Plus, X } from "lucide-react";
+import { memo } from "react";
 import { confirmDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftExercise } from "@/lib/draft";
-import { formatClock } from "@/lib/format";
 import type { SetType, Unit } from "@/lib/types";
 import { formatNumber, kgTo, toKg } from "@/lib/units";
 import { NumberCell } from "./NumberCell";
+import { RestPicker } from "./RestPicker";
 import { ExerciseThumb } from "./ui";
-import { useWorkout } from "./WorkoutProvider";
-
-const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 
 const SET_TYPE_STYLE: Record<SetType, string> = {
   normal: "bg-surface-2 text-white",
@@ -24,20 +22,32 @@ const SET_TYPE_STYLE: Record<SetType, string> = {
 // Previous column is hidden (its values still show as input placeholders).
 const GRID =
   "grid grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_3.25rem_2.5rem_1.75rem] max-[359px]:grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,1fr)_2.5rem_2rem] items-center gap-x-1.5 gap-y-2";
+// Editing a saved workout: Set | Weight | Reps | delete (no Previous column or check marks).
+const EDIT_GRID = "grid grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,1fr)_1.75rem] items-center gap-x-1.5 gap-y-2";
 
-/** One exercise in the active workout: header, rest timer setting and the set rows. */
-export function ExerciseCard({
+/**
+ * One exercise in a workout draft: header, rest timer setting and the set rows. `update` applies
+ * a change to the draft it belongs to. With `editing` (a saved workout) every set counts, so the
+ * rest timer, Previous column and check marks are hidden.
+ *
+ * Memoized: an edit only changes that exercise's object, so the other cards skip re-rendering
+ * on every keystroke (`update` must be stable, e.g. from useCallback).
+ */
+export const ExerciseCard = memo(function ExerciseCard({
   exercise: ex,
   unit,
   isFirst,
   isLast,
+  update,
+  editing = false,
 }: {
   exercise: DraftExercise;
   unit: Unit;
   isFirst: boolean;
   isLast: boolean;
+  update: (fn: (w: Draft.DraftWorkout) => Draft.DraftWorkout) => void;
+  editing?: boolean;
 }) {
-  const { update } = useWorkout();
   const labels = Draft.setLabels(ex.sets);
   const iconBtn = "rounded-lg p-2 text-muted active:bg-surface-2 disabled:opacity-30";
 
@@ -67,29 +77,26 @@ export function ExerciseCard({
         </button>
       </div>
 
-      <label className="mb-3 flex items-center gap-2 text-sm text-muted">
-        Rest timer
-        <select
-          value={ex.restSec}
-          onChange={(e) => update((w) => Draft.setRest(w, ex.key, Number(e.target.value)))}
-          className="rounded-md bg-surface-2 px-2 py-1 text-white"
-        >
-          {REST_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s === 0 ? "Off" : formatClock(s * 1000)}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!editing && (
+        <div className="mb-3">
+          <RestPicker
+            value={ex.restSec}
+            exerciseName={ex.name}
+            onChange={(sec) => update((w) => Draft.setRest(w, ex.key, sec))}
+          />
+        </div>
+      )}
 
-      <div className={GRID}>
+      <div className={editing ? EDIT_GRID : GRID}>
         <span className="text-center text-xs text-muted">SET</span>
-        <span className="text-xs text-muted max-[359px]:hidden">PREVIOUS</span>
+        {!editing && <span className="text-xs text-muted max-[359px]:hidden">PREVIOUS</span>}
         <span className="text-center text-xs text-muted">{unit === "lb" ? "LBS" : "KG"}</span>
         <span className="text-center text-xs text-muted">REPS</span>
-        <span className="flex justify-center text-muted">
-          <Check size={14} />
-        </span>
+        {!editing && (
+          <span className="flex justify-center text-muted">
+            <Check size={14} />
+          </span>
+        )}
         <span />
 
         {ex.sets.map((set, i) => {
@@ -104,9 +111,11 @@ export function ExerciseCard({
               >
                 {labels[i]}
               </button>
-              <span className="truncate text-sm text-muted max-[359px]:hidden">
-                {prev ? `${prevWeight ?? "BW"} × ${prev.reps}` : "-"}
-              </span>
+              {!editing && (
+                <span className="truncate text-sm text-muted max-[359px]:hidden">
+                  {prev ? `${prevWeight ?? "BW"} × ${prev.reps}` : "-"}
+                </span>
+              )}
               <NumberCell
                 key={unit}
                 label="Weight"
@@ -125,16 +134,18 @@ export function ExerciseCard({
                 onChange={(v) => update((w) => Draft.updateSet(w, ex.key, set.key, { reps: v }))}
                 className="h-10"
               />
-              <button
-                aria-label={set.done ? "Mark set not done" : "Mark set done"}
-                aria-pressed={set.done}
-                onClick={() => update((w) => Draft.toggleDone(w, ex.key, set.key))}
-                className={`flex h-10 items-center justify-center rounded-md ${
-                  set.done ? "bg-accent text-on-accent" : "bg-surface-2 text-muted"
-                }`}
-              >
-                <Check size={18} strokeWidth={3} />
-              </button>
+              {!editing && (
+                <button
+                  aria-label={set.done ? "Mark set not done" : "Mark set done"}
+                  aria-pressed={set.done}
+                  onClick={() => update((w) => Draft.toggleDone(w, ex.key, set.key))}
+                  className={`flex h-10 items-center justify-center rounded-md ${
+                    set.done ? "bg-accent text-on-accent" : "bg-surface-2 text-muted"
+                  }`}
+                >
+                  <Check size={18} strokeWidth={3} />
+                </button>
+              )}
               <button
                 aria-label="Delete set"
                 onClick={() => update((w) => Draft.removeSet(w, ex.key, set.key))}
@@ -155,4 +166,4 @@ export function ExerciseCard({
       </button>
     </section>
   );
-}
+});

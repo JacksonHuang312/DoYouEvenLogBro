@@ -51,6 +51,10 @@ export interface Workout {
   exerciseIds: string[];
   volumeKg: number;
   setCount: number;
+  /** Optional notes shown under the title. Omitted when empty. */
+  description?: string;
+  /** The photo lives in users/{uid}/workouts/{id}/photos/main, so lists don't download it. */
+  hasPhoto?: boolean;
 }
 
 export interface RoutineExercise {

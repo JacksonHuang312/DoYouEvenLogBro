@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ClipboardList, Plus } from "lucide-react";
+import { ChevronDown, ChevronLeft, ClipboardList, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,8 +10,10 @@ import { ExercisePicker } from "@/components/ExercisePicker";
 import { RestTimer } from "@/components/RestTimer";
 import { Spinner } from "@/components/Spinner";
 import { OverflowMenu, PageHeader } from "@/components/ui";
+import { WorkoutDetailsForm } from "@/components/WorkoutDetailsForm";
 import { useWorkout } from "@/components/WorkoutProvider";
 import { alertDialog, confirmDialog, errorDialog } from "@/lib/dialog";
+import { toWorkout } from "@/lib/draft";
 import { formatClock } from "@/lib/format";
 import { deleteRoutine, useRoutines } from "@/lib/routines";
 import { workoutPath } from "@/lib/social";
@@ -120,9 +122,10 @@ function Elapsed({ since }: { since: number }) {
 
 function ActiveWorkout() {
   const profile = useProfile();
-  const { draft, update, discard, addExercises, finish } = useWorkout();
-  const router = useRouter();
+  const { draft, update, discard, addExercises } = useWorkout();
   const [picking, setPicking] = useState(false);
+  // Set once Finish passes its checks: shows the save screen with this duration pre-filled.
+  const [saveDuration, setSaveDuration] = useState<number | null>(null);
   if (!draft) return null;
 
   async function onFinish() {
@@ -144,8 +147,8 @@ function ActiveWorkout() {
     ) {
       return;
     }
-    const id = finish();
-    if (id) router.push(workoutPath(profile.uid, id));
+    setSaveDuration(Math.max(1, Math.round((Date.now() - draft!.startedAt) / 60_000)));
+    window.scrollTo(0, 0);
   }
 
   async function onDiscard() {
@@ -158,9 +161,20 @@ function ActiveWorkout() {
     if (ok) discard();
   }
 
+  if (saveDuration != null) {
+    return (
+      <SaveWorkout
+        durationMin={saveDuration}
+        setDurationMin={setSaveDuration}
+        onBack={() => setSaveDuration(null)}
+        onDiscard={onDiscard}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-black/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-black px-4 py-2">
         <div className="flex-1">
           <input
             aria-label="Workout name"
@@ -185,6 +199,7 @@ function ActiveWorkout() {
           unit={profile.unit}
           isFirst={i === 0}
           isLast={i === draft.exercises.length - 1}
+          update={update}
         />
       ))}
 
@@ -211,6 +226,60 @@ function ActiveWorkout() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Hevy's "Save Workout" step: title, time, photo and notes, then save. Back returns to logging. */
+function SaveWorkout({
+  durationMin,
+  setDurationMin,
+  onBack,
+  onDiscard,
+}: {
+  durationMin: number;
+  setDurationMin: (min: number) => void;
+  onBack: () => void;
+  onDiscard: () => void;
+}) {
+  const profile = useProfile();
+  const { draft, update, finish } = useWorkout();
+  const router = useRouter();
+  if (!draft) return null;
+
+  async function onSave() {
+    if (durationMin < 1) {
+      await alertDialog({ title: "Check the duration", message: "A workout has to last at least a minute." });
+      return;
+    }
+    const id = finish(draft!.startedAt + durationMin * 60_000);
+    if (id) router.push(workoutPath(profile.uid, id));
+  }
+
+  return (
+    <div>
+      <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 bg-black px-2 py-2">
+        <button onClick={onBack} aria-label="Back to workout" className="p-1 text-accent">
+          <ChevronLeft size={28} />
+        </button>
+        <h1 className="flex-1 text-headline">Save Workout</h1>
+        <button onClick={onSave} className="rounded-lg bg-accent px-4 py-2 font-semibold text-on-accent">
+          Save
+        </button>
+      </div>
+
+      <WorkoutDetailsForm
+        draft={draft}
+        update={update}
+        durationMin={durationMin}
+        setDurationMin={setDurationMin}
+        preview={toWorkout(draft)}
+        unit={profile.unit}
+      />
+
+      <button onClick={onDiscard} className="mt-8 w-full rounded-xl bg-surface py-3 font-medium text-red-400">
+        Discard Workout
+      </button>
     </div>
   );
 }

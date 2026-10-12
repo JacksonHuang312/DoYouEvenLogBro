@@ -10,7 +10,7 @@ import { CommentThread } from "@/components/Comments";
 import { SocialBar } from "@/components/SocialBar";
 import { Spinner } from "@/components/Spinner";
 import { Avatar, ExerciseThumb } from "@/components/ui";
-import { SetList, WorkoutStats } from "@/components/WorkoutSummary";
+import { SetList, WorkoutDescription, WorkoutPhoto, WorkoutStats } from "@/components/WorkoutSummary";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { formatDayAndTime } from "@/lib/format";
 import { getProfile } from "@/lib/profile";
@@ -66,7 +66,7 @@ export function SharedWorkout() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-black/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-line bg-black pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
           <Link href="/" className="font-bold">
             Do You Even Log, Bro?
@@ -131,9 +131,19 @@ function WorkoutView({ author, workout }: { author: UserProfile; workout: Workou
         </div>
       </div>
       <h1 className="mb-3 text-2xl font-semibold">{workout.name}</h1>
+      {workout.description && (
+        <div className="mb-3">
+          <WorkoutDescription workout={workout} />
+        </div>
+      )}
       <div className="border-b border-line pb-3">
         <WorkoutStats workout={workout} unit={unit} />
       </div>
+      {workout.hasPhoto && (
+        <div className="border-b border-line py-4">
+          <WorkoutPhoto ownerUid={author.uid} workout={workout} />
+        </div>
+      )}
       <div className="border-b border-line py-1">
         <SocialBar
           workout={workout}
@@ -188,9 +198,17 @@ function WorkoutView({ author, workout }: { author: UserProfile; workout: Workou
       </section>
 
       {isOwner && (
-        <button onClick={onDelete} className="mt-8 w-full rounded-xl bg-surface py-3 font-medium text-red-400">
-          Delete Workout
-        </button>
+        <div className="mt-8 space-y-3">
+          <Link
+            href={`/workouts/${workout.id}/edit`}
+            className="block w-full rounded-xl bg-surface py-3 text-center font-medium text-accent"
+          >
+            Edit Workout
+          </Link>
+          <button onClick={onDelete} className="w-full rounded-xl bg-surface py-3 font-medium text-red-400">
+            Delete Workout
+          </button>
+        </div>
       )}
     </div>
   );

@@ -1,12 +1,14 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- inline data-URL photo; next/image adds nothing here */
 import Link from "next/link";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setLabels } from "@/lib/draft";
 import { formatRelativeDay, formatShortDuration } from "@/lib/format";
 import { useComments, workoutPath } from "@/lib/social";
 import type { LoggedSet, Unit, UserProfile, Workout } from "@/lib/types";
 import { formatWeight, kgTo } from "@/lib/units";
+import { getWorkoutPhoto } from "@/lib/workouts";
 import { CommentThread } from "./Comments";
 import { SocialBar } from "./SocialBar";
 import { Avatar, ExerciseThumb, OverflowMenu, Stat } from "./ui";
@@ -29,6 +31,41 @@ export function WorkoutStats({ workout, unit }: { workout: Workout; unit: Unit }
 }
 
 const PREVIEW_EXERCISES = 3;
+
+/**
+ * The workout's photo, loaded from its own doc only when the workout has one. The loaded photo
+ * is tagged with its workout id, so a reused component never flashes another workout's photo.
+ */
+export function WorkoutPhoto({ ownerUid, workout }: { ownerUid: string; workout: Workout }) {
+  const [loaded, setLoaded] = useState<{ id: string; photo: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!workout.hasPhoto) return;
+    getWorkoutPhoto(ownerUid, workout.id)
+      .then((photo) => setLoaded({ id: workout.id, photo }))
+      .catch(() => setLoaded({ id: workout.id, photo: null }));
+  }, [ownerUid, workout.id, workout.hasPhoto]);
+
+  if (!workout.hasPhoto) return null;
+  const photo = loaded?.id === workout.id ? loaded.photo : undefined;
+  if (photo === null) return null;
+  return (
+    <div className="overflow-hidden rounded-xl bg-surface-2">
+      {photo ? (
+        <img src={photo} alt={`Photo from ${workout.name}`} className="max-h-[32rem] w-full object-cover" />
+      ) : (
+        // Placeholder while it loads, so the post doesn't jump.
+        <div className="aspect-[4/3] w-full animate-pulse" />
+      )}
+    </div>
+  );
+}
+
+/** The workout's notes, keeping the line breaks they were written with. */
+export function WorkoutDescription({ workout }: { workout: Workout }) {
+  if (!workout.description) return null;
+  return <p className="whitespace-pre-line break-words text-body">{workout.description}</p>;
+}
 
 /** A workout shown like a Hevy feed post: author, title, stats, exercise preview. */
 export function WorkoutPost({
@@ -56,15 +93,20 @@ export function WorkoutPost({
         {onDelete && (
           <OverflowMenu label="Workout options">
             {(close) => (
-              <button
-                onClick={() => {
-                  close();
-                  onDelete();
-                }}
-                className="w-full px-4 py-3 text-left text-red-400"
-              >
-                Delete workout
-              </button>
+              <>
+                <Link href={`/workouts/${workout.id}/edit`} className="block px-4 py-3">
+                  Edit workout
+                </Link>
+                <button
+                  onClick={() => {
+                    close();
+                    onDelete();
+                  }}
+                  className="w-full px-4 py-3 text-left text-red-400"
+                >
+                  Delete workout
+                </button>
+              </>
             )}
           </OverflowMenu>
         )}
@@ -72,9 +114,19 @@ export function WorkoutPost({
 
       <Link href={workoutPath(profile.uid, workout.id)} className="block">
         <h2 className="mb-3 text-xl font-semibold">{workout.name}</h2>
+        {workout.description && (
+          <div className="mb-3 line-clamp-3">
+            <WorkoutDescription workout={workout} />
+          </div>
+        )}
         <div className="border-b border-line pb-3">
           <WorkoutStats workout={workout} unit={profile.unit} />
         </div>
+        {workout.hasPhoto && (
+          <div className="pt-4">
+            <WorkoutPhoto ownerUid={profile.uid} workout={workout} />
+          </div>
+        )}
         <ul className="space-y-3 pt-4">
           {workout.exercises.slice(0, PREVIEW_EXERCISES).map((ex, i) => (
             <li key={i} className="flex items-center gap-4">

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { CustomExerciseForm } from "@/components/CustomExerciseForm";
-import { ExerciseMeta, useExerciseSearch } from "@/components/ExercisePicker";
+import { ExerciseMeta, LIST_ROW, useExerciseSearch } from "@/components/ExercisePicker";
 import { BackHeader, ExerciseThumb } from "@/components/ui";
+import type { Exercise } from "@/lib/types";
 
 export default function ExercisesPage() {
   const profile = useProfile();
@@ -29,19 +30,26 @@ export default function ExercisesPage() {
       {filters}
       <ul className="divide-y divide-line">
         {results.map((ex) => (
-          <li key={ex.id}>
-            <Link href={`/exercises/${encodeURIComponent(ex.id)}`} className="block px-2 py-3 hover:bg-surface">
-              <span className="flex items-center gap-3">
-                <ExerciseThumb exerciseId={ex.id} />
-                <span>
-                  <span className="block">{ex.name}</span>
-                  <ExerciseMeta exercise={ex} />
-                </span>
-              </span>
-            </Link>
-          </li>
+          <ExerciseRow key={ex.id} exercise={ex} />
         ))}
       </ul>
     </div>
   );
 }
+
+/** Memoized so searching only renders rows that are new to the results. */
+const ExerciseRow = memo(function ExerciseRow({ exercise: ex }: { exercise: Exercise }) {
+  return (
+    <li className={LIST_ROW}>
+      <Link href={`/exercises/${encodeURIComponent(ex.id)}`} className="block px-2 py-3 hover:bg-surface">
+        <span className="flex items-center gap-3">
+          <ExerciseThumb exerciseId={ex.id} />
+          <span>
+            <span className="block">{ex.name}</span>
+            <ExerciseMeta exercise={ex} />
+          </span>
+        </span>
+      </Link>
+    </li>
+  );
+});

@@ -9,6 +9,12 @@ export interface DraftWorkout {
   /** Rest timer end time. Stored as a timestamp so it stays accurate in background tabs. */
   restEndsAt: number | null;
   restTotalSec: number;
+  /** The exercise whose set started the running rest timer, so turning its rest off can stop it. */
+  restKey?: string | null;
+  /** Set on the save screen (or when editing). Optional so drafts saved before these existed still load. */
+  description?: string;
+  /** JPEG data URL of the workout photo, or null for none. */
+  photo?: string | null;
 }
 
 export interface DraftExercise {
@@ -29,7 +35,9 @@ export interface DraftSet {
   done: boolean;
 }
 
-export const DEFAULT_REST_SEC = 90;
+/** New exercises start with the rest timer off; it's opt-in per exercise. */
+export const DEFAULT_REST_SEC = 0;
+export const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 export const SET_TYPES: SetType[] = ["normal", "warmup", "drop", "failure"];
 
 const newKey = () => crypto.randomUUID();
@@ -114,7 +122,9 @@ export function addExercises(
 }
 
 export function removeExercise(w: DraftWorkout, exKey: string): DraftWorkout {
-  return { ...w, exercises: w.exercises.filter((e) => e.key !== exKey) };
+  const next = { ...w, exercises: w.exercises.filter((e) => e.key !== exKey) };
+  // Removing the exercise whose rest is counting down also stops the timer.
+  return w.restKey === exKey ? stopRest(next) : next;
 }
 
 export function moveExercise(w: DraftWorkout, exKey: string, dir: -1 | 1): DraftWorkout {
@@ -130,8 +140,14 @@ export function setPrevious(w: DraftWorkout, exKey: string, previous: LoggedSet[
   return mapExercise(w, exKey, (e) => ({ ...e, previous }));
 }
 
+/**
+ * Sets an exercise's rest time. Turning it off while that exercise's rest is counting down
+ * stops the timer (drafts from before restKey existed stop it for any exercise).
+ */
 export function setRest(w: DraftWorkout, exKey: string, restSec: number): DraftWorkout {
-  return mapExercise(w, exKey, (e) => ({ ...e, restSec }));
+  const next = mapExercise(w, exKey, (e) => ({ ...e, restSec }));
+  const timerIsThisExercise = w.restKey == null || w.restKey === exKey;
+  return restSec === 0 && w.restEndsAt != null && timerIsThisExercise ? stopRest(next) : next;
 }
 
 export function addSet(w: DraftWorkout, exKey: string): DraftWorkout {
@@ -174,13 +190,13 @@ export function toggleDone(w: DraftWorkout, exKey: string, setKey: string): Draf
     weightKg: s.weightKg ?? prev?.weightKg ?? null,
   }));
   if (done && ex.restSec > 0) {
-    return startRest(next, ex.restSec);
+    return startRest(next, ex.restSec, exKey);
   }
   return next;
 }
 
-export function startRest(w: DraftWorkout, seconds: number): DraftWorkout {
-  return { ...w, restEndsAt: Date.now() + seconds * 1000, restTotalSec: seconds };
+export function startRest(w: DraftWorkout, seconds: number, exKey: string | null = null): DraftWorkout {
+  return { ...w, restEndsAt: Date.now() + seconds * 1000, restTotalSec: seconds, restKey: exKey };
 }
 
 export function adjustRest(w: DraftWorkout, deltaSec: number): DraftWorkout {
@@ -190,7 +206,7 @@ export function adjustRest(w: DraftWorkout, deltaSec: number): DraftWorkout {
 }
 
 export function stopRest(w: DraftWorkout): DraftWorkout {
-  return { ...w, restEndsAt: null, restTotalSec: 0 };
+  return { ...w, restEndsAt: null, restTotalSec: 0, restKey: null };
 }
 
 /** Labels like Hevy: normal sets are numbered, other types get a letter. */
@@ -204,19 +220,47 @@ export function setLabels(sets: { type: SetType }[]): string[] {
   });
 }
 
-/** Converts the draft into a stored Workout, keeping only completed sets with reps. */
-export function toWorkout(w: DraftWorkout, endedAt = Date.now()): Workout {
+/** Must match the limit in firestore.rules. */
+export const MAX_DESCRIPTION_LENGTH = 1000;
+
+/** A saved workout as an editable draft. Every set counts as done; there's no rest timer. */
+export function draftFromWorkout(workout: Workout, photo: string | null): DraftWorkout {
+  return {
+    id: workout.id,
+    name: workout.name,
+    startedAt: workout.startedAt,
+    exercises: workout.exercises.map((e) => ({
+      key: newKey(),
+      exerciseId: e.exerciseId,
+      name: e.name,
+      restSec: 0,
+      sets: e.sets.map((s) => ({ key: newKey(), type: s.type, weightKg: s.weightKg, reps: s.reps, done: true })),
+      previous: null,
+    })),
+    restEndsAt: null,
+    restTotalSec: 0,
+    description: workout.description ?? "",
+    photo,
+  };
+}
+
+/**
+ * Converts the draft into a stored Workout, keeping sets with reps. While logging, sets also
+ * have to be checked off; when editing a saved workout (`requireDone: false`) every set counts.
+ */
+export function toWorkout(w: DraftWorkout, endedAt = Date.now(), { requireDone = true } = {}): Workout {
   const exercises = w.exercises
     .map((e) => ({
       exerciseId: e.exerciseId,
       name: e.name,
       sets: e.sets
-        .filter((s) => s.done && s.reps != null && s.reps > 0)
+        .filter((s) => (s.done || !requireDone) && s.reps != null && s.reps > 0)
         .map<LoggedSet>((s) => ({ type: s.type, weightKg: s.weightKg, reps: s.reps! })),
     }))
     .filter((e) => e.sets.length > 0);
 
   const allSets = exercises.flatMap((e) => e.sets);
+  const description = w.description?.trim().slice(0, MAX_DESCRIPTION_LENGTH);
   return {
     id: w.id,
     name: w.name.trim().slice(0, 100) || defaultName(new Date(w.startedAt)),
@@ -226,5 +270,8 @@ export function toWorkout(w: DraftWorkout, endedAt = Date.now()): Workout {
     exerciseIds: [...new Set(exercises.map((e) => e.exerciseId))],
     volumeKg: allSets.reduce((sum, s) => sum + (s.weightKg ?? 0) * s.reps, 0),
     setCount: allSets.length,
+    // Firestore rejects undefined fields, so optional ones are left out instead.
+    ...(description ? { description } : {}),
+    ...(w.photo ? { hasPhoto: true } : {}),
   };
 }

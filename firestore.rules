@@ -102,7 +102,10 @@ service cloud.firestore {
 
       match /workouts/{workoutId} {
         function validWorkout(data) {
-          return data.keys().hasOnly(['name', 'startedAt', 'endedAt', 'exercises', 'exerciseIds', 'volumeKg', 'setCount'])
+          return data.keys().hasOnly(['name', 'startedAt', 'endedAt', 'exercises', 'exerciseIds', 'volumeKg', 'setCount', 'description', 'hasPhoto'])
+            // Must match MAX_DESCRIPTION_LENGTH in src/lib/draft.ts.
+            && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
+            && (!('hasPhoto' in data) || data.hasPhoto is bool)
             && data.name is string && data.name.size() <= 100
             && data.startedAt is number
             && data.endedAt is number && data.endedAt >= data.startedAt
@@ -119,6 +122,19 @@ service cloud.firestore {
         allow read: if canReadWorkouts(uid);
         allow delete: if isUser(uid);
         allow create, update: if isUser(uid) && validWorkout(request.resource.data);
+
+        // users/{uid}/workouts/{id}/photos/main: the workout photo as a JPEG data URL, kept out of
+        // the workout doc so lists don't download it. Must match MAX_WORKOUT_PHOTO_CHARS in src/lib/image.ts.
+        match /photos/{photoId} {
+          allow read: if canReadWorkouts(uid);
+          allow create, update: if isUser(uid)
+            && photoId == 'main'
+            && request.resource.data.keys().hasOnly(['data'])
+            && request.resource.data.data is string
+            && request.resource.data.data.size() <= 800000
+            && request.resource.data.data.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+=*$');
+          allow delete: if isUser(uid);
+        }
 
         // users/{uid}/workouts/{id}/likes/{likerUid}: one like per user, id = liker's uid.
         match /likes/{likerUid} {

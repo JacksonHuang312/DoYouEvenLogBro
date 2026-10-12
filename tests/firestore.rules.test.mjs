@@ -341,6 +341,40 @@ describe("shared workouts, likes and comments", () => {
     await assertSucceeds(getDocs(collection(anon(), "users", "alice", "workouts", "w1", "comments")));
   });
 
+  test("the owner can save a workout with notes and a photo", async () => {
+    await seedUser("alice", "alice", 30);
+    const db = dbAs("alice");
+    const photo = `data:image/jpeg;base64,${Buffer.alloc(450_000, 7).toString("base64")}`;
+    const batch = writeBatch(db);
+    batch.set(workoutRef(db), { ...workout, description: "Felt strong", hasPhoto: true });
+    batch.set(doc(db, "users", "alice", "workouts", "w1", "photos", "main"), { data: photo });
+    await assertSucceeds(batch.commit());
+    // Public account: anyone with the link sees the photo.
+    await assertSucceeds(getDoc(doc(anon(), "users", "alice", "workouts", "w1", "photos", "main")));
+  });
+
+  test("workout notes and photos are validated", async () => {
+    await seedUser("alice", "alice", 30);
+    const db = dbAs("alice");
+    const photoRef = (id = "main") => doc(db, "users", "alice", "workouts", "w1", "photos", id);
+    await assertFails(setDoc(workoutRef(db), { ...workout, description: "x".repeat(1001) }));
+    await assertFails(setDoc(workoutRef(db), { ...workout, hasPhoto: "yes" }));
+    const huge = `data:image/jpeg;base64,${Buffer.alloc(650_000, 7).toString("base64")}`;
+    await assertFails(setDoc(photoRef(), { data: huge }));
+    await assertFails(setDoc(photoRef(), { data: "data:image/svg+xml;base64,PHN2Zz4=" }));
+    await assertFails(setDoc(photoRef("second"), { data: "data:image/jpeg;base64,AAAA" }));
+  });
+
+  test("only the owner can add or remove a workout photo, and private photos stay private", async () => {
+    await seedWorkout("alice", { isPrivate: true });
+    await seedUser("bob", "bob", 30);
+    const bobPhoto = doc(dbAs("bob"), "users", "alice", "workouts", "w1", "photos", "main");
+    await assertFails(setDoc(bobPhoto, { data: "data:image/jpeg;base64,AAAA" }));
+    await assertSucceeds(setDoc(doc(dbAs("alice"), "users", "alice", "workouts", "w1", "photos", "main"), { data: "data:image/jpeg;base64,AAAA" }));
+    await assertFails(getDoc(bobPhoto));
+    await assertFails(deleteDoc(bobPhoto));
+  });
+
   test("a comment can carry an uploaded profile photo, but not an oversized one", async () => {
     await seedWorkout("alice");
     await seedUser("bob", "bob", 30);
