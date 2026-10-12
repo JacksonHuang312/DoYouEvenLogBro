@@ -235,7 +235,7 @@ function CommentForm({
   return (
     <form onSubmit={onPost}>
       {replyTo && (
-        <div className="mb-2 flex items-center justify-between rounded-lg bg-surface px-3 py-1.5 text-sm text-muted">
+        <div className="mb-2 flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-muted">
           <span>
             Replying to <span className="text-accent">@{replyTo.username}</span>
           </span>

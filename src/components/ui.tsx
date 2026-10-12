@@ -92,6 +92,35 @@ export function Stat({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
+/**
+ * Desktop two-column layout: content plus a sticky right rail (22rem). On phones it's one column:
+ * the rail is hidden, or shown above the content with `railOnMobile`. The [data-rail] attribute
+ * tells <SignedInChrome> to widen the page for it.
+ */
+export function WithRail({
+  rail,
+  railOnMobile = false,
+  children,
+}: {
+  rail: React.ReactNode;
+  railOnMobile?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div data-rail className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
+      <aside className={`${railOnMobile ? "" : "hidden"} space-y-4 lg:sticky lg:top-8 lg:col-start-2 lg:row-start-1 lg:block`}>
+        {rail}
+      </aside>
+      <div className="min-w-0 lg:col-start-1 lg:row-start-1">{children}</div>
+    </div>
+  );
+}
+
+/** A rail panel: plain on phones, a rounded surface card on desktop. */
+export function RailCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <section className={`lg:rounded-xl lg:bg-surface lg:p-5 ${className}`}>{children}</section>;
+}
+
 /** Sub-page header: back chevron, centered title, optional right slot. */
 export function BackHeader({ title, href, right }: { title: string; href: string; right?: React.ReactNode }) {
   return (

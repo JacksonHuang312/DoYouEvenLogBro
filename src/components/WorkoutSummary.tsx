@@ -45,7 +45,8 @@ export function WorkoutPost({
   const commentBox = useRef<HTMLTextAreaElement>(null);
 
   return (
-    <article className="-mx-4 border-surface px-4 py-5 not-last:border-b-8">
+    // Phones: full-bleed posts split by thick gray bars. Desktop: separate cards, like Hevy's web feed.
+    <article className="-mx-4 border-surface px-4 py-5 not-last:border-b-8 lg:mx-0 lg:mb-4 lg:rounded-xl lg:border-0! lg:bg-surface lg:px-6">
       <div className="mb-3 flex items-center gap-3">
         <Avatar photoURL={profile.photoURL} name={profile.username} />
         <div className="min-w-0 flex-1">

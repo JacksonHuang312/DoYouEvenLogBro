@@ -11,16 +11,22 @@ const TABS = [
   { href: "/profile", label: "Profile", Icon: User, match: ["/profile", "/exercises", "/settings"] },
 ];
 
+/** True when `pathname` is one of `match` or below it (e.g. /routines/abc for /routines). */
+export function isActive(pathname: string, match: string[]) {
+  return match.some((m) => pathname === m || pathname.startsWith(`${m}/`));
+}
+
+/** Phone tab bar; hidden from lg up, where <Sidebar> takes over. */
 export function BottomNav() {
   const pathname = usePathname();
   const { draft } = useWorkout();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
       {/* h-16 (4rem): the rest timer and page padding in AppShell/RestTimer assume this height. */}
       <div className="mx-auto flex h-16 max-w-xl">
         {TABS.map(({ href, label, Icon, match }) => {
-          const active = match.some((m) => pathname === m || pathname.startsWith(`${m}/`));
+          const active = isActive(pathname, match);
           return (
             <Link
               key={href}
