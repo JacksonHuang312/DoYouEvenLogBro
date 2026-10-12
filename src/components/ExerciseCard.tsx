@@ -130,7 +130,7 @@ export function ExerciseCard({
                 aria-pressed={set.done}
                 onClick={() => update((w) => Draft.toggleDone(w, ex.key, set.key))}
                 className={`flex h-10 items-center justify-center rounded-md ${
-                  set.done ? "bg-green-600 text-white" : "bg-surface-2 text-muted"
+                  set.done ? "bg-accent text-on-accent" : "bg-surface-2 text-muted"
                 }`}
               >
                 <Check size={18} strokeWidth={3} />

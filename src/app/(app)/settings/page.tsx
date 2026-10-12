@@ -96,7 +96,7 @@ function UsernameSetting({ profile }: { profile: UserProfile }) {
         </button>
         <button
           disabled={!valid || saving}
-          className="flex-1 rounded-md bg-accent py-2 text-sm font-medium disabled:opacity-40"
+          className="flex-1 rounded-md bg-accent text-on-accent py-2 text-sm font-medium disabled:opacity-40"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -137,7 +137,7 @@ export default function SettingsPage() {
               <button
                 key={u}
                 onClick={() => save({ unit: u })}
-                className={`rounded-md px-3 py-1 text-sm font-medium ${profile.unit === u ? "bg-accent" : ""}`}
+                className={`rounded-md px-3 py-1 text-sm font-medium ${profile.unit === u ? "bg-accent text-on-accent" : ""}`}
               >
                 {u}
               </button>

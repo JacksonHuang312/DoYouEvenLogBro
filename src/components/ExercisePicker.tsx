@@ -130,7 +130,7 @@ export function ExercisePicker({
                     <ExerciseMeta exercise={ex} />
                   </span>
                   {order >= 0 && (
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-on-accent text-xs">
                       {order + 1}
                     </span>
                   )}
@@ -152,7 +152,7 @@ export function ExercisePicker({
       </div>
       {selected.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 mx-auto max-w-xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <button onClick={() => onAdd(selected)} className="w-full rounded-xl bg-accent py-3 font-semibold">
+          <button onClick={() => onAdd(selected)} className="w-full rounded-xl bg-accent text-on-accent py-3 font-semibold">
             Add {selected.length} exercise{selected.length > 1 && "s"}
           </button>
         </div>

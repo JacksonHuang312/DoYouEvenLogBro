@@ -171,7 +171,7 @@ function Day({ day, workouts, isToday, uid }: { day: number; workouts?: Workout[
   const label = workouts.length > 1 ? `${workouts.length} workouts` : workouts[0].name;
   return (
     <Link href={workoutPath(uid, workouts[0].id)} className={cell} aria-label={`${label}, day ${day}`}>
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-lg">{day}</span>
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-on-accent text-lg">{day}</span>
       <span className="mt-0.5 w-full truncate px-0.5 text-center text-[11px] text-muted">{label}</span>
     </Link>
   );

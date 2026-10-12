@@ -42,7 +42,7 @@ export default function HomePage() {
       {workouts?.length === 0 && (
         <div className="space-y-4 py-16 text-center">
           <p className="text-muted">No workouts yet. Your workouts will show up here.</p>
-          <Link href="/workout" className="inline-block rounded-lg bg-accent px-5 py-2.5 font-medium">
+          <Link href="/workout" className="inline-block rounded-lg bg-accent text-on-accent px-5 py-2.5 font-medium">
             Start a workout
           </Link>
         </div>

@@ -74,7 +74,7 @@ export default function Onboarding() {
                 key={u}
                 type="button"
                 onClick={() => setUnit(u)}
-                className={`rounded-md py-2 font-medium ${unit === u ? "bg-accent" : "bg-surface-2"}`}
+                className={`rounded-md py-2 font-medium ${unit === u ? "bg-accent text-on-accent" : "bg-surface-2"}`}
               >
                 {u}
               </button>
@@ -86,7 +86,7 @@ export default function Onboarding() {
 
         <button
           disabled={!valid || saving}
-          className="w-full rounded-xl bg-accent py-3 font-semibold disabled:opacity-40"
+          className="w-full rounded-xl bg-accent text-on-accent py-3 font-semibold disabled:opacity-40"
         >
           {saving ? "Saving..." : "Continue"}
         </button>

@@ -61,7 +61,7 @@ export function RestTimer() {
             +15
           </button>
           <button
-            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium"
+            className="rounded-md bg-accent text-on-accent px-3 py-1.5 text-sm font-medium"
             onClick={() => update(stopRest)}
           >
             Skip

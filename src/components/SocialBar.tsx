@@ -46,8 +46,8 @@ export function ShareButton({ workout, author }: { workout: Workout; author: Use
     <button onClick={onShare} aria-label="Share workout" className="flex items-center gap-1.5 p-2">
       {copied ? (
         <>
-          <Check size={22} className="text-green-500" />
-          <span className="text-sm text-green-500">Link copied</span>
+          <Check size={22} className="text-accent" />
+          <span className="text-sm text-accent">Link copied</span>
         </>
       ) : (
         <Share size={22} />

@@ -32,7 +32,7 @@ export function BottomNav() {
               <Icon size={24} strokeWidth={active ? 2.2 : 1.8} />
               {label}
               {href === "/workout" && draft && (
-                <span className="absolute right-[calc(50%-18px)] top-2 h-2.5 w-2.5 rounded-full border-2 border-surface bg-green-500" />
+                <span className="absolute right-[calc(50%-18px)] top-2 h-2.5 w-2.5 rounded-full border-2 border-surface bg-accent" />
               )}
             </Link>
           );

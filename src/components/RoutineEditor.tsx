@@ -43,7 +43,7 @@ export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: R
         <button
           onClick={onSave}
           disabled={!canSave}
-          className="rounded-lg bg-accent px-4 py-1.5 font-medium disabled:opacity-40"
+          className="rounded-lg bg-accent text-on-accent px-4 py-1.5 font-medium disabled:opacity-40"
         >
           Save
         </button>
@@ -114,7 +114,7 @@ export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: R
 
       <button
         onClick={() => setPicking(true)}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3 font-semibold"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent text-on-accent py-3 font-semibold"
       >
         <Plus size={20} /> Add Exercise
       </button>

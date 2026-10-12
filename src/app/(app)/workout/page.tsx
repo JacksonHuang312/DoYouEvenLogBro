@@ -102,7 +102,7 @@ function RoutineCard({ routine, uid, onStart }: { routine: Routine; uid: string;
         </OverflowMenu>
       </div>
       <p className="mb-4 mt-1 line-clamp-2 text-muted">{routine.exercises.map((e) => e.name).join(", ")}</p>
-      <button onClick={onStart} className="w-full rounded-xl bg-accent py-3 text-lg font-medium">
+      <button onClick={onStart} className="w-full rounded-xl bg-accent text-on-accent py-3 text-lg font-medium">
         Start Routine
       </button>
     </section>
@@ -173,7 +173,7 @@ function ActiveWorkout() {
             <Elapsed since={draft.startedAt} />
           </div>
         </div>
-        <button onClick={onFinish} className="rounded-lg bg-accent px-4 py-2 font-semibold">
+        <button onClick={onFinish} className="rounded-lg bg-accent text-on-accent px-4 py-2 font-semibold">
           Finish
         </button>
       </div>
@@ -190,7 +190,7 @@ function ActiveWorkout() {
 
       <button
         onClick={() => setPicking(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3 font-semibold"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent text-on-accent py-3 font-semibold"
       >
         <Plus size={20} /> Add Exercise
       </button>

@@ -76,7 +76,7 @@ export function CustomExerciseForm({
         <button type="button" onClick={onCancel} className="flex-1 rounded-md bg-surface-2 py-2">
           Cancel
         </button>
-        <button disabled={!name.trim()} className="flex-1 rounded-md bg-accent py-2 font-medium disabled:opacity-40">
+        <button disabled={!name.trim()} className="flex-1 rounded-md bg-accent text-on-accent py-2 font-medium disabled:opacity-40">
           Create exercise
         </button>
       </div>

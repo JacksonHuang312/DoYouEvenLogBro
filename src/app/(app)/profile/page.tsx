@@ -86,7 +86,7 @@ export default function ProfilePage() {
             key={m.id}
             onClick={() => setMetric(m.id)}
             aria-pressed={metric === m.id}
-            className={`rounded-full px-4 py-1.5 ${metric === m.id ? "bg-accent" : "bg-surface"}`}
+            className={`rounded-full px-4 py-1.5 ${metric === m.id ? "bg-accent text-on-accent" : "bg-surface"}`}
           >
             {m.label}
           </button>

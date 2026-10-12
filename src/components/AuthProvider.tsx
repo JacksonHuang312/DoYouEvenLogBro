@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 px-4">
         <h1 className="text-xl font-bold">Something&apos;s wrong</h1>
         <p className="text-sm text-muted">{error}</p>
-        <button onClick={() => location.reload()} className="rounded-xl bg-accent py-3 font-medium">
+        <button onClick={() => location.reload()} className="rounded-xl bg-accent text-on-accent py-3 font-medium">
           Retry
         </button>
         <button

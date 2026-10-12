@@ -72,13 +72,13 @@ export function SharedWorkout() {
             Do You Even Log, Bro?
           </Link>
           {user ? (
-            <Link href="/onboarding" className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium">
+            <Link href="/onboarding" className="rounded-lg bg-accent text-on-accent px-3 py-1.5 text-sm font-medium">
               Finish setup
             </Link>
           ) : (
             <button
               onClick={() => signIn().catch((e) => errorDialog("Couldn't sign in", e))}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium"
+              className="rounded-lg bg-accent text-on-accent px-3 py-1.5 text-sm font-medium"
             >
               Sign in
             </button>
