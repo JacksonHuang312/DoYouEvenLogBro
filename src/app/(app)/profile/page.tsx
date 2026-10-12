@@ -1,6 +1,6 @@
 "use client";
 
-import { Dumbbell, Settings } from "lucide-react";
+import { CalendarDays, Dumbbell, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityChart, type Metric, metricLabel, WEEKS, weeklyTotals, weekStart } from "@/components/ActivityChart";
@@ -98,6 +98,10 @@ export default function ProfilePage() {
         <Link href="/exercises" className="flex items-center gap-3 rounded-xl bg-surface px-4 py-4">
           <Dumbbell size={24} />
           Exercises
+        </Link>
+        <Link href="/profile/calendar" className="flex items-center gap-3 rounded-xl bg-surface px-4 py-4">
+          <CalendarDays size={24} />
+          Calendar
         </Link>
       </div>
 
