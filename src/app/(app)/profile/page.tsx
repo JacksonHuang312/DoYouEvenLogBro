@@ -3,7 +3,15 @@
 import { CalendarDays, Dumbbell, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityChart, type Metric, metricLabel, WEEKS, weeklyTotals, weekStart } from "@/components/ActivityChart";
+import {
+  ActivityChart,
+  type Metric,
+  metricLabel,
+  WEEKS,
+  weeklyTotals,
+  weeksAgoLabel,
+  weekStart,
+} from "@/components/ActivityChart";
 import { useProfile } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
 import { Avatar, PageHeader, Stat } from "@/components/ui";
@@ -33,6 +41,9 @@ export default function ProfilePage() {
   }, [profile.uid]);
 
   const totals = useMemo(() => weeklyTotals(chartData, metric, profile.unit), [chartData, metric, profile.unit]);
+  // The heading follows the hovered/tapped bar, and shows this week otherwise.
+  const [activeWeek, setActiveWeek] = useState<number | null>(null);
+  const shownWeek = activeWeek ?? totals.length - 1;
 
   async function onDelete(id: string) {
     const ok = await confirmDialog({
@@ -70,14 +81,20 @@ export default function ProfilePage() {
       </div>
 
       <div className="mt-8 flex items-baseline justify-between gap-2">
-        <h2 className="text-lg">
-          <span className="font-semibold">{metricLabel(metric, profile.unit, totals[totals.length - 1].value)}</span>{" "}
-          <span className="text-muted">this week</span>
+        <h2 className="text-lg" aria-live="polite">
+          <span className="font-semibold">{metricLabel(metric, profile.unit, totals[shownWeek].value)}</span>{" "}
+          <span className="text-muted">{weeksAgoLabel(shownWeek, totals.length)}</span>
         </h2>
         <span className="text-sm text-accent">Last 3 months</span>
       </div>
       <div className="mt-6">
-        <ActivityChart totals={totals} metric={metric} unit={profile.unit} />
+        <ActivityChart
+          totals={totals}
+          metric={metric}
+          unit={profile.unit}
+          active={activeWeek}
+          setActive={setActiveWeek}
+        />
       </div>
 
       <div className="mt-4 flex gap-3">

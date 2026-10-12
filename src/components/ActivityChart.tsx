@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { Unit, Workout } from "@/lib/types";
 import { formatNumber, kgTo } from "@/lib/units";
 
@@ -59,8 +58,26 @@ function compact(n: number) {
 
 const shortDate = (t: number) => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-export function ActivityChart({ totals, metric, unit }: { totals: { start: number; value: number }[]; metric: Metric; unit: Unit }) {
-  const [active, setActive] = useState<number | null>(null);
+/** "this week", "last week", "5 weeks ago" for bar `index` of `count` (the last bar is this week). */
+export function weeksAgoLabel(index: number, count: number) {
+  const ago = count - 1 - index;
+  return ago === 0 ? "this week" : ago === 1 ? "last week" : `${ago} weeks ago`;
+}
+
+/** `active` is the hovered/tapped bar; the parent owns it so its heading can follow along. */
+export function ActivityChart({
+  totals,
+  metric,
+  unit,
+  active,
+  setActive,
+}: {
+  totals: { start: number; value: number }[];
+  metric: Metric;
+  unit: Unit;
+  active: number | null;
+  setActive: (i: number | null) => void;
+}) {
   const top = niceTop(Math.max(...totals.map((t) => t.value)), metric);
   const ticks = [0, 1, 2, 3].map((i) => (top / 3) * i);
   const suffix = metric === "duration" ? " hrs" : "";
