@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { Camera } from "lucide-react";
+import { useRef, useState } from "react";
 import { useAuth, useProfile } from "@/components/AuthProvider";
-import { BackHeader } from "@/components/ui";
-import { errorDialog } from "@/lib/dialog";
+import { Avatar, BackHeader } from "@/components/ui";
+import { confirmDialog, errorDialog } from "@/lib/dialog";
+import { AVATAR_SIZE, MAX_AVATAR_CHARS, photoToThumbnail } from "@/lib/image";
 import { changeUsername, nextUsernameChangeAt, updateProfile, USERNAME_PATTERN } from "@/lib/profile";
 import type { UserProfile } from "@/lib/types";
 
@@ -105,6 +107,76 @@ function UsernameSetting({ profile }: { profile: UserProfile }) {
   );
 }
 
+/** Profile card with the picture: tap it (or "Change photo") to upload a new one, or remove it. */
+function ProfilePhotoSetting({
+  profile,
+  save,
+}: {
+  profile: UserProfile;
+  save: (patch: { photoURL: string | null }) => Promise<unknown>;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // so picking the same file again still fires onChange
+    if (!file) return;
+    setBusy(true);
+    try {
+      const photoURL = await photoToThumbnail(file, { size: AVATAR_SIZE, maxChars: MAX_AVATAR_CHARS });
+      // Not awaited, like the other settings: the profile listener shows it instantly, even offline.
+      save({ photoURL });
+    } catch (err) {
+      await errorDialog("Couldn't use that photo", err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRemove() {
+    const ok = await confirmDialog({
+      title: "Remove profile photo?",
+      message: "Your initial will show instead.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (ok) save({ photoURL: null });
+  }
+
+  return (
+    <div className="flex items-center gap-4 rounded-xl bg-surface p-4">
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={busy}
+        aria-label="Change profile photo"
+        className="relative shrink-0 rounded-full"
+      >
+        <Avatar photoURL={profile.photoURL} name={profile.username} size={64} />
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-2">
+          <Camera size={13} />
+        </span>
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-semibold">{profile.displayName}</div>
+        <div className="truncate text-sm text-muted">@{profile.username}</div>
+        <div className="mt-1.5 flex gap-4 text-sm font-medium">
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="text-accent">
+            {busy ? "Uploading..." : "Change photo"}
+          </button>
+          {profile.photoURL && !busy && (
+            <button type="button" onClick={onRemove} className="text-red-400">
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const profile = useProfile();
   const { signOut } = useAuth();
@@ -117,16 +189,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <BackHeader title="Settings" href="/profile" />
 
-      <div className="flex items-center gap-3 rounded-xl bg-surface p-4">
-        {profile.photoURL && (
-          // eslint-disable-next-line @next/next/no-img-element -- Google avatar, no need for next/image config
-          <img src={profile.photoURL} alt="" className="h-12 w-12 rounded-full" referrerPolicy="no-referrer" />
-        )}
-        <div>
-          <div className="font-semibold">{profile.displayName}</div>
-          <div className="text-sm text-muted">@{profile.username}</div>
-        </div>
-      </div>
+      <ProfilePhotoSetting profile={profile} save={save} />
 
       <section className="divide-y divide-line rounded-xl bg-surface">
         <UsernameSetting profile={profile} />

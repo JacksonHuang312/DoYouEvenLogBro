@@ -227,6 +227,36 @@ describe("custom exercise photos", () => {
   });
 });
 
+describe("profile photos", () => {
+  const jpeg = `data:image/jpeg;base64,${Buffer.alloc(15_000, 7).toString("base64")}`;
+  const setPhoto = (uid, photoURL) => setDoc(doc(dbAs(uid), "users", uid), { photoURL }, { merge: true });
+
+  test("can upload a small JPEG, keep a link, or remove it", async () => {
+    await seedUser("alice", "alice", 8);
+    await assertSucceeds(setPhoto("alice", jpeg));
+    await assertSucceeds(setPhoto("alice", "https://lh3.googleusercontent.com/a/photo"));
+    await assertSucceeds(setPhoto("alice", null));
+  });
+
+  test("rejects photos over the size limit", async () => {
+    await seedUser("alice", "alice", 8);
+    const huge = `data:image/jpeg;base64,${Buffer.alloc(40_000, 7).toString("base64")}`;
+    await assertFails(setPhoto("alice", huge));
+  });
+
+  test("rejects data URLs that aren't JPEGs", async () => {
+    await seedUser("alice", "alice", 8);
+    await assertFails(setPhoto("alice", "data:image/svg+xml;base64,PHN2Zz4="));
+    await assertFails(setPhoto("alice", "data:text/html;base64,PHNjcmlwdD4="));
+  });
+
+  test("other users can't change your photo", async () => {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 30);
+    await assertFails(setDoc(doc(dbAs("bob"), "users", "alice"), { photoURL: jpeg }, { merge: true }));
+  });
+});
+
 describe("shared workouts, likes and comments", () => {
   const workout = {
     name: "Chest back",
@@ -309,6 +339,15 @@ describe("shared workouts, likes and comments", () => {
     await seedUser("bob", "bob", 30);
     await assertSucceeds(setDoc(commentRef(dbAs("bob")), comment("bob", "bob")));
     await assertSucceeds(getDocs(collection(anon(), "users", "alice", "workouts", "w1", "comments")));
+  });
+
+  test("a comment can carry an uploaded profile photo, but not an oversized one", async () => {
+    await seedWorkout("alice");
+    await seedUser("bob", "bob", 30);
+    const jpeg = `data:image/jpeg;base64,${Buffer.alloc(15_000, 7).toString("base64")}`;
+    const huge = `data:image/jpeg;base64,${Buffer.alloc(40_000, 7).toString("base64")}`;
+    await assertSucceeds(setDoc(commentRef(dbAs("bob")), { ...comment("bob", "bob"), authorPhotoURL: jpeg }));
+    await assertFails(setDoc(commentRef(dbAs("bob"), "c2"), { ...comment("bob", "bob"), authorPhotoURL: huge }));
   });
 
   test("can't comment as someone else or with a fake username", async () => {

@@ -4,11 +4,23 @@ const THUMB_SIZE = 192;
 /** Must stay under the limit in firestore.rules. A 192px JPEG is typically 10-25 KB. */
 export const MAX_IMAGE_DATA_CHARS = 150_000;
 
+/** Profile pictures: sharp at the largest 76px avatar on 2x screens, ~10-20 KB. */
+export const AVATAR_SIZE = 160;
+
 /**
- * Center-crops a photo to a square, scales it to 192px and returns a JPEG data URL,
+ * Must match the data-URL limit in validPhotoURL() in firestore.rules. Kept small because the
+ * picture is stored on the profile and copied onto each comment you post.
+ */
+export const MAX_AVATAR_CHARS = 40_000;
+
+/**
+ * Center-crops a photo to a square, scales it to `size` px and returns a JPEG data URL,
  * small enough to store inline on the Firestore doc (no Cloud Storage needed).
  */
-export async function photoToThumbnail(file: File): Promise<string> {
+export async function photoToThumbnail(
+  file: File,
+  { size = THUMB_SIZE, maxChars = MAX_IMAGE_DATA_CHARS } = {},
+): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("That file isn't an image.");
 
   let bitmap: ImageBitmap;
@@ -21,24 +33,17 @@ export async function photoToThumbnail(file: File): Promise<string> {
 
   const side = Math.min(bitmap.width, bitmap.height);
   const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = THUMB_SIZE;
+  canvas.width = canvas.height = size;
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#fff"; // transparent PNGs get the same white background as library images
-  ctx.fillRect(0, 0, THUMB_SIZE, THUMB_SIZE);
-  ctx.drawImage(
-    bitmap,
-    (bitmap.width - side) / 2,
-    (bitmap.height - side) / 2,
-    side,
-    side,
-    0,
-    0,
-    THUMB_SIZE,
-    THUMB_SIZE,
-  );
+  ctx.fillRect(0, 0, size, size);
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
   bitmap.close();
 
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-  if (dataUrl.length > MAX_IMAGE_DATA_CHARS) throw new Error("That image is too detailed. Try another one.");
-  return dataUrl;
+  // Very detailed photos can exceed the limit; step the quality down before giving up.
+  for (const quality of [0.8, 0.65, 0.5]) {
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    if (dataUrl.length <= maxChars) return dataUrl;
+  }
+  throw new Error("That image is too detailed. Try another one.");
 }
