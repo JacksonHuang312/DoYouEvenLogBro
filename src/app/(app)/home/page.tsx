@@ -10,19 +10,17 @@ import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { formatDayAndTime } from "@/lib/format";
 import { workoutPath } from "@/lib/social";
 import type { UserProfile, Workout } from "@/lib/types";
-import { countWorkouts, deleteWorkout, listWorkouts } from "@/lib/workouts";
+import { useWorkouts } from "@/lib/useWorkouts";
+import { countWorkouts, deleteWorkout } from "@/lib/workouts";
 
 /** Your feed. Until following exists (phase 4) it shows your own workouts. */
 export default function HomePage() {
   const profile = useProfile();
-  const [workouts, setWorkouts] = useState<Workout[] | null>(null);
+  // Live and cache-first: shows instantly from the device, never stuck waiting on the network.
+  const { workouts, error } = useWorkouts(profile.uid, { max: 20 });
   const [count, setCount] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listWorkouts(profile.uid, 20)
-      .then(setWorkouts)
-      .catch((e: Error) => setError(e.message));
     countWorkouts(profile.uid).then(setCount).catch(() => setCount(null));
   }, [profile.uid]);
 
@@ -34,7 +32,7 @@ export default function HomePage() {
       destructive: true,
     });
     if (!ok) return;
-    setWorkouts((ws) => ws?.filter((w) => w.id !== id) ?? null);
+    // The live list drops it by itself.
     setCount((c) => (c == null ? c : c - 1));
     deleteWorkout(profile.uid, id).catch((e) => errorDialog("Couldn't delete workout", e));
   }

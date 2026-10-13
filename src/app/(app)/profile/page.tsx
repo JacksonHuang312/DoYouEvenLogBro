@@ -17,8 +17,8 @@ import { Spinner } from "@/components/Spinner";
 import { Avatar, PageHeader, RailCard, Stat, WithRail } from "@/components/ui";
 import { WorkoutPost } from "@/components/WorkoutSummary";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
-import type { Workout } from "@/lib/types";
-import { countWorkouts, deleteWorkout, listWorkouts, listWorkoutsSince } from "@/lib/workouts";
+import { useWorkouts } from "@/lib/useWorkouts";
+import { countWorkouts, deleteWorkout } from "@/lib/workouts";
 
 const METRICS: { id: Metric; label: string }[] = [
   { id: "duration", label: "Duration" },
@@ -29,18 +29,21 @@ const METRICS: { id: Metric; label: string }[] = [
 export default function ProfilePage() {
   const profile = useProfile();
   const [count, setCount] = useState<number | null>(null);
-  const [recent, setRecent] = useState<Workout[] | null>(null);
-  const [chartData, setChartData] = useState<Workout[]>([]);
   const [metric, setMetric] = useState<Metric>("duration");
+  // Start of the chart's first week. Fixed for the page's lifetime so the listener isn't resubscribed.
+  const [since] = useState(() => weekStart(Date.now()) - (WEEKS - 1) * 7 * 86_400_000);
+  // Live and cache-first: shows instantly from the device, never stuck waiting on the network.
+  const recent = useWorkouts(profile.uid, { max: 20 }).workouts;
+  const chartData = useWorkouts(profile.uid, { since }).workouts;
 
   useEffect(() => {
     countWorkouts(profile.uid).then(setCount).catch(() => setCount(null));
-    listWorkouts(profile.uid, 20).then(setRecent).catch(() => setRecent([]));
-    const since = weekStart(Date.now()) - (WEEKS - 1) * 7 * 86_400_000;
-    listWorkoutsSince(profile.uid, since).then(setChartData).catch(() => setChartData([]));
   }, [profile.uid]);
 
-  const totals = useMemo(() => weeklyTotals(chartData, metric, profile.unit), [chartData, metric, profile.unit]);
+  const totals = useMemo(
+    () => weeklyTotals(chartData ?? [], metric, profile.unit),
+    [chartData, metric, profile.unit],
+  );
   // The heading follows the hovered/tapped bar, and shows this week otherwise.
   const [activeWeek, setActiveWeek] = useState<number | null>(null);
   const shownWeek = activeWeek ?? totals.length - 1;
@@ -53,8 +56,7 @@ export default function ProfilePage() {
       destructive: true,
     });
     if (!ok) return;
-    setRecent((ws) => ws?.filter((w) => w.id !== id) ?? null);
-    setChartData((ws) => ws.filter((w) => w.id !== id));
+    // The live lists drop it by themselves.
     setCount((c) => (c == null ? c : c - 1));
     deleteWorkout(profile.uid, id).catch((e) => errorDialog("Couldn't delete workout", e));
   }

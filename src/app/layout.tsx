@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { DialogHost } from "@/components/DialogHost";
+import { FirestoreReconnect } from "@/components/FirestoreReconnect";
 import { TouchActive } from "@/components/TouchActive";
 import "./globals.css";
 
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider>{children}</AuthProvider>
         <DialogHost />
         <TouchActive />
+        <FirestoreReconnect />
       </body>
     </html>
   );

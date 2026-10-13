@@ -2,13 +2,13 @@
 
 import { Flame, Moon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
 import { BackHeader } from "@/components/ui";
 import { workoutPath } from "@/lib/social";
 import type { Workout } from "@/lib/types";
-import { listWorkoutsSince } from "@/lib/workouts";
+import { useWorkouts } from "@/lib/useWorkouts";
 
 /** How far back the calendar goes (or to account creation, if that's sooner). */
 const MAX_MONTHS = 12;
@@ -62,15 +62,9 @@ function monthsBetween(from: number, now: number) {
 export default function CalendarPage() {
   const profile = useProfile();
   const [now] = useState(() => Date.now());
-  const [workouts, setWorkouts] = useState<Workout[] | null>(null);
-
   const months = useMemo(() => monthsBetween(profile.createdAt, now), [profile.createdAt, now]);
-
-  useEffect(() => {
-    listWorkoutsSince(profile.uid, months[0].getTime())
-      .then(setWorkouts)
-      .catch(() => setWorkouts([]));
-  }, [profile.uid, months]);
+  // Live and cache-first: shows instantly from the device, never stuck waiting on the network.
+  const { workouts } = useWorkouts(profile.uid, { since: months[0].getTime() });
 
   // Workouts per day, oldest first, so a day's label is its first workout.
   const byDay = useMemo(() => {
@@ -82,10 +76,15 @@ export default function CalendarPage() {
     return map;
   }, [workouts]);
 
-  // Open on the current month, at the bottom, like Hevy.
+  // Open on the current month, at the bottom, like Hevy. Only once: the list is live, and
+  // a later update (the server answering after the cache) mustn't yank you back down.
+  const scrolled = useRef(false);
+  const loaded = workouts != null;
   useLayoutEffect(() => {
-    if (workouts) window.scrollTo(0, document.documentElement.scrollHeight);
-  }, [workouts]);
+    if (!loaded || scrolled.current) return;
+    scrolled.current = true;
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  }, [loaded]);
 
   const rest = workouts && restDays(workouts, now);
 

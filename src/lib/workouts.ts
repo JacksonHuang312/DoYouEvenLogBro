@@ -8,6 +8,7 @@ import {
   limit,
   orderBy,
   query,
+  type QuerySnapshot,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -45,6 +46,9 @@ export async function getWorkoutPhoto(uid: string, workoutId: string): Promise<s
 /** Deletes a workout along with its photo, likes and comments, so nothing is left orphaned. */
 export async function deleteWorkout(uid: string, id: string) {
   const ref = doc(workoutsCol(uid), id);
+  // The workout itself goes first, so live lists drop it at once, even before the cleanup
+  // below has fetched what to remove (the rules let the owner clear these without it).
+  const deleted = deleteDoc(ref);
   const [likes, comments] = await Promise.all([
     getDocs(collection(ref, "likes")),
     getDocs(collection(ref, "comments")),
@@ -57,7 +61,7 @@ export async function deleteWorkout(uid: string, id: string) {
     refs.slice(i, i + 450).forEach((r) => batch.delete(r));
     await batch.commit();
   }
-  await deleteDoc(ref);
+  await deleted;
 }
 
 export async function getWorkout(uid: string, id: string): Promise<Workout | null> {
@@ -65,17 +69,17 @@ export async function getWorkout(uid: string, id: string): Promise<Workout | nul
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as Workout) : null;
 }
 
-export async function listWorkouts(uid: string, max = 50): Promise<Workout[]> {
-  const snap = await getDocs(query(workoutsCol(uid), orderBy("startedAt", "desc"), limit(max)));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Workout);
+/** Newest first: the latest `max` workouts, or every workout since `since` (ms). */
+export function workoutsQuery(uid: string, { max, since }: { max?: number; since?: number }) {
+  return query(
+    workoutsCol(uid),
+    ...(since != null ? [where("startedAt", ">=", since)] : []),
+    orderBy("startedAt", "desc"),
+    ...(max != null ? [limit(max)] : []),
+  );
 }
 
-export async function listWorkoutsSince(uid: string, since: number): Promise<Workout[]> {
-  const snap = await getDocs(
-    query(workoutsCol(uid), where("startedAt", ">=", since), orderBy("startedAt", "desc")),
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Workout);
-}
+export const toWorkouts = (snap: QuerySnapshot) => snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Workout);
 
 /** Server-side count, so the profile doesn't download every workout just to count them. */
 export async function countWorkouts(uid: string): Promise<number> {
