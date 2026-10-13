@@ -6,8 +6,19 @@ import { TouchActive } from "@/components/TouchActive";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Link previews (Discord, iMessage, X) need absolute image URLs; relative ones resolve against this.
+  metadataBase: new URL("https://doyouevenlogbro.vercel.app"),
   title: "Do You Even Log Bro",
   description: "Free workout tracker: log sets, reps and weight.",
+  // The preview card: the dumbbell icon as a small square thumbnail ("summary" card).
+  openGraph: {
+    type: "website",
+    siteName: "Do You Even Log Bro?",
+    title: "Do You Even Log Bro",
+    description: "Free workout tracker: log sets, reps and weight.",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Mint dumbbell logo" }],
+  },
+  twitter: { card: "summary" },
   applicationName: "Log Bro",
   // Home-screen app on iPhone: full-screen, no Safari bars. "black" (not "black-translucent")
   // keeps pages below the status bar, so sticky headers pinned at top: 0 never sit under the clock.
