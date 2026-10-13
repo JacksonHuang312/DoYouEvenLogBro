@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Makes "Add to Home Screen" install the app: own icon, opens full-screen without browser bars. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Do You Even Log, Bro?",
+    name: "Do You Even Log Bro?",
     short_name: "Log Bro",
     description: "Free workout tracker: log sets, reps and weight.",
     start_url: "/",

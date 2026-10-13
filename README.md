@@ -1,4 +1,4 @@
-# Do You Even Log, Bro?
+# Do You Even Log Bro?
 
 A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on Vercel.
 

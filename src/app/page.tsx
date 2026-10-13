@@ -71,7 +71,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-10">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight">Do You Even Log, Bro?</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Do You Even Log Bro?</h1>
         <p className="mt-2 text-muted">Track sets, reps and weight. Free, no subscription.</p>
       </div>
 

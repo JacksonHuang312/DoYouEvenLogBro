@@ -69,7 +69,7 @@ export function SharedWorkout() {
       <header className="sticky top-0 z-10 border-b border-line bg-black pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
           <Link href="/" className="font-bold">
-            Do You Even Log, Bro?
+            Do You Even Log Bro?
           </Link>
           {user ? (
             <Link href="/onboarding" className="rounded-lg bg-accent text-on-accent px-3 py-1.5 text-sm font-medium">

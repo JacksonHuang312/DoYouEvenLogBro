@@ -26,7 +26,7 @@ export function Sidebar() {
   return (
     <nav className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-line bg-surface lg:flex">
       <Link href="/home" className="px-6 pb-6 pt-7 text-title-3 tracking-tight">
-        Do You Even Log, <span className="text-accent">Bro?</span>
+        Do You Even Log <span className="text-accent">Bro?</span>
       </Link>
 
       <ul className="flex-1 space-y-1 px-3">
