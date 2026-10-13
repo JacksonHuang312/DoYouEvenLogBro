@@ -58,9 +58,11 @@ body {
 /*
  * Hover / press feedback for everything tappable, in one place.
  * In @layer base so a component's own utilities (e.g. hover:bg-surface) still win.
+ * Big card-sized links (a whole feed post) opt out with data-press="none": shrinking a
+ * full card on every tap reads as a glitch, not feedback.
  */
 @layer base {
-  :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"]) {
+  :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"], [data-press="none"]) {
     transition:
       transform 120ms ease,
       filter 120ms ease,
@@ -70,13 +72,13 @@ body {
 
   /* Mouse/trackpad only: on touch screens a tap would leave :hover stuck on. */
   @media (hover: hover) and (pointer: fine) {
-    :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"]):hover {
+    :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"], [data-press="none"]):hover {
       filter: brightness(1.2);
     }
   }
 
   /* Pressed (finger down or mouse button held): shrink slightly and dim, like iOS. */
-  :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"]):active {
+  :is(button, a[href], select, summary, [role="button"]):not(:disabled, [aria-disabled="true"], [data-press="none"]):active {
     filter: brightness(0.8);
     transform: scale(0.97);
   }

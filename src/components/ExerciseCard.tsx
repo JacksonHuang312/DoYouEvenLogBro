@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Plus, Trophy, X } from "lucide-react";
 import { memo } from "react";
 import { confirmDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftExercise } from "@/lib/draft";
 import type { SetType, Unit } from "@/lib/types";
+import { findRecords } from "@/lib/records";
 import { formatNumber, kgTo, toKg } from "@/lib/units";
 import { NumberCell } from "./NumberCell";
 import { RestPicker } from "./RestPicker";
@@ -49,6 +50,11 @@ export const ExerciseCard = memo(function ExerciseCard({
   editing?: boolean;
 }) {
   const labels = Draft.setLabels(ex.sets);
+  // Trophies on record sets: while logging only once checked off; when editing, every set counts.
+  const records = findRecords(
+    ex.sets.map((s) => (editing || s.done ? s : { ...s, reps: null })),
+    ex.bests,
+  );
   const iconBtn = "rounded-lg p-2 text-muted active:bg-surface-2 disabled:opacity-30";
 
   async function onRemove() {
@@ -105,11 +111,16 @@ export const ExerciseCard = memo(function ExerciseCard({
           return (
             <div key={set.key} className="contents">
               <button
-                aria-label={`Set ${labels[i]}, ${set.type}. Tap to change type`}
+                aria-label={`Set ${labels[i]}, ${set.type}${records[i] ? ", personal record" : ""}. Tap to change type`}
                 onClick={() => update((w) => Draft.cycleSetType(w, ex.key, set.key))}
-                className={`h-10 rounded-md font-semibold ${SET_TYPE_STYLE[set.type]}`}
+                className={`relative h-10 rounded-md font-semibold ${SET_TYPE_STYLE[set.type]}`}
               >
                 {labels[i]}
+                {records[i] && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-black">
+                    <Trophy size={11} strokeWidth={2.5} />
+                  </span>
+                )}
               </button>
               {!editing && (
                 <span className="truncate text-sm text-muted max-[359px]:hidden">

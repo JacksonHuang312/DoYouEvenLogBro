@@ -3,7 +3,7 @@
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { ExercisePicker } from "@/components/ExercisePicker";
@@ -12,6 +12,7 @@ import { WorkoutDetailsForm } from "@/components/WorkoutDetailsForm";
 import { alertDialog, errorDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
+import { loadExerciseHistory, withRecords } from "@/lib/records";
 import { workoutPath } from "@/lib/social";
 import { getWorkout, getWorkoutPhoto, saveWorkout } from "@/lib/workouts";
 
@@ -43,6 +44,26 @@ export function EditWorkout() {
 
   const update = useCallback((fn: (w: DraftWorkout) => DraftWorkout) => setDraft((w) => (w ? fn(w) : w)), []);
 
+  // Records are re-judged on save against your history from before this workout, so load the
+  // bests for each exercise (including ones added while editing). Each loads once.
+  const requested = useRef(new Set<string>());
+  const startedAt = draft?.startedAt;
+  const missing = draft?.exercises.filter((e) => !e.bests).map((e) => e.exerciseId).join(",") ?? "";
+  useEffect(() => {
+    if (startedAt == null || !missing) return;
+    for (const exerciseId of new Set(missing.split(","))) {
+      if (requested.current.has(exerciseId)) continue;
+      requested.current.add(exerciseId);
+      loadExerciseHistory(profile.uid, exerciseId, { before: startedAt, excludeId: id })
+        .then(({ bests }) => update((w) => Draft.setBests(w, exerciseId, bests)))
+        .catch((err) => {
+          // Without history nothing is a record, but saving shouldn't be blocked by it.
+          console.warn("Couldn't load exercise history", err);
+          update((w) => Draft.setBests(w, exerciseId, { maxWeightKg: null, repsAtWeight: {} }));
+        });
+    }
+  }, [missing, startedAt, profile.uid, id, update]);
+
   if (!loaded) return <Spinner />;
   if (loaded.status === "missing" || !draft) {
     return (
@@ -58,8 +79,13 @@ export function EditWorkout() {
   const back = workoutPath(profile.uid, id);
   const originalPhoto = loaded.original.photo;
 
+  const recordsReady = draft.exercises.every((e) => e.bests);
+
   async function onSave() {
-    const workout = Draft.toWorkout(draft!, draft!.startedAt + durationMin * 60_000, { requireDone: false });
+    const workout = withRecords(
+      Draft.toWorkout(draft!, draft!.startedAt + durationMin * 60_000, { requireDone: false }),
+      Draft.draftBests(draft!),
+    );
     if (workout.exercises.length === 0) {
       await alertDialog({ title: "Nothing to save", message: "Add at least one set with reps." });
       return;
@@ -83,8 +109,12 @@ export function EditWorkout() {
           <X size={24} />
         </Link>
         <h1 className="flex-1 text-headline">Edit Workout</h1>
-        <button onClick={onSave} className="rounded-lg bg-accent px-4 py-2 font-semibold text-on-accent">
-          Save
+        <button
+          onClick={onSave}
+          disabled={!recordsReady}
+          className="rounded-lg bg-accent px-4 py-2 font-semibold text-on-accent disabled:opacity-50"
+        >
+          {recordsReady ? "Save" : "Loading..."}
         </button>
       </div>
 
@@ -93,7 +123,7 @@ export function EditWorkout() {
         update={update}
         durationMin={durationMin}
         setDurationMin={setDurationMin}
-        preview={Draft.toWorkout(draft, undefined, { requireDone: false })}
+        preview={withRecords(Draft.toWorkout(draft, undefined, { requireDone: false }), Draft.draftBests(draft))}
         unit={profile.unit}
       />
 

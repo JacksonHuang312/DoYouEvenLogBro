@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- inline data-URL photo; next/image adds nothing here */
+import { Trophy } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { setLabels } from "@/lib/draft";
@@ -26,9 +27,22 @@ export function WorkoutStats({ workout, unit }: { workout: Workout; unit: Unit }
     <div className="flex gap-12">
       <Stat label="Time" value={formatShortDuration(workout.endedAt - workout.startedAt)} />
       <Stat label="Volume" value={formatVolume(unit, workout.volumeKg)} />
+      {workout.recordCount ? (
+        <Stat
+          label="Records"
+          value={
+            <span className="flex items-center gap-1.5">
+              <Trophy size={18} className="text-amber-400" />
+              {workout.recordCount}
+            </span>
+          }
+        />
+      ) : null}
     </div>
   );
 }
+
+const RECORD_LABEL = { weight: "Heaviest weight", reps: "Most reps" } as const;
 
 const PREVIEW_EXERCISES = 3;
 
@@ -112,7 +126,7 @@ export function WorkoutPost({
         )}
       </div>
 
-      <Link href={workoutPath(profile.uid, workout.id)} className="block">
+      <Link href={workoutPath(profile.uid, workout.id)} data-press="none" className="block">
         <h2 className="mb-3 text-xl font-semibold">{workout.name}</h2>
         {workout.description && (
           <div className="mb-3 line-clamp-3">
@@ -169,9 +183,15 @@ export function SetList({ sets, unit }: { sets: LoggedSet[]; unit: Unit }) {
   return (
     <ol className="space-y-1">
       {sets.map((s, i) => (
-        <li key={i} className="flex gap-4 rounded-md px-2 py-1 odd:bg-surface-2/50">
+        <li key={i} className="flex items-center gap-4 rounded-md px-2 py-1 odd:bg-surface-2/50">
           <span className="w-5 text-center text-muted">{labels[i]}</span>
-          <span className="tabular-nums">{formatSet(unit, s)}</span>
+          <span className="flex-1 tabular-nums">{formatSet(unit, s)}</span>
+          {s.record && (
+            <span className="flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-footnote font-medium text-amber-400">
+              <Trophy size={12} />
+              {RECORD_LABEL[s.record]}
+            </span>
+          )}
         </li>
       ))}
     </ol>

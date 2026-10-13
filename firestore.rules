@@ -102,7 +102,8 @@ service cloud.firestore {
 
       match /workouts/{workoutId} {
         function validWorkout(data) {
-          return data.keys().hasOnly(['name', 'startedAt', 'endedAt', 'exercises', 'exerciseIds', 'volumeKg', 'setCount', 'description', 'hasPhoto'])
+          return data.keys().hasOnly(['name', 'startedAt', 'endedAt', 'exercises', 'exerciseIds', 'volumeKg', 'setCount', 'description', 'hasPhoto', 'recordCount'])
+            && (!('recordCount' in data) || (data.recordCount is int && data.recordCount >= 0 && data.recordCount <= 1000))
             // Must match MAX_DESCRIPTION_LENGTH in src/lib/draft.ts.
             && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
             && (!('hasPhoto' in data) || data.hasPhoto is bool)

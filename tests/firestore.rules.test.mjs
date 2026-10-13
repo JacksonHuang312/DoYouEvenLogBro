@@ -353,6 +353,16 @@ describe("shared workouts, likes and comments", () => {
     await assertSucceeds(getDoc(doc(anon(), "users", "alice", "workouts", "w1", "photos", "main")));
   });
 
+  test("a workout can carry personal records", async () => {
+    await seedUser("alice", "alice", 30);
+    const db = dbAs("alice");
+    const sets = [{ type: "normal", weightKg: 105, reps: 3, record: "weight" }];
+    const withRecord = { ...workout, exercises: [{ ...workout.exercises[0], sets }], recordCount: 1 };
+    await assertSucceeds(setDoc(workoutRef(db), withRecord));
+    await assertFails(setDoc(workoutRef(db), { ...workout, recordCount: -1 }));
+    await assertFails(setDoc(workoutRef(db), { ...workout, recordCount: "lots" }));
+  });
+
   test("workout notes and photos are validated", async () => {
     await seedUser("alice", "alice", 30);
     const db = dbAs("alice");

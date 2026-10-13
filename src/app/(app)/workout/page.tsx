@@ -13,7 +13,8 @@ import { OverflowMenu, PageHeader } from "@/components/ui";
 import { WorkoutDetailsForm } from "@/components/WorkoutDetailsForm";
 import { useWorkout } from "@/components/WorkoutProvider";
 import { alertDialog, confirmDialog, errorDialog } from "@/lib/dialog";
-import { toWorkout } from "@/lib/draft";
+import { draftBests, toWorkout } from "@/lib/draft";
+import { withRecords } from "@/lib/records";
 import { formatClock } from "@/lib/format";
 import { deleteRoutine, useRoutines } from "@/lib/routines";
 import { workoutPath } from "@/lib/social";
@@ -273,7 +274,7 @@ function SaveWorkout({
         update={update}
         durationMin={durationMin}
         setDurationMin={setDurationMin}
-        preview={toWorkout(draft)}
+        preview={withRecords(toWorkout(draft), draftBests(draft))}
         unit={profile.unit}
       />
 

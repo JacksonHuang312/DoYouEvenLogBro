@@ -85,7 +85,7 @@ function HomeRail({ profile, count, latest }: { profile: UserProfile; count: num
       {latest && (
         <RailCard>
           <h2 className="mb-2 text-title-3">Latest activity</h2>
-          <Link href={workoutPath(profile.uid, latest.id)} className="block">
+          <Link href={workoutPath(profile.uid, latest.id)} data-press="none" className="block">
             <div className="truncate text-headline">{latest.name}</div>
             <div className="text-subhead text-muted">{formatDayAndTime(latest.startedAt)}</div>
           </Link>

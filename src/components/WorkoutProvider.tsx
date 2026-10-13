@@ -4,8 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { alertDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
+import { loadExerciseHistory, withRecords } from "@/lib/records";
 import type { Exercise, Routine } from "@/lib/types";
-import { listWorkoutsWithExercise, saveWorkout } from "@/lib/workouts";
+import { saveWorkout } from "@/lib/workouts";
 
 interface WorkoutContextValue {
   draft: DraftWorkout | null;
@@ -74,16 +75,16 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
     setDraft((w) => (w ? fn(w) : w));
   }, []);
 
-  /** Fills the "Previous" column from the last time each exercise was logged. */
+  /**
+   * Loads each exercise's history: the "Previous" column (last time it was logged) and your
+   * bests, so record sets get a trophy as they're checked off and are saved as records.
+   */
   const loadPrevious = useCallback(
     (exerciseIds: string[], keys: string[]) => {
       exerciseIds.forEach((exerciseId, i) => {
-        listWorkoutsWithExercise(uid, exerciseId, 1)
-          .then(([last]) => {
-            const sets = last?.exercises.find((e) => e.exerciseId === exerciseId)?.sets;
-            if (sets) update((w) => Draft.setPrevious(w, keys[i], sets));
-          })
-          .catch((err) => console.warn("Couldn't load previous sets", err));
+        loadExerciseHistory(uid, exerciseId)
+          .then(({ previous, bests }) => update((w) => Draft.setHistory(w, keys[i], previous, bests)))
+          .catch((err) => console.warn("Couldn't load exercise history", err));
       });
     },
     [uid, update],
@@ -110,7 +111,7 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
   const finish = useCallback(
     (endedAt: number) => {
       if (!draft) return null;
-      const workout = Draft.toWorkout(draft, endedAt);
+      const workout = withRecords(Draft.toWorkout(draft, endedAt), Draft.draftBests(draft));
       if (workout.exercises.length === 0) return null;
 
       // Not awaited: with the offline cache the write is queued locally and the

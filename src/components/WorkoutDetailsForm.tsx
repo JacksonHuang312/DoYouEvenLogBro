@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- inline data-URL photo; next/image adds nothing here */
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, Trophy } from "lucide-react";
 import { useRef, useState } from "react";
 import { errorDialog } from "@/lib/dialog";
 import { type DraftWorkout, MAX_DESCRIPTION_LENGTH } from "@/lib/draft";
@@ -72,7 +72,7 @@ export function WorkoutDetailsForm({
         className="w-full bg-transparent text-title-2 outline-none placeholder:text-muted"
       />
 
-      <dl className="grid grid-cols-3 border-y border-line py-3">
+      <dl className={`grid border-y border-line py-3 ${preview.recordCount ? "grid-cols-4" : "grid-cols-3"}`}>
         <div>
           <dt className="text-footnote text-muted">Duration</dt>
           <dd className="text-headline tabular-nums">{formatShortDuration(durationMin * 60_000)}</dd>
@@ -85,6 +85,15 @@ export function WorkoutDetailsForm({
           <dt className="text-footnote text-muted">Sets</dt>
           <dd className="text-headline tabular-nums">{preview.setCount}</dd>
         </div>
+        {preview.recordCount ? (
+          <div>
+            <dt className="text-footnote text-muted">Records</dt>
+            <dd className="flex items-center gap-1 text-headline tabular-nums">
+              <Trophy size={16} className="text-amber-400" />
+              {preview.recordCount}
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">

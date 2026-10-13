@@ -27,11 +27,19 @@ export interface UserProfile {
   createdAt: number;
 }
 
+/**
+ * A personal record set: the heaviest weight ever for the exercise, or the most reps ever
+ * at a weight done before. See src/lib/records.ts.
+ */
+export type RecordType = "weight" | "reps";
+
 /** A completed set as stored in Firestore. Weight is always kg. */
 export interface LoggedSet {
   type: SetType;
   weightKg: number | null;
   reps: number;
+  /** Set when this set was a personal record at the time it was saved. */
+  record?: RecordType;
 }
 
 export interface LoggedExercise {
@@ -55,6 +63,8 @@ export interface Workout {
   description?: string;
   /** The photo lives in users/{uid}/workouts/{id}/photos/main, so lists don't download it. */
   hasPhoto?: boolean;
+  /** How many sets were personal records. Omitted when none (and on workouts saved before records). */
+  recordCount?: number;
 }
 
 export interface RoutineExercise {

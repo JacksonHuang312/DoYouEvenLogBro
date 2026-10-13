@@ -1,3 +1,4 @@
+import type { ExerciseBests } from "./records";
 import type { Exercise, LoggedSet, Routine, SetType, Workout } from "./types";
 
 /** The in-progress workout. Lives in localStorage until finished, then becomes a Workout. */
@@ -25,6 +26,8 @@ export interface DraftExercise {
   sets: DraftSet[];
   /** Sets from the last time this exercise was logged, shown in the "Previous" column. */
   previous: LoggedSet[] | null;
+  /** Your bests before this workout, for spotting records. Undefined until history loads. */
+  bests?: ExerciseBests;
 }
 
 export interface DraftSet {
@@ -136,8 +139,29 @@ export function moveExercise(w: DraftWorkout, exKey: string, dir: -1 | 1): Draft
   return { ...w, exercises };
 }
 
-export function setPrevious(w: DraftWorkout, exKey: string, previous: LoggedSet[]): DraftWorkout {
-  return mapExercise(w, exKey, (e) => ({ ...e, previous }));
+/** Fills in an exercise's history once it loads: the Previous column and its bests. */
+export function setHistory(
+  w: DraftWorkout,
+  exKey: string,
+  previous: LoggedSet[] | null,
+  bests: ExerciseBests,
+): DraftWorkout {
+  return mapExercise(w, exKey, (e) => ({ ...e, previous: previous ?? e.previous, bests }));
+}
+
+/** Sets the bests on every not-yet-loaded copy of an exercise (edit mode loads per exercise). */
+export function setBests(w: DraftWorkout, exerciseId: string, bests: ExerciseBests): DraftWorkout {
+  return {
+    ...w,
+    exercises: w.exercises.map((e) => (e.exerciseId === exerciseId && !e.bests ? { ...e, bests } : e)),
+  };
+}
+
+/** exerciseId -> loaded bests, the shape withRecords() takes. */
+export function draftBests(w: DraftWorkout): Record<string, ExerciseBests | undefined> {
+  const bests: Record<string, ExerciseBests | undefined> = {};
+  for (const e of w.exercises) bests[e.exerciseId] ??= e.bests;
+  return bests;
 }
 
 /**
