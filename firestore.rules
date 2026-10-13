@@ -39,17 +39,27 @@ service cloud.firestore {
       return /databases/$(database)/documents/usernames/$(handle);
     }
 
-    // usernames/{handle} -> { uid }. Written only together with the user doc
+    // A username + password account's hidden sign-in address (see LOGIN_DOMAIN in src/lib/profile.ts),
+    // and only the signed-in user's own, so a handle can't point at anyone else's login.
+    function validLoginEmail(data) {
+      return !('loginEmail' in data)
+        || (data.loginEmail == request.auth.token.email
+          && data.loginEmail.matches('^[^@]+@login[.]doyouevenlogbro[.]vercel[.]app$'));
+    }
+
+    // usernames/{handle} -> { uid, loginEmail? }. Written only together with the user doc
     // (onboarding transaction or username-change batch), so a handle can't be hijacked.
     match /usernames/{handle} {
-      allow get: if signedIn();
+      // Readable signed out: signing in with a username looks up its loginEmail here.
+      allow get: if true;
       allow list: if false;
       // Create only: a batch set() on an existing handle is an update, which is denied,
       // so nobody can take a handle that's already claimed.
       allow create: if signedIn()
         && validHandle(handle)
-        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.keys().hasOnly(['uid', 'loginEmail'])
         && request.resource.data.uid == request.auth.uid
+        && validLoginEmail(request.resource.data)
         && getAfter(userPath(request.auth.uid)).data.username == handle;
       allow update: if false;
       // Only your own handle, and only when the same batch moves your profile off it.

@@ -85,6 +85,55 @@ describe("onboarding", () => {
   });
 });
 
+describe("username + password accounts", () => {
+  const LOGIN = "3f2a@login.doyouevenlogbro.vercel.app";
+  const dbWithEmail = (uid, email) => env.authenticatedContext(uid, { email }).firestore();
+
+  /** The same transaction createProfile() writes, as a batch. */
+  function onboard(db, uid, handle, handleData) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, "usernames", handle), handleData);
+    batch.set(doc(db, "users", uid), {
+      username: handle,
+      usernameChangedAt: serverTimestamp(),
+      displayName: handle,
+      photoURL: null,
+      unit: "lb",
+      isPrivate: false,
+      createdAt: Date.now(),
+    });
+    return batch.commit();
+  }
+
+  test("can claim a handle that points at its own login address", async () => {
+    await assertSucceeds(onboard(dbWithEmail("alice", LOGIN), "alice", "alice", { uid: "alice", loginEmail: LOGIN }));
+  });
+
+  test("can't point a handle at someone else's login, or at a real email", async () => {
+    const other = "9999@login.doyouevenlogbro.vercel.app";
+    await assertFails(onboard(dbWithEmail("alice", LOGIN), "alice", "alice", { uid: "alice", loginEmail: other }));
+    const gmail = "alice@gmail.com";
+    await assertFails(onboard(dbWithEmail("alice", gmail), "alice", "alice", { uid: "alice", loginEmail: gmail }));
+  });
+
+  test("signed-out visitors can look up a handle (to sign in) but not list them", async () => {
+    await seedUser("alice", "alice", 8);
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(anon, "usernames", "alice")));
+    await assertFails(getDocs(collection(anon, "usernames")));
+  });
+
+  test("the login address moves with a username change", async () => {
+    await seedUser("alice", "alice", 8);
+    const db = dbWithEmail("alice", LOGIN);
+    const batch = writeBatch(db);
+    batch.set(doc(db, "usernames", "alice_lifts"), { uid: "alice", loginEmail: LOGIN });
+    batch.delete(doc(db, "usernames", "alice"));
+    batch.update(doc(db, "users", "alice"), { username: "alice_lifts", usernameChangedAt: serverTimestamp() });
+    await assertSucceeds(batch.commit());
+  });
+});
+
 describe("username change", () => {
   test("allowed once 7 days have passed", async () => {
     await seedUser("alice", "alice", 8);

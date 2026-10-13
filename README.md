@@ -6,7 +6,8 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
 
 1. **Firebase project** at [console.firebase.google.com](https://console.firebase.google.com):
    - Add a **Web app** and copy its config.
-   - **Authentication → Sign-in method**: enable **Google**.
+   - **Authentication → Sign-in method**: enable **Google** and **Email/Password** (username +
+     password accounts use Email/Password under the hood; see `src/lib/accounts.ts`).
    - **Firestore Database**: create it (production mode).
 2. **Env vars**: copy `.env.example` to `.env.local` and fill in the config values.
 3. **Rules and indexes**: deploy them with the Firebase CLI:
@@ -31,7 +32,7 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
 | Path | Contents |
 | --- | --- |
 | `users/{uid}` | Profile: username, `usernameChangedAt`, display name, unit (`kg`/`lb`), `isPrivate` |
-| `usernames/{handle}` | `{ uid }`, written only alongside the profile so handles are unique |
+| `usernames/{handle}` | `{ uid, loginEmail? }`, written only alongside the profile so handles are unique. `loginEmail` is a username + password account's hidden sign-in address (never emailed); signing in looks it up by handle |
 | `users/{uid}/workouts/{id}` | Finished workout: exercises → sets (`type`, `weightKg`, `reps`) |
 | `users/{uid}/workouts/{id}/likes/{likerUid}` | One doc per like; counts come from server-side aggregation |
 | `users/{uid}/workouts/{id}/comments/{id}` | Comments with the author's uid/username (checked by the rules) |

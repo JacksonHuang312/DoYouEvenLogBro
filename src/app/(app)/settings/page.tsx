@@ -1,15 +1,24 @@
 "use client";
 
-import { Camera } from "lucide-react";
-import { useRef, useState } from "react";
+import type { User } from "firebase/auth";
+import { Camera, KeyRound } from "lucide-react";
+import { useReducer, useRef, useState } from "react";
 import { useAuth, useProfile } from "@/components/AuthProvider";
 import { Avatar, BackHeader } from "@/components/ui";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { AVATAR_SIZE, MAX_AVATAR_CHARS, photoToThumbnail } from "@/lib/image";
-import { changeUsername, nextUsernameChangeAt, updateProfile, USERNAME_PATTERN } from "@/lib/profile";
+import { authErrorMessage, changePassword, googleEmailOf, linkGoogle, MIN_PASSWORD_LENGTH } from "@/lib/accounts";
+import {
+  changeUsername,
+  loginEmailOf,
+  nextUsernameChangeAt,
+  updateProfile,
+  USERNAME_PATTERN,
+} from "@/lib/profile";
 import type { UserProfile } from "@/lib/types";
 
 function UsernameSetting({ profile }: { profile: UserProfile }) {
+  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(profile.username);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +36,7 @@ function UsernameSetting({ profile }: { profile: UserProfile }) {
     setSaving(true);
     setError(null);
     try {
-      await changeUsername(profile, value);
+      await changeUsername(profile, value, user ? loginEmailOf(user) : null);
       setEditing(false);
     } catch (err) {
       const code = (err as { code?: string }).code;
@@ -177,9 +186,155 @@ function ProfilePhotoSetting({
   );
 }
 
+/**
+ * How this account signs in: username + password and/or Google. A password account can link
+ * Google later, which also becomes the way back in if the password is forgotten.
+ */
+function SignInMethods({ user, username }: { user: User; username: string }) {
+  // Linking changes user.providerData in place, so re-render by hand afterwards.
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  const [linking, setLinking] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const hasPassword = loginEmailOf(user) != null;
+  const google = googleEmailOf(user);
+
+  async function onLinkGoogle() {
+    setLinking(true);
+    try {
+      await linkGoogle(user);
+      rerender();
+    } catch (err) {
+      const message = authErrorMessage(err);
+      if (message) await errorDialog("Couldn't link Google", new Error(message));
+    } finally {
+      setLinking(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="mb-2 px-1 text-footnote uppercase text-muted">Sign-in methods</h2>
+      <div className="divide-y divide-line rounded-xl bg-surface">
+        {hasPassword && (
+          <div className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-3">
+                <KeyRound size={20} className="text-muted" />
+                <span>
+                  Username &amp; password
+                  <span className="block text-sm text-muted">Sign in as @{username}</span>
+                </span>
+              </span>
+              {!changingPassword && (
+                <button onClick={() => setChangingPassword(true)} className="text-sm font-medium text-accent">
+                  Change password
+                </button>
+              )}
+            </div>
+            {changingPassword && <PasswordForm user={user} onDone={() => setChangingPassword(false)} />}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 p-4">
+          <span className="flex min-w-0 items-center gap-3">
+            <GoogleMark />
+            <span className="min-w-0">
+              Google
+              <span className="block truncate text-sm text-muted">{google ?? "Not linked"}</span>
+            </span>
+          </span>
+          {google ? (
+            <span className="text-sm text-muted">Linked</span>
+          ) : (
+            <button onClick={onLinkGoogle} disabled={linking} className="shrink-0 text-sm font-medium text-accent">
+              {linking ? "Linking..." : "Link Google"}
+            </button>
+          )}
+        </div>
+      </div>
+      {hasPassword && !google && (
+        <p className="mt-2 px-1 text-footnote text-muted">
+          There&apos;s no email on this account, so a forgotten password can&apos;t be reset. Link Google to always
+          have a way back in.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function PasswordForm({ user, onDone }: { user: User; onDone: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await changePassword(user, current, next);
+      onDone();
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      // Here "wrong credentials" can only mean the current password.
+      setError(code === "auth/invalid-credential" || code === "auth/wrong-password" ? "Current password is wrong." : authErrorMessage(err));
+      setSaving(false);
+    }
+  }
+
+  const field = "w-full rounded-md bg-surface-2 px-3 py-2 outline-none focus:ring-2 focus:ring-accent";
+  return (
+    <form onSubmit={submit} className="mt-3 space-y-2">
+      <input
+        type="password"
+        autoComplete="current-password"
+        aria-label="Current password"
+        placeholder="Current password"
+        value={current}
+        onChange={(e) => setCurrent(e.target.value)}
+        className={field}
+      />
+      <input
+        type="password"
+        autoComplete="new-password"
+        aria-label="New password"
+        placeholder={`New password (${MIN_PASSWORD_LENGTH}+ characters)`}
+        value={next}
+        onChange={(e) => setNext(e.target.value)}
+        className={field}
+      />
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      <div className="flex gap-2">
+        <button type="button" onClick={onDone} className="flex-1 rounded-md bg-surface-2 py-2 text-sm">
+          Cancel
+        </button>
+        <button
+          disabled={!current || next.length < MIN_PASSWORD_LENGTH || saving}
+          className="flex-1 rounded-md bg-accent py-2 text-sm font-medium text-on-accent disabled:opacity-40"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Google's "G", in its colors, so the row is recognizable at a glance. */
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden className="shrink-0">
+      <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z" />
+    </svg>
+  );
+}
+
 export default function SettingsPage() {
   const profile = useProfile();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   // Not awaited: the profile listener applies the change instantly, even offline.
   const save = (patch: Parameters<typeof updateProfile>[1]) =>
@@ -220,6 +375,8 @@ export default function SettingsPage() {
           />
         </label>
       </section>
+
+      {user && <SignInMethods user={user} username={profile.username} />}
 
       <button onClick={signOut} className="w-full rounded-xl bg-surface py-3 font-medium">
         Sign out
