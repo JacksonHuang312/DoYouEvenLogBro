@@ -25,6 +25,8 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
   const [unit, setUnit] = useState<Unit>("lb");
   const [error, setError] = useState<string | null>(null);
+  // Set when they try to create an account with a short password, so the hint shows even if it's empty.
+  const [triedShortPassword, setTriedShortPassword] = useState(false);
   // While an account is being created the user exists before its profile does; hold the
   // redirect so it doesn't flash onboarding on the way to /home.
   const [busy, setBusy] = useState(false);
@@ -37,11 +39,22 @@ export default function Home() {
   if (loading || (user && !busy)) return <Spinner />;
 
   const signingUp = mode === "signup";
-  const valid = USERNAME_PATTERN.test(username) && password.length >= (signingUp ? MIN_PASSWORD_LENGTH : 1);
+  const passwordTooShort = signingUp && password.length < MIN_PASSWORD_LENGTH;
+  const showPasswordHint = passwordTooShort && (password.length > 0 || triedShortPassword);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!valid || busy) return;
+    if (busy) return;
+    // Say what's wrong instead of silently refusing.
+    if (!signingUp && (!username || !password)) {
+      setError("Enter your username and password.");
+      return;
+    }
+    if (signingUp) {
+      setError(USERNAME_PATTERN.test(username) ? null : "Usernames are 3-20 letters, numbers or underscores.");
+      setTriedShortPassword(passwordTooShort);
+      if (passwordTooShort || !USERNAME_PATTERN.test(username)) return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -63,6 +76,7 @@ export default function Home() {
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
+    setTriedShortPassword(false);
   }
 
   const field = "w-full bg-transparent px-3 py-3 outline-none";
@@ -125,6 +139,8 @@ export default function Home() {
               placeholder={signingUp ? `Password (${MIN_PASSWORD_LENGTH}+ characters)` : "Password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={showPasswordHint}
+              aria-describedby={showPasswordHint ? "password-hint" : undefined}
               className={field}
             />
             <button
@@ -137,6 +153,11 @@ export default function Home() {
             </button>
           </div>
         </label>
+        {showPasswordHint && (
+          <p id="password-hint" className="px-1 text-sm text-red-400">
+            Password must be at least {MIN_PASSWORD_LENGTH} characters ({password.length}/{MIN_PASSWORD_LENGTH}).
+          </p>
+        )}
 
         {signingUp && (
           <>
@@ -165,7 +186,7 @@ export default function Home() {
         {error && <p className="px-1 text-sm text-red-400">{error}</p>}
 
         <button
-          disabled={!valid || busy}
+          disabled={busy}
           className="w-full rounded-xl bg-accent py-3 font-semibold text-on-accent disabled:opacity-40"
         >
           {busy ? (signingUp ? "Creating account..." : "Signing in...") : signingUp ? "Create account" : "Sign in"}

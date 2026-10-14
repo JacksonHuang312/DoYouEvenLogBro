@@ -315,9 +315,17 @@ function PasswordForm({ user, onDone }: { user: User; onDone: () => void }) {
   const [next, setNext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Set on a save with a short new password, so the hint shows even if it's empty.
+  const [triedShort, setTriedShort] = useState(false);
+  const tooShort = next.length < MIN_PASSWORD_LENGTH;
+  const showHint = tooShort && (next.length > 0 || triedShort);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // Say what's wrong instead of silently refusing.
+    setError(current ? null : "Enter your current password.");
+    setTriedShort(tooShort);
+    if (!current || tooShort) return;
     setSaving(true);
     setError(null);
     try {
@@ -350,15 +358,22 @@ function PasswordForm({ user, onDone }: { user: User; onDone: () => void }) {
         placeholder={`New password (${MIN_PASSWORD_LENGTH}+ characters)`}
         value={next}
         onChange={(e) => setNext(e.target.value)}
+        aria-invalid={showHint}
+        aria-describedby={showHint ? "new-password-hint" : undefined}
         className={field}
       />
+      {showHint && (
+        <p id="new-password-hint" className="text-sm text-red-400">
+          New password must be at least {MIN_PASSWORD_LENGTH} characters ({next.length}/{MIN_PASSWORD_LENGTH}).
+        </p>
+      )}
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex gap-2">
         <button type="button" onClick={onDone} className="flex-1 rounded-md bg-surface-2 py-2 text-sm">
           Cancel
         </button>
         <button
-          disabled={!current || next.length < MIN_PASSWORD_LENGTH || saving}
+          disabled={saving}
           className="flex-1 rounded-md bg-accent py-2 text-sm font-medium text-on-accent disabled:opacity-40"
         >
           {saving ? "Saving..." : "Save"}
