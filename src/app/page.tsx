@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
+import { GoogleMark } from "@/components/ui";
 import {
   authErrorMessage,
   MIN_PASSWORD_LENGTH,
@@ -206,8 +207,9 @@ export default function Home() {
             if (message) setError(message);
           })
         }
-        className="rounded-xl bg-white py-3 font-semibold text-zinc-900"
+        className="flex items-center justify-center gap-3 rounded-xl bg-white py-3 font-semibold text-zinc-900"
       >
+        <GoogleMark />
         Continue with Google
       </button>
     </main>
