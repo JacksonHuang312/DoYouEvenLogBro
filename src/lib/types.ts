@@ -25,6 +25,8 @@ export interface UserProfile {
   unit: Unit;
   isPrivate: boolean;
   createdAt: number;
+  /** "About me" shown on the profile. Missing on accounts that never set one. */
+  bio?: string;
 }
 
 /**

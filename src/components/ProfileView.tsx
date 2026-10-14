@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Dumbbell, Lock, Settings, UserPlus } from "lucide-react";
+import { ChevronLeft, Dumbbell, Lock, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -46,8 +46,8 @@ export function ProfileView({ profile }: { profile: UserProfile }) {
     <div>
       {isMe ? (
         <PageHeader title={profile.username}>
-          <Link href="/settings" aria-label="Settings">
-            <Settings size={26} />
+          <Link href="/settings" className="rounded-lg bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-2">
+            Edit Profile
           </Link>
         </PageHeader>
       ) : (
@@ -110,6 +110,7 @@ function ProfileCard({
           </div>
         </div>
       </div>
+      {profile.bio && <Bio text={profile.bio} />}
       {!isMe && (
         <div className="mt-4">
           <FollowButton target={profile} block />
@@ -128,6 +129,26 @@ function ProfileCard({
         </Link>
       )}
     </RailCard>
+  );
+}
+
+const URL_PATTERN = /(https?:\/\/[^\s]+)/;
+
+/** The profile's "About me", keeping its line breaks, with links clickable like Hevy. */
+function Bio({ text }: { text: string }) {
+  return (
+    <p className="mt-4 whitespace-pre-line break-words">
+      {/* split() with a capturing group puts the links at the odd indexes. */}
+      {text.split(URL_PATTERN).map((part, i) =>
+        i % 2 ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer nofollow" className="text-accent hover:underline">
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </p>
   );
 }
 

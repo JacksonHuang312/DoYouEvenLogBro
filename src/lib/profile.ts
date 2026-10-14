@@ -27,6 +27,9 @@ export function loginEmailOf(user: User): string | null {
 /** What usernames/{handle} holds: the owner, plus the login address for password accounts. */
 const handleDoc = (uid: string, loginEmail: string | null) => ({ uid, ...(loginEmail ? { loginEmail } : {}) });
 
+/** Must match the bio check in firestore.rules. */
+export const MAX_BIO_LENGTH = 300;
+
 /** Must match the duration in firestore.rules. */
 export const USERNAME_CHANGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -108,7 +111,7 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
 
 export function updateProfile(
   uid: string,
-  patch: Partial<Pick<UserProfile, "unit" | "isPrivate" | "displayName" | "photoURL">>,
+  patch: Partial<Pick<UserProfile, "unit" | "isPrivate" | "displayName" | "photoURL" | "bio">>,
 ) {
   const { db } = firebase();
   return updateDoc(doc(db, "users", uid), patch);

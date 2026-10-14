@@ -134,6 +134,23 @@ describe("username + password accounts", () => {
   });
 });
 
+describe("about me", () => {
+  test("you can set your own, up to 300 characters", async () => {
+    await seedUser("alice", "alice", 8);
+    const ref = doc(dbAs("alice"), "users", "alice");
+    await assertSucceeds(setDoc(ref, { bio: "Push pull legs.\nhttps://example.com" }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { bio: "x".repeat(300) }, { merge: true }));
+    await assertFails(setDoc(ref, { bio: "x".repeat(301) }, { merge: true }));
+    await assertFails(setDoc(ref, { bio: 42 }, { merge: true }));
+  });
+
+  test("nobody else can set it", async () => {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 8);
+    await assertFails(setDoc(doc(dbAs("bob"), "users", "alice"), { bio: "hacked" }, { merge: true }));
+  });
+});
+
 describe("username change", () => {
   test("allowed once 7 days have passed", async () => {
     await seedUser("alice", "alice", 8);

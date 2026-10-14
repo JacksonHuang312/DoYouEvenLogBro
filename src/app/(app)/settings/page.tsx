@@ -11,6 +11,7 @@ import { authErrorMessage, changePassword, googleEmailOf, linkGoogle, MIN_PASSWO
 import {
   changeUsername,
   loginEmailOf,
+  MAX_BIO_LENGTH,
   nextUsernameChangeAt,
   updateProfile,
   USERNAME_PATTERN,
@@ -186,6 +187,53 @@ function ProfilePhotoSetting({
   );
 }
 
+/** The "About me" shown on your profile. Saved with a button, not per keystroke. */
+function BioSetting({ profile, save }: { profile: UserProfile; save: (patch: { bio: string }) => Promise<unknown> }) {
+  const [value, setValue] = useState(profile.bio ?? "");
+  const changed = value.trim() !== (profile.bio ?? "");
+
+  return (
+    <section>
+      <h2 className="mb-2 px-1 text-footnote uppercase text-muted">About me</h2>
+      <div className="rounded-xl bg-surface p-4">
+        <textarea
+          id="bio"
+          aria-label="About me"
+          placeholder="Tell people about your training, goals, or anything else."
+          value={value}
+          maxLength={MAX_BIO_LENGTH}
+          rows={4}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-full resize-none rounded-md bg-surface-2 px-3 py-2 outline-none focus:ring-2 focus:ring-accent"
+        />
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-xs text-muted">
+            {value.length}/{MAX_BIO_LENGTH}
+          </span>
+          {changed && (
+            <div className="flex gap-2">
+              <button onClick={() => setValue(profile.bio ?? "")} className="rounded-md bg-surface-2 px-4 py-1.5 text-sm">
+                Cancel
+              </button>
+              {/* Not awaited, like the other settings: the profile listener shows it instantly. */}
+              <button
+                onClick={() => {
+                  const bio = value.trim();
+                  setValue(bio);
+                  save({ bio });
+                }}
+                className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-on-accent"
+              >
+                Save
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /**
  * How this account signs in: username + password and/or Google. A password account can link
  * Google later, which also becomes the way back in if the password is forgotten.
@@ -345,6 +393,8 @@ export default function SettingsPage() {
       <BackHeader title="Settings" href="/profile" />
 
       <ProfilePhotoSetting profile={profile} save={save} />
+
+      <BioSetting profile={profile} save={save} />
 
       <section className="divide-y divide-line rounded-xl bg-surface">
         <UsernameSetting profile={profile} />
