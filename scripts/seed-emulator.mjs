@@ -1,4 +1,4 @@
-// Seeds the local Firebase emulators with two users and a shared workout.
+// Seeds the local Firebase emulators with two users, a shared workout, and bob following alice.
 // Usage: `npm run emulators` in one terminal, then `node scripts/seed-emulator.mjs`.
 // Sign in as alice@test.dev or bob@test.dev, password "password123".
 import { readFileSync } from "node:fs";
@@ -61,6 +61,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     volumeKg: 77.1 * 22,
     setCount: 4,
   });
+  // bob follows alice, so alice's workout shows up in bob's feed.
+  await setDoc(doc(db, "users", bob, "following", alice), { createdAt: Timestamp.fromMillis(now - 86_400_000) });
+  await setDoc(doc(db, "users", alice, "followers", bob), { createdAt: Timestamp.fromMillis(now - 86_400_000) });
   await setDoc(doc(db, "users", alice, "workouts", "w1", "comments", "seed"), {
     authorUid: bob,
     authorUsername: "bob",

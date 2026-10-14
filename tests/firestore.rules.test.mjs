@@ -345,7 +345,7 @@ describe("shared workouts, likes and comments", () => {
     await assertSucceeds(getDoc(doc(anon(), "users", "alice")));
   });
 
-  test("a private account's workout only opens for its owner", async () => {
+  test("a private account's workout only opens for its owner (and followers)", async () => {
     await seedWorkout("alice", { isPrivate: true });
     await seedUser("bob", "bob", 30);
     await assertFails(getDoc(workoutRef(anon())));
@@ -545,5 +545,147 @@ describe("comment replies", () => {
     await seedUser("dave", "dave", 30);
     await setDoc(ref(dbAs("carol"), "r1"), comment("carol", { parentId: "top", replyToUsername: "bob" }));
     await assertFails(deleteDoc(ref(dbAs("dave"), "r1")));
+  });
+});
+
+describe("following", () => {
+  const followDoc = () => ({ createdAt: serverTimestamp() });
+  const followingRef = (db, uid, target) => doc(db, "users", uid, "following", target);
+  const followerRef = (db, uid, follower) => doc(db, "users", uid, "followers", follower);
+  const requestRef = (db, uid, requester) => doc(db, "users", uid, "followRequests", requester);
+
+  async function seedPair({ alicePrivate = false } = {}) {
+    await seedUser("alice", "alice", 30);
+    await seedUser("bob", "bob", 30);
+    if (alicePrivate) {
+      await env.withSecurityRulesDisabled((ctx) =>
+        setDoc(doc(ctx.firestore(), "users", "alice"), { isPrivate: true }, { merge: true }),
+      );
+    }
+  }
+
+  /** The same batch the app's follow() sends for a public account: bob follows alice. */
+  function followBatch(db, follower = "bob", target = "alice") {
+    const batch = writeBatch(db);
+    batch.set(followingRef(db, follower, target), followDoc());
+    batch.set(followerRef(db, target, follower), followDoc());
+    batch.delete(requestRef(db, target, follower));
+    return batch.commit();
+  }
+
+  /** The same batch the app's acceptRequest() sends: alice accepts bob. */
+  function acceptBatch(db) {
+    const batch = writeBatch(db);
+    batch.set(followerRef(db, "alice", "bob"), followDoc());
+    batch.set(followingRef(db, "bob", "alice"), followDoc());
+    batch.delete(requestRef(db, "alice", "bob"));
+    return batch.commit();
+  }
+
+  async function seedPrivateWorkout() {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), "users", "alice", "workouts", "w1"), {
+        name: "Legs",
+        startedAt: 0,
+        endedAt: 1,
+        exercises: [],
+        exerciseIds: [],
+        volumeKg: 0,
+        setCount: 0,
+      }),
+    );
+  }
+
+  test("can follow and unfollow a public account", async () => {
+    await seedPair();
+    await assertSucceeds(followBatch(dbAs("bob")));
+    await assertSucceeds(getDocs(collection(dbAs("carol"), "users", "alice", "followers")));
+    const db = dbAs("bob");
+    const batch = writeBatch(db);
+    batch.delete(followingRef(db, "bob", "alice"));
+    batch.delete(followerRef(db, "alice", "bob"));
+    await assertSucceeds(batch.commit());
+  });
+
+  test("both sides must be written together", async () => {
+    await seedPair();
+    await assertFails(setDoc(followingRef(dbAs("bob"), "bob", "alice"), followDoc()));
+    await assertFails(setDoc(followerRef(dbAs("bob"), "alice", "bob"), followDoc()));
+  });
+
+  test("can't make someone else follow, follow yourself, or backdate a follow", async () => {
+    await seedPair();
+    await seedUser("carol", "carol", 30);
+    await assertFails(followBatch(dbAs("carol")));
+    await assertFails(followBatch(dbAs("bob"), "bob", "bob"));
+    const db = dbAs("bob");
+    const batch = writeBatch(db);
+    batch.set(followingRef(db, "bob", "alice"), { createdAt: Timestamp.fromMillis(0) });
+    batch.set(followerRef(db, "alice", "bob"), { createdAt: Timestamp.fromMillis(0) });
+    await assertFails(batch.commit());
+  });
+
+  test("follow lists need sign-in", async () => {
+    await seedPair();
+    await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(), "users", "alice", "followers")));
+  });
+
+  test("a private account can't be followed directly, only requested", async () => {
+    await seedPair({ alicePrivate: true });
+    await assertFails(followBatch(dbAs("bob")));
+    await assertSucceeds(setDoc(requestRef(dbAs("bob"), "alice", "bob"), followDoc()));
+    await assertSucceeds(getDoc(requestRef(dbAs("bob"), "alice", "bob")));
+  });
+
+  test("requests: only the requester can make one, only the owner can list them", async () => {
+    await seedPair({ alicePrivate: true });
+    await seedUser("carol", "carol", 30);
+    await assertFails(setDoc(requestRef(dbAs("carol"), "alice", "bob"), followDoc()));
+    await setDoc(requestRef(dbAs("bob"), "alice", "bob"), followDoc());
+    await assertFails(getDoc(requestRef(dbAs("carol"), "alice", "bob")));
+    await assertFails(getDocs(collection(dbAs("bob"), "users", "alice", "followRequests")));
+    await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "followRequests")));
+  });
+
+  test("public accounts don't take requests", async () => {
+    await seedPair();
+    await assertFails(setDoc(requestRef(dbAs("bob"), "alice", "bob"), followDoc()));
+  });
+
+  test("an accepted follower can see a private account's workouts", async () => {
+    await seedPair({ alicePrivate: true });
+    await seedPrivateWorkout();
+    const workoutRef = (db) => doc(db, "users", "alice", "workouts", "w1");
+    await assertFails(getDoc(workoutRef(dbAs("bob"))));
+    await setDoc(requestRef(dbAs("bob"), "alice", "bob"), followDoc());
+    await assertSucceeds(acceptBatch(dbAs("alice")));
+    await assertSucceeds(getDoc(workoutRef(dbAs("bob"))));
+    await assertSucceeds(getDocs(collection(dbAs("bob"), "users", "alice", "workouts")));
+  });
+
+  test("the owner can't accept a request that was never made", async () => {
+    await seedPair({ alicePrivate: true });
+    await assertFails(acceptBatch(dbAs("alice")));
+  });
+
+  test("the owner can decline a request or remove a follower", async () => {
+    await seedPair({ alicePrivate: true });
+    await setDoc(requestRef(dbAs("bob"), "alice", "bob"), followDoc());
+    await assertSucceeds(deleteDoc(requestRef(dbAs("alice"), "alice", "bob")));
+    await setDoc(requestRef(dbAs("bob"), "alice", "bob"), followDoc());
+    await acceptBatch(dbAs("alice"));
+    const db = dbAs("alice");
+    const batch = writeBatch(db);
+    batch.delete(followingRef(db, "bob", "alice"));
+    batch.delete(followerRef(db, "alice", "bob"));
+    await assertSucceeds(batch.commit());
+  });
+
+  test("strangers can't remove someone's follows", async () => {
+    await seedPair();
+    await seedUser("carol", "carol", 30);
+    await followBatch(dbAs("bob"));
+    await assertFails(deleteDoc(followingRef(dbAs("carol"), "bob", "alice")));
+    await assertFails(deleteDoc(followerRef(dbAs("carol"), "alice", "bob")));
   });
 });

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useWorkout } from "./WorkoutProvider";
 
 const TABS = [
-  { href: "/home", label: "Home", Icon: House, match: ["/home"] },
+  { href: "/home", label: "Home", Icon: House, match: ["/home", "/search", "/u"] },
   { href: "/workout", label: "Workout", Icon: Dumbbell, match: ["/workout", "/routines"] },
   { href: "/profile", label: "Profile", Icon: User, match: ["/profile", "/exercises", "/settings"] },
 ];

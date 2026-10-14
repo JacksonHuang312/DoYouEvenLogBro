@@ -5,11 +5,13 @@ import { Trophy } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { setLabels } from "@/lib/draft";
+import { profilePath } from "@/lib/follows";
 import { formatRelativeDay, formatShortDuration } from "@/lib/format";
 import { useComments, workoutPath } from "@/lib/social";
 import type { LoggedSet, Unit, UserProfile, Workout } from "@/lib/types";
 import { formatWeight, kgTo } from "@/lib/units";
 import { getWorkoutPhoto } from "@/lib/workouts";
+import { useAuth } from "./AuthProvider";
 import { CommentThread } from "./Comments";
 import { SocialBar } from "./SocialBar";
 import { Avatar, ExerciseThumb, OverflowMenu, Stat } from "./ui";
@@ -81,7 +83,7 @@ export function WorkoutDescription({ workout }: { workout: Workout }) {
   return <p className="whitespace-pre-line break-words text-body">{workout.description}</p>;
 }
 
-/** A workout shown like a Hevy feed post: author, title, stats, exercise preview. */
+/** A workout shown like a Hevy feed post: author, title, stats, exercise preview. `profile` is the author. */
 export function WorkoutPost({
   workout,
   profile,
@@ -94,16 +96,20 @@ export function WorkoutPost({
   const hidden = workout.exercises.length - PREVIEW_EXERCISES;
   const comments = useComments(profile.uid, workout.id);
   const commentBox = useRef<HTMLTextAreaElement>(null);
+  // Weights in the viewer's unit, whoever logged them.
+  const unit = useAuth().profile?.unit ?? profile.unit;
 
   return (
     // Phones: full-bleed posts split by thick gray bars. Desktop: separate cards, like Hevy's web feed.
     <article className="-mx-4 border-surface px-4 py-5 not-last:border-b-8 lg:mx-0 lg:mb-4 lg:rounded-xl lg:border-0! lg:bg-surface lg:px-6">
       <div className="mb-3 flex items-center gap-3">
-        <Avatar photoURL={profile.photoURL} name={profile.username} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate">{profile.username}</div>
-          <div className="text-sm text-muted">{formatRelativeDay(workout.startedAt)}</div>
-        </div>
+        <Link href={profilePath(profile.uid)} className="flex min-w-0 flex-1 items-center gap-3">
+          <Avatar photoURL={profile.photoURL} name={profile.username} />
+          <div className="min-w-0 flex-1">
+            <div className="truncate">{profile.username}</div>
+            <div className="text-sm text-muted">{formatRelativeDay(workout.startedAt)}</div>
+          </div>
+        </Link>
         {onDelete && (
           <OverflowMenu label="Workout options">
             {(close) => (
@@ -134,7 +140,7 @@ export function WorkoutPost({
           </div>
         )}
         <div className="border-b border-line pb-3">
-          <WorkoutStats workout={workout} unit={profile.unit} />
+          <WorkoutStats workout={workout} unit={unit} />
         </div>
         {workout.hasPhoto && (
           <div className="pt-4">

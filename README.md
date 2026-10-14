@@ -36,11 +36,19 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
 | `users/{uid}/workouts/{id}` | Finished workout: exercises → sets (`type`, `weightKg`, `reps`) |
 | `users/{uid}/workouts/{id}/likes/{likerUid}` | One doc per like; counts come from server-side aggregation |
 | `users/{uid}/workouts/{id}/comments/{id}` | Comments with the author's uid/username (checked by the rules) |
+| `users/{uid}/following/{targetUid}` | Who `uid` follows. Always written and deleted in the same batch as its mirror below |
+| `users/{uid}/followers/{followerUid}` | Who follows `uid` (the mirror). Counts come from server-side aggregation |
+| `users/{uid}/followRequests/{requesterUid}` | Pending requests to follow a private account; the owner accepts (writing both follow docs) or declines |
 | `users/{uid}/routines/{id}` | Saved workout templates: exercises with set count and rest time |
 | `users/{uid}/customExercises/{id}` | User-created exercises (ids start with `c_`), with an optional 192px JPEG photo stored inline as `imageData` |
 
 Each workout's page, `/w/{uid}/{workoutId}`, is also its share link. Anyone can open it, signed in
 or not, unless the owner's account is private. Signed-in users can like and comment.
+
+Following works like Hevy: search people by username at `/search`, see anyone's profile at `/u/{uid}`,
+and follow them. Public accounts can be followed straight away; private accounts get a follow request,
+and only the owner and approved followers can see their workouts. The home feed merges your workouts
+with everyone you follow, newest first (one live query per person; see `useFeed` in `src/lib/follows.ts`).
 
 Usernames can be changed once every 7 days. The change is one batch that claims the new handle,
 releases the old one and sets `usernameChangedAt` to server time; `firestore.rules` enforces all of it.

@@ -7,11 +7,13 @@ import { useEffect, useRef, useState } from "react";
 import { SignedInChrome } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { CommentThread } from "@/components/Comments";
+import { FollowButton } from "@/components/Follow";
 import { SocialBar } from "@/components/SocialBar";
 import { Spinner } from "@/components/Spinner";
 import { Avatar, ExerciseThumb } from "@/components/ui";
 import { SetList, WorkoutDescription, WorkoutPhoto, WorkoutStats } from "@/components/WorkoutSummary";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
+import { profilePath } from "@/lib/follows";
 import { formatDayAndTime } from "@/lib/format";
 import { getProfile } from "@/lib/profile";
 import { useComments } from "@/lib/social";
@@ -55,9 +57,14 @@ export function SharedWorkout() {
       </h1>
       <p className="text-muted">
         {loaded.status === "private"
-          ? "The owner's account is private."
+          ? "The owner's account is private. Only their followers can see it."
           : "It may have been deleted, or the link is wrong."}
       </p>
+      {loaded.status === "private" && viewer && (
+        <Link href={profilePath(ownerUid)} className="inline-block rounded-lg bg-accent px-5 py-2.5 font-medium text-on-accent">
+          View profile
+        </Link>
+      )}
     </div>
   );
 
@@ -124,11 +131,17 @@ function WorkoutView({ author, workout }: { author: UserProfile; workout: Workou
       )}
 
       <div className="mb-3 flex items-center gap-3">
-        <Avatar photoURL={author.photoURL} name={author.username} size={44} />
-        <div>
-          <div className="font-medium">{author.username}</div>
-          <div className="text-sm text-muted">{formatDayAndTime(workout.startedAt)}</div>
-        </div>
+        {/* Profiles are for signed-in users; visitors just see who it is. */}
+        {viewer ? (
+          <>
+            <Link href={profilePath(author.uid)} className="flex min-w-0 flex-1 items-center gap-3">
+              <AuthorHeader author={author} workout={workout} />
+            </Link>
+            {!isOwner && <FollowButton target={author} />}
+          </>
+        ) : (
+          <AuthorHeader author={author} workout={workout} />
+        )}
       </div>
       <h1 className="mb-3 text-2xl font-semibold">{workout.name}</h1>
       {workout.description && (
@@ -211,5 +224,17 @@ function WorkoutView({ author, workout }: { author: UserProfile; workout: Workou
         </div>
       )}
     </div>
+  );
+}
+
+function AuthorHeader({ author, workout }: { author: UserProfile; workout: Workout }) {
+  return (
+    <>
+      <Avatar photoURL={author.photoURL} name={author.username} size={44} />
+      <div className="min-w-0">
+        <div className="truncate font-medium">{author.username}</div>
+        <div className="text-sm text-muted">{formatDayAndTime(workout.startedAt)}</div>
+      </div>
+    </>
   );
 }

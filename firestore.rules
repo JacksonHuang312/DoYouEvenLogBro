@@ -19,10 +19,30 @@ service cloud.firestore {
       return /databases/$(database)/documents/users/$(uid);
     }
 
-    // Workouts (and their likes/comments) are readable by the owner, or by anyone
-    // (signed in or not, e.g. via a shared link) when the owner's account is public.
+    function followerPath(uid, followerUid) {
+      return /databases/$(database)/documents/users/$(uid)/followers/$(followerUid);
+    }
+
+    function followingPath(uid, targetUid) {
+      return /databases/$(database)/documents/users/$(uid)/following/$(targetUid);
+    }
+
+    function requestPath(uid, requesterUid) {
+      return /databases/$(database)/documents/users/$(uid)/followRequests/$(requesterUid);
+    }
+
+    // Workouts (and their likes/comments) are readable by the owner, by anyone (signed in or not,
+    // e.g. via a shared link) when the owner's account is public, and by approved followers when it's private.
     function canReadWorkouts(uid) {
-      return isUser(uid) || get(userPath(uid)).data.isPrivate == false;
+      return isUser(uid)
+        || get(userPath(uid)).data.isPrivate == false
+        || (signedIn() && exists(followerPath(uid, request.auth.uid)));
+    }
+
+    // Follow docs hold only the server time they were made.
+    function validFollowDoc() {
+      return request.resource.data.keys().hasOnly(['createdAt'])
+        && request.resource.data.createdAt == request.time;
     }
 
     // A profile picture: a link (e.g. the Google account photo), or one the user uploaded,
@@ -198,6 +218,47 @@ service cloud.firestore {
                 && get(commentPath(resource.data.parentId)).data.authorUid == request.auth.uid));
           allow update: if false;
         }
+      }
+
+      // users/{uid}/following/{targetUid} (uid follows targetUid) is always mirrored by
+      // users/{targetUid}/followers/{uid}; both are written and deleted in the same batch.
+      match /following/{targetUid} {
+        allow read: if signedIn();
+        // The follower follows, or the target approves the follower's request.
+        allow create: if validFollowDoc()
+          && uid != targetUid
+          && existsAfter(followerPath(targetUid, uid))
+          && (isUser(uid) || (isUser(targetUid) && exists(requestPath(targetUid, uid))));
+        // Unfollowing, or the target removing a follower.
+        allow delete: if isUser(uid) || isUser(targetUid);
+        allow update: if false;
+      }
+
+      match /followers/{followerUid} {
+        allow read: if signedIn();
+        // Anyone can follow a public account; a private account's owner approves a pending request.
+        allow create: if validFollowDoc()
+          && uid != followerUid
+          && existsAfter(followingPath(followerUid, uid))
+          && ((isUser(followerUid) && get(userPath(uid)).data.isPrivate == false)
+            || (isUser(uid) && exists(requestPath(uid, followerUid))));
+        allow delete: if isUser(uid) || isUser(followerUid);
+        allow update: if false;
+      }
+
+      // users/{uid}/followRequests/{requesterUid}: asking to follow a private account.
+      match /followRequests/{requesterUid} {
+        // The owner lists their requests; a requester can check on their own.
+        allow get: if isUser(uid) || isUser(requesterUid);
+        allow list: if isUser(uid);
+        allow create: if isUser(requesterUid)
+          && uid != requesterUid
+          && validFollowDoc()
+          && get(userPath(uid)).data.isPrivate == true
+          && !exists(followerPath(uid, requesterUid));
+        // Accepting/declining (owner) or cancelling (requester).
+        allow delete: if isUser(uid) || isUser(requesterUid);
+        allow update: if false;
       }
 
       match /routines/{routineId} {

@@ -26,7 +26,7 @@ export function ShareButton({ workout, author }: { workout: Workout; author: Use
     if (author.isPrivate && user?.uid === author.uid) {
       const ok = await confirmDialog({
         title: "Your account is private",
-        message: "Only you can open this link. Make your account public in Settings to share workouts.",
+        message: "Only you and your followers can open this link. Make your account public in Settings to share workouts with anyone.",
         confirmLabel: "Copy anyway",
       });
       if (!ok) return;

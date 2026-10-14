@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Dumbbell, House, LogOut, Settings, User } from "lucide-react";
+import { BookOpen, Dumbbell, House, LogOut, Search, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth, useProfile } from "./AuthProvider";
@@ -10,6 +10,7 @@ import { useWorkout } from "./WorkoutProvider";
 
 const ITEMS = [
   { href: "/home", label: "Home", Icon: House, match: ["/home"] },
+  { href: "/search", label: "Search", Icon: Search, match: ["/search", "/u"] },
   { href: "/workout", label: "Workout", Icon: Dumbbell, match: ["/workout", "/routines"] },
   { href: "/exercises", label: "Exercises", Icon: BookOpen, match: ["/exercises"] },
   { href: "/profile", label: "Profile", Icon: User, match: ["/profile"] },

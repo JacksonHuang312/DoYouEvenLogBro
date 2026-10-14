@@ -4,6 +4,7 @@ import { Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
+import { profilePath } from "@/lib/follows";
 import { formatDayAndTime } from "@/lib/format";
 import {
   addComment,
@@ -100,6 +101,7 @@ export function CommentThread({
               <li key={comment.id}>
                 <CommentRow
                   comment={comment}
+                  linkAuthor={!!viewerUid}
                   onReply={() => startReply({ parentId: comment.id, username: comment.authorUsername })}
                   onDelete={
                     canDelete(comment, comment.authorUid)
@@ -120,6 +122,7 @@ export function CommentThread({
                             <CommentRow
                               comment={r}
                               small
+                              linkAuthor={!!viewerUid}
                               onReply={() => startReply({ parentId: comment.id, username: r.authorUsername })}
                               onDelete={canDelete(r, comment.authorUid) ? () => onDelete(r, []) : undefined}
                             />
@@ -163,20 +166,36 @@ export function CommentThread({
 function CommentRow({
   comment: c,
   small = false,
+  linkAuthor,
   onReply,
   onDelete,
 }: {
   comment: WorkoutComment;
   small?: boolean;
+  /** Profiles are for signed-in users, so visitors get plain names. */
+  linkAuthor: boolean;
   onReply: () => void;
   onDelete?: () => void;
 }) {
+  const avatar = <Avatar photoURL={c.authorPhotoURL} name={c.authorUsername} size={small ? 32 : 40} />;
   return (
     <div className="flex gap-3">
-      <Avatar photoURL={c.authorPhotoURL} name={c.authorUsername} size={small ? 32 : 40} />
+      {linkAuthor ? (
+        <Link href={profilePath(c.authorUid)} aria-label={c.authorUsername} className="self-start">
+          {avatar}
+        </Link>
+      ) : (
+        avatar
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-semibold">{c.authorUsername}</span>
+          {linkAuthor ? (
+            <Link href={profilePath(c.authorUid)} className="font-semibold">
+              {c.authorUsername}
+            </Link>
+          ) : (
+            <span className="font-semibold">{c.authorUsername}</span>
+          )}
           <span className="text-sm text-muted">· {formatDayAndTime(c.createdAt.toMillis())}</span>
         </div>
         <p className="whitespace-pre-wrap break-words">
