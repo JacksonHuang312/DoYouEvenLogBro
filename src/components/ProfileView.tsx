@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, Dumbbell, Lock, Settings, UserPlus } from "lucide-react";
+import { ChevronLeft, Dumbbell, Lock, Settings, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -14,6 +14,7 @@ import {
   weekStart,
 } from "@/components/ActivityChart";
 import { useProfile } from "@/components/AuthProvider";
+import { MiniCalendar } from "@/components/MiniCalendar";
 import { Spinner } from "@/components/Spinner";
 import { Avatar, PageHeader, RailCard, Stat, WithRail } from "@/components/ui";
 import { WorkoutPost } from "@/components/WorkoutSummary";
@@ -209,23 +210,16 @@ function VisibleProfile({ profile, isMe, status }: { profile: UserProfile; isMe:
             </div>
           </RailCard>
 
-          {/* Exercise history and the calendar are personal, so only your own profile links them. */}
+          <MiniCalendar profile={profile} isMe={isMe} />
+
+          {/* Exercise history is personal, so only your own profile links it. */}
           {isMe && (
             <RailCard className="max-lg:pt-4">
               <h2 className="mb-3 text-muted">Dashboard</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <Link href="/exercises" className="flex items-center gap-3 rounded-xl bg-surface px-4 py-4 lg:bg-surface-2">
-                  <Dumbbell size={24} />
-                  Exercises
-                </Link>
-                <Link
-                  href="/profile/calendar"
-                  className="flex items-center gap-3 rounded-xl bg-surface px-4 py-4 lg:bg-surface-2"
-                >
-                  <CalendarDays size={24} />
-                  Calendar
-                </Link>
-              </div>
+              <Link href="/exercises" className="flex items-center gap-3 rounded-xl bg-surface px-4 py-4 lg:bg-surface-2">
+                <Dumbbell size={24} />
+                Exercises
+              </Link>
             </RailCard>
           )}
         </>
