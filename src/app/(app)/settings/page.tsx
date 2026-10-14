@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "firebase/auth";
-import { Camera, KeyRound } from "lucide-react";
+import { Camera, Check, KeyRound } from "lucide-react";
 import { useReducer, useRef, useState } from "react";
 import { useAuth, useProfile } from "@/components/AuthProvider";
 import { Avatar, BackHeader } from "@/components/ui";
@@ -16,6 +16,7 @@ import {
   updateProfile,
   USERNAME_PATTERN,
 } from "@/lib/profile";
+import { saveTheme, storedTheme, THEMES } from "@/lib/themes";
 import type { UserProfile } from "@/lib/types";
 
 function UsernameSetting({ profile }: { profile: UserProfile }) {
@@ -235,6 +236,42 @@ function BioSetting({ profile, save }: { profile: UserProfile; save: (patch: { b
 }
 
 /**
+ * App color theme, saved on this device. Each option shows the colors it actually uses
+ * (background, cards, secondary text, accent), so you can see it before picking it.
+ */
+function ThemeSetting() {
+  const [current, setCurrent] = useState(storedTheme);
+
+  return (
+    <section>
+      <h2 className="mb-2 px-1 text-footnote uppercase text-muted">Theme</h2>
+      <div role="radiogroup" aria-label="Theme" className="divide-y divide-line rounded-xl bg-surface">
+        {THEMES.map(({ id, name, colors }) => (
+          <button
+            key={id}
+            role="radio"
+            aria-checked={current === id}
+            onClick={() => {
+              saveTheme(id);
+              setCurrent(id);
+            }}
+            className="flex w-full items-center gap-4 p-4 text-left"
+          >
+            <span className="flex shrink-0 overflow-hidden rounded-md ring-1 ring-white/15" aria-hidden>
+              {[colors.canvas, colors.surface2, colors.muted, colors.accent].map((c, i) => (
+                <span key={i} className="h-8 w-7" style={{ backgroundColor: c }} />
+              ))}
+            </span>
+            <span className="flex-1">{name}</span>
+            {current === id && <Check size={20} className="text-accent" />}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
  * How this account signs in: username + password and/or Google. A password account can link
  * Google later, which also becomes the way back in if the password is forgotten.
  */
@@ -440,6 +477,8 @@ export default function SettingsPage() {
           />
         </label>
       </section>
+
+      <ThemeSetting />
 
       {user && <SignInMethods user={user} username={profile.username} />}
 

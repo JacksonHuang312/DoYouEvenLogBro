@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { DialogHost } from "@/components/DialogHost";
 import { FirestoreReconnect } from "@/components/FirestoreReconnect";
+import { ThemeApplier } from "@/components/ThemeApplier";
 import { TouchActive } from "@/components/TouchActive";
+import { themeCss, themeScript } from "@/lib/themes";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -34,11 +36,17 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
+    // suppressHydrationWarning: the inline script sets data-theme before React hydrates.
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>{children}</AuthProvider>
         <DialogHost />
         <TouchActive />
+        <ThemeApplier />
         <FirestoreReconnect />
       </body>
     </html>

@@ -34,7 +34,7 @@ export function RoutineEditor({ uid, initial, isNew }: { uid: string; initial: R
 
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center justify-between bg-black px-4 py-3">
+      <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center justify-between bg-canvas px-4 py-3">
         <button onClick={() => router.back()} className="text-accent">
           Cancel
         </button>

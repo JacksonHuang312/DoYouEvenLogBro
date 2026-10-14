@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Dumbbell, Lock, UserPlus } from "lucide-react";
+import { Check, ChevronLeft, Dumbbell, Lock, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -45,7 +45,7 @@ export function ProfileView({ profile }: { profile: UserProfile }) {
   return (
     <div>
       {isMe ? (
-        <PageHeader title={profile.username}>
+        <PageHeader title={<CopyUsername username={profile.username} />}>
           <Link href="/settings" className="rounded-lg bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-2">
             Edit Profile
           </Link>
@@ -55,7 +55,9 @@ export function ProfileView({ profile }: { profile: UserProfile }) {
           <button onClick={() => router.back()} aria-label="Back" className="p-1 text-accent">
             <ChevronLeft size={28} />
           </button>
-          <h1 className="truncate text-3xl font-bold">{profile.username}</h1>
+          <h1 className="truncate text-3xl font-bold">
+            <CopyUsername username={profile.username} />
+          </h1>
         </header>
       )}
 
@@ -73,6 +75,36 @@ export function ProfileView({ profile }: { profile: UserProfile }) {
         </WithRail>
       )}
     </div>
+  );
+}
+
+/** The profile's username: text can't be selected app-wide, so tapping it copies it instead. */
+function CopyUsername({ username }: { username: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(username);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      await errorDialog("Couldn't copy username", e);
+    }
+  }
+
+  return (
+    <>
+      <button onClick={copy} title="Copy username" aria-label={`Copy username ${username}`}>
+        {username}
+      </button>
+      <span role="status" className="ml-3 inline-flex items-center gap-1 align-middle text-sm font-medium text-accent">
+        {copied && (
+          <>
+            <Check size={16} /> Copied
+          </>
+        )}
+      </span>
+    </>
   );
 }
 

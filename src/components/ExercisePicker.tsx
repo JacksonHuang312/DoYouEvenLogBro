@@ -96,7 +96,7 @@ export function ExercisePicker({
   );
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col bg-black">
+    <div className="fixed inset-0 z-30 flex flex-col bg-canvas">
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col overflow-hidden px-4 pt-4">
         <div className="mb-3 flex items-center justify-between">
           <button onClick={onClose} className="text-muted">

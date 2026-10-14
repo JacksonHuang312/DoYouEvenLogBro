@@ -73,7 +73,7 @@ export function SharedWorkout() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-black pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-10 border-b border-line bg-canvas pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
           <Link href="/" className="font-bold">
             Do You Even Log Bro?

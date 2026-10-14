@@ -74,7 +74,7 @@ export function Avatar({ photoURL, name, size = 40 }: { photoURL: string | null;
   );
 }
 
-export function PageHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+export function PageHeader({ title, children }: { title: React.ReactNode; children?: React.ReactNode }) {
   return (
     <header className="flex items-center justify-between gap-3 pb-4 pt-2">
       <h1 className="truncate text-3xl font-bold">{title}</h1>

@@ -104,7 +104,7 @@ export function EditWorkout() {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-10 -mx-4 flex items-center gap-2 bg-black px-2 py-2">
+      <div className="sticky top-0 z-10 -mx-4 flex items-center gap-2 bg-canvas px-2 py-2">
         <Link href={back} aria-label="Cancel editing" className="p-1.5 text-muted">
           <X size={24} />
         </Link>

@@ -3,12 +3,14 @@
 /*
  * iOS-native dark palette: pure black, iOS gray surfaces, mint brand accent.
  * Mint is light, so anything filled with it uses on-accent text, never white.
+ * This is the Default theme; the others (src/lib/themes.ts) override these colors on <html data-theme>.
  */
 @theme {
   /* System font: SF Pro on Apple devices, Segoe UI on Windows, Roboto on Android. */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
+  --color-canvas: #000000;
   --color-surface: #1c1c1e;
   --color-surface-2: #2c2c2e;
   --color-line: #38383a;
@@ -50,9 +52,20 @@
 }
 
 body {
-  @apply bg-black text-white;
+  @apply bg-canvas text-white;
   /* No grey flash when tapping buttons on mobile. */
   -webkit-tap-highlight-color: transparent;
+  /* App-like: taps and drags never highlight text. Things worth copying get a copy button instead. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ...except where you type, or editing (and iOS typing) breaks. */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /*

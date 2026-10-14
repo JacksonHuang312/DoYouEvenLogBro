@@ -90,7 +90,7 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-4 bg-black px-4">
+      <div className="sticky top-0 z-10 -mx-4 bg-canvas px-4">
         <BackHeader title="Calendar" href="/profile" />
         <div className="-mx-4 -mt-4 grid grid-cols-2 divide-x divide-line border-y border-line bg-surface py-3 text-center">
           <span className="flex items-center justify-center gap-2">

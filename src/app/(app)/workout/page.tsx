@@ -175,7 +175,7 @@ function ActiveWorkout() {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-black px-4 py-2">
+      <div className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-canvas px-4 py-2">
         <div className="flex-1">
           <input
             aria-label="Workout name"
@@ -259,7 +259,7 @@ function SaveWorkout({
 
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 bg-black px-2 py-2">
+      <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 bg-canvas px-2 py-2">
         <button onClick={onBack} aria-label="Back to workout" className="p-1 text-accent">
           <ChevronLeft size={28} />
         </button>

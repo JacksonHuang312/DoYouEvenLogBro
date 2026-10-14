@@ -91,6 +91,7 @@ export function MiniCalendar({ profile, isMe }: { profile: UserProfile; isMe: bo
           const key = dayKey(date);
           const inMonth = date.getMonth() === index;
           const dayWorkouts = inMonth ? byDay.get(key) : undefined;
+          const isToday = key === today;
           const circle = "mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm";
 
           if (dayWorkouts) {
@@ -101,7 +102,10 @@ export function MiniCalendar({ profile, isMe }: { profile: UserProfile; isMe: bo
                 href={workoutPath(profile.uid, dayWorkouts[0].id)}
                 aria-label={`${label}, ${date.toLocaleDateString()}`}
                 title={label}
-                className={`${circle} bg-accent font-medium text-on-accent`}
+                aria-current={isToday ? "date" : undefined}
+                // Today with a workout: the filled circle plus a ring around it, set apart by a gap
+                // in the card's color (the page's on phones, where the card has no background).
+                className={`${circle} bg-accent font-medium text-on-accent ${isToday ? "ring-2 ring-accent ring-offset-2 ring-offset-canvas lg:ring-offset-surface" : ""}`}
               >
                 {date.getDate()}
               </Link>
@@ -110,7 +114,9 @@ export function MiniCalendar({ profile, isMe }: { profile: UserProfile; isMe: bo
           return (
             <span
               key={key}
-              className={`${circle} ${!inMonth ? "text-muted/50" : key === today ? "font-semibold text-accent" : ""}`}
+              aria-current={isToday ? "date" : undefined}
+              // Today: an outlined circle, so it doesn't look like a filled-in workout day.
+              className={`${circle} ${!inMonth ? "text-muted/50" : isToday ? "font-semibold text-accent ring-2 ring-accent ring-inset" : ""}`}
             >
               {date.getDate()}
             </span>
