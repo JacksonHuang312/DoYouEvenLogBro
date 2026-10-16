@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { createCustomExercise } from "@/lib/customExercises";
 import { errorDialog } from "@/lib/dialog";
-import { EQUIPMENT, MUSCLES } from "@/lib/exercises";
+import { EQUIPMENT } from "@/lib/exercises";
+import type { SubMuscle } from "@/lib/game/config";
+import { MUSCLE_GROUPS } from "@/lib/game/muscles";
 import type { Exercise } from "@/lib/types";
 import { PhotoPicker } from "./PhotoPicker";
 
@@ -20,7 +22,7 @@ export function CustomExerciseForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(initialName);
-  const [muscle, setMuscle] = useState(MUSCLES[0]);
+  const [muscle, setMuscle] = useState<SubMuscle>(MUSCLE_GROUPS[0].muscles[0]);
   const [equipment, setEquipment] = useState(EQUIPMENT[0]);
   const [imageData, setImageData] = useState<string | null>(null);
   const select = "flex-1 rounded-md bg-surface-2 px-2 py-2 text-sm capitalize";
@@ -52,11 +54,21 @@ export function CustomExerciseForm({
         className="w-full rounded-md bg-surface-2 px-3 py-2 outline-none focus:ring-2 focus:ring-accent"
       />
       <div className="flex gap-2">
-        <select aria-label="Muscle" value={muscle} onChange={(e) => setMuscle(e.target.value)} className={select}>
-          {MUSCLES.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
+        {/* The 17 sub-muscles, grouped by the stat they train (firestore.rules only allows these). */}
+        <select
+          aria-label="Muscle"
+          value={muscle}
+          onChange={(e) => setMuscle(e.target.value as SubMuscle)}
+          className={select}
+        >
+          {MUSCLE_GROUPS.map((g) => (
+            <optgroup key={g.stat} label={g.stat[0].toUpperCase() + g.stat.slice(1)}>
+              {g.muscles.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <select
