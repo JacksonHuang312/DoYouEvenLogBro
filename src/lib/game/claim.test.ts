@@ -5,6 +5,7 @@ import {
   backfillHistory,
   newGameState,
   profileOf,
+  recomputedPeak,
   replayMuscles,
   roundStats,
   type ClaimableWorkout,
@@ -203,10 +204,61 @@ describe("replayMuscles", () => {
     expect(muscles.abdominals).toBeUndefined();
   });
 
+  test("reports the highest power the history reached", () => {
+    const { peakPower } = replayMuscles(history, lookup, noProfile, UTC, T0 + 30 * DAY);
+    const { state } = claimAll(Array.from({ length: CALIBRATION.workouts }, (_, i) => benchDay(T0 + i * DAY, 90)));
+    expect(peakPower).toBeGreaterThan(0);
+    // Same 90 kg best, so the same peak a live user reached.
+    expect(replayMuscles([benchDay(T0, 90)], lookup, noProfile, UTC, T0 + DAY).peakPower).toBeLessThanOrEqual(state.peakPower + 1e-9);
+    expect(replayMuscles([], lookup, noProfile, UTC, T0).peakPower).toBe(0);
+  });
+
   test("order of the input doesn't matter", () => {
     expect(replayMuscles([...history].reverse(), lookup, noProfile, UTC, T0 + 30 * DAY)).toEqual(
       replayMuscles(history, lookup, noProfile, UTC, T0 + 30 * DAY),
     );
+  });
+});
+
+describe("recomputedPeak", () => {
+  test("a fixed typo lowers the peak, so real gains pay XP again", () => {
+    const { state, muscles } = calibrated();
+    // A 300 kg typo (meant 30) inflates the peak...
+    const typo = benchDay(T0 + 7 * DAY, 300, "typo");
+    const inflated = applyClaim({ state, muscles, workout: typo, lookup, now: typo.endedAt, timeZone: UTC });
+    if (!inflated.counted) throw new Error();
+    expect(inflated.state.peakPower).toBeGreaterThan(state.peakPower);
+
+    // ...the fix is recomputed...
+    const history = [
+      ...Array.from({ length: CALIBRATION.workouts }, (_, i) => benchDay(T0 + i * DAY)),
+      benchDay(T0 + 7 * DAY, 30, "typo"),
+    ];
+    const replay = replayMuscles(history, lookup, noProfile, UTC, T0 + 8 * DAY);
+    const peakPower = recomputedPeak(inflated.state, replay.peakPower);
+    expect(peakPower).toBeLessThan(inflated.state.peakPower);
+
+    // ...and a real PR afterwards earns stat XP again.
+    const at = T0 + 9 * DAY;
+    const pr = applyClaim({
+      state: { ...inflated.state, peakPower },
+      muscles: replay.muscles,
+      workout: benchDay(at, 100),
+      lookup,
+      now: at,
+      timeZone: UTC,
+    });
+    expect(pr.counted && pr.result.xp.stats).toBeGreaterThan(0);
+  });
+
+  test("never raises the peak", () => {
+    const state = { ...newGameState(T0, UTC), peakPower: 50, calibration: { startedAt: T0, workouts: 6, done: true } };
+    expect(recomputedPeak(state, 80)).toBe(50);
+    expect(recomputedPeak(state, 30)).toBe(30);
+  });
+
+  test("leaves it alone during calibration", () => {
+    expect(recomputedPeak(newGameState(T0, UTC), 30)).toBe(0);
   });
 });
 

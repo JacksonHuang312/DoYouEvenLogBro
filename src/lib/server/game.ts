@@ -4,6 +4,7 @@ import {
   applyClaim,
   newGameState,
   profileOf,
+  recomputedPeak,
   replayMuscles,
   roundStats,
   type ClaimableWorkout,
@@ -94,7 +95,8 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
 
 /**
  * Rebuilds game/muscles and the weekly snapshots from the user's whole workout history, so an
- * edited typo or a deleted workout stops counting. Coins, XP and claim records are untouched.
+ * edited typo or a deleted workout stops counting, and lowers the XP peak to match. Coins, XP
+ * and claim records are untouched.
  */
 export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> {
   const db = adminDb();
@@ -117,6 +119,8 @@ export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> 
     const keep = new Set(replay.snapshots.map((s) => s.weekId));
     for (const d of snapshots.docs) if (!keep.has(d.id)) tx.delete(d.ref);
     for (const s of replay.snapshots) tx.set(r.snapshots.doc(s.weekId), s satisfies Snapshot);
+    const peakPower = recomputedPeak(state, replay.peakPower);
+    if (stateSnap.exists && peakPower !== state.peakPower) tx.update(r.state, { peakPower, updatedAt: now });
 
     const shown = roundStats(
       displayStats(computeStats(replay.muscles, profile, now, state.timeZone), state.calibration, now),

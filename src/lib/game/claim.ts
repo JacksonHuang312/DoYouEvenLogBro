@@ -94,9 +94,12 @@ export function roundStats(stats: StatLine): StatLine {
   ) as StatLine;
 }
 
-function snapshotAt(muscles: MusclesFacts, profile: BodyProfile, at: number, timeZone: string): Snapshot {
-  const stats = computeStats(muscles, profile, at, timeZone);
+function snapshotOf(stats: StatLine, at: number, timeZone: string): Snapshot {
   return { weekId: weekId(at, timeZone), stats: roundStats(stats), power: round1(power(stats)), takenAt: at };
+}
+
+function snapshotAt(muscles: MusclesFacts, profile: BodyProfile, at: number, timeZone: string): Snapshot {
+  return snapshotOf(computeStats(muscles, profile, at, timeZone), at, timeZone);
 }
 
 /**
@@ -199,7 +202,8 @@ const replayTime = (w: ClaimableWorkout) => Math.max(w.startedAt, w.endedAt);
 
 /**
  * Rebuilds the muscle facts and weekly snapshots from a user's whole history (POST /api/recompute,
- * after edits and deletes). Same facts and counting rules as claims.
+ * after edits and deletes). Same facts and counting rules as claims. `peakPower` is the highest
+ * power reached after any workout in the replay: the peak the history really supports.
  */
 export function replayMuscles(
   workouts: ClaimableWorkout[],
@@ -207,17 +211,29 @@ export function replayMuscles(
   profile: BodyProfile,
   timeZone: string,
   now: number,
-): { muscles: MusclesFacts; snapshots: Snapshot[] } {
+): { muscles: MusclesFacts; snapshots: Snapshot[]; peakPower: number } {
   const bodyweight = profile.bodyweightKg ?? DEFAULT_BODYWEIGHT_KG;
   let muscles: MusclesFacts = {};
+  let peakPower = 0;
   const snapshots = new Map<string, Snapshot>();
   for (const w of claimable(workouts, now)) {
     if (workingSets(w, lookup).length < MIN_WORKING_SETS) continue;
     muscles = mergeFacts(muscles, workoutFacts(w, lookup, bodyweight, timeZone));
-    const snapshot = snapshotAt(muscles, profile, replayTime(w), timeZone);
+    const stats = computeStats(muscles, profile, replayTime(w), timeZone);
+    peakPower = Math.max(peakPower, power(stats));
+    const snapshot = snapshotOf(stats, replayTime(w), timeZone);
     snapshots.set(snapshot.weekId, snapshot);
   }
-  return { muscles, snapshots: [...snapshots.values()] };
+  return { muscles, snapshots: [...snapshots.values()], peakPower };
+}
+
+/**
+ * The peak after a recompute: lowered to the replayed peak when that's lower (a fixed typo or a
+ * deleted workout had inflated it), so stat XP isn't blocked by gains that never happened. Never
+ * raised, so nothing is paid twice. During calibration there's no peak yet.
+ */
+export function recomputedPeak(state: GameState, replayedPeak: number): number {
+  return state.calibration.done ? Math.min(state.peakPower, replayedPeak) : state.peakPower;
 }
 
 /**
