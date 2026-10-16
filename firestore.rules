@@ -275,11 +275,41 @@ service cloud.firestore {
         allow create, update: if isUser(uid) && validRoutine(request.resource.data);
       }
 
+      // Game data (GAME_DESIGN.md 8.3): game/state, game/muscles, claims/{workoutId} and
+      // snapshots/{weekId}. Only the server writes it (the Admin SDK bypasses these rules);
+      // the owner can read their own.
+      match /game/{docId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
+      match /claims/{workoutId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
+      match /snapshots/{weekId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
       match /customExercises/{exerciseId} {
+        // The 17 sub-muscles. Must match SUB_MUSCLES in src/lib/game/config.ts.
+        function validMuscle(muscle) {
+          return muscle in [
+            'chest',
+            'lats', 'middle back', 'lower back',
+            'shoulders', 'traps', 'neck',
+            'triceps', 'biceps', 'forearms',
+            'quadriceps', 'hamstrings', 'calves', 'glutes', 'adductors', 'abductors',
+            'abdominals'
+          ];
+        }
+
         function validExercise(data) {
           return data.keys().hasOnly(['name', 'muscle', 'equipment', 'category', 'imageData'])
             && data.name is string && data.name.size() > 0 && data.name.size() <= 80
-            && data.muscle is string && data.muscle.size() <= 40
+            && validMuscle(data.muscle)
             && data.equipment is string && data.equipment.size() <= 40
             && data.category is string && data.category.size() <= 40
             && (!('imageData' in data) || validImage(data.imageData));

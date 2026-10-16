@@ -1,6 +1,7 @@
 // Firestore security rules tests (need Java for the emulator).
 // Terminal 1: `npm run emulators`. Terminal 2: `npm run test:rules`. Rules are reloaded on every run.
 // `npm run test:rules:ci` starts and stops the emulator itself (on Windows the emulator's Java process can outlive it).
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, before, beforeEach, describe, test } from "node:test";
 import {
@@ -290,6 +291,43 @@ describe("custom exercise photos", () => {
     await seedUser("alice", "alice", 8);
     await seedUser("bob", "bob", 30);
     await assertFails(setDoc(ref("bob"), { ...exercise, imageData: jpeg }));
+  });
+});
+
+describe("custom exercise muscles", () => {
+  // The 17 sub-muscles are exactly the library's muscle values (checked in src/lib/game/config.test.ts).
+  const library = JSON.parse(readFileSync(new URL("../src/data/exercises.json", import.meta.url), "utf8"));
+  const MUSCLES = [...new Set(library.map((e) => e.muscle))];
+  const exercise = (muscle) => ({ name: "Hack Squat", muscle, equipment: "machine", category: "strength" });
+  const ref = (uid) => doc(dbAs(uid), "users", "alice", "customExercises", "c_abc123");
+
+  test("accepts each of the 17 sub-muscles", async () => {
+    await seedUser("alice", "alice", 8);
+    assert.equal(MUSCLES.length, 17);
+    for (const muscle of MUSCLES) await assertSucceeds(setDoc(ref("alice"), exercise(muscle)));
+  });
+
+  test("rejects anything else", async () => {
+    await seedUser("alice", "alice", 8);
+    for (const muscle of ["Quads", "Chest", "full body", "", 42, null]) {
+      await assertFails(setDoc(ref("alice"), exercise(muscle)));
+    }
+    const noMuscle = exercise("chest");
+    delete noMuscle.muscle;
+    await assertFails(setDoc(ref("alice"), noMuscle));
+  });
+
+  test("an old free-text muscle blocks edits until the backfill maps it", async () => {
+    await seedUser("alice", "alice", 8);
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), "users", "alice", "customExercises", "c_abc123"), exercise("Quads")),
+    );
+    const jpeg = `data:image/jpeg;base64,${Buffer.alloc(1_000, 7).toString("base64")}`;
+    await assertFails(setDoc(ref("alice"), { imageData: jpeg }, { merge: true }));
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), "users", "alice", "customExercises", "c_abc123"), { muscle: "quadriceps" }, { merge: true }),
+    );
+    await assertSucceeds(setDoc(ref("alice"), { imageData: jpeg }, { merge: true }));
   });
 });
 
@@ -704,5 +742,57 @@ describe("following", () => {
     await followBatch(dbAs("bob"));
     await assertFails(deleteDoc(followingRef(dbAs("carol"), "bob", "alice")));
     await assertFails(deleteDoc(followerRef(dbAs("carol"), "alice", "bob")));
+  });
+});
+
+
+describe("game data", () => {
+  // Server-written docs (GAME_DESIGN.md 8.3): seeded with rules off, as the Admin SDK would.
+  const paths = [
+    ["game", "state"],
+    ["game", "muscles"],
+    ["claims", "w1"],
+    ["snapshots", "2026-10-11"],
+  ];
+  const ref = (db, uid, [col, id]) => doc(db, "users", uid, col, id);
+
+  async function seedGame() {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 8);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      for (const p of paths) await setDoc(ref(ctx.firestore(), "alice", p), { coins: 50 });
+    });
+  }
+
+  test("the owner can read their own", async () => {
+    await seedGame();
+    for (const p of paths) await assertSucceeds(getDoc(ref(dbAs("alice"), "alice", p)));
+    await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "claims")));
+    await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "snapshots")));
+  });
+
+  test("the owner can't create, change or delete any of it", async () => {
+    await seedGame();
+    const db = dbAs("alice");
+    for (const p of paths) {
+      await assertFails(setDoc(ref(db, "alice", p), { coins: 1_000_000 }));
+      await assertFails(setDoc(ref(db, "alice", p), { coins: 1_000_000 }, { merge: true }));
+      await assertFails(deleteDoc(ref(db, "alice", p)));
+    }
+    // Nor create new ones.
+    await assertFails(setDoc(doc(db, "users", "alice", "claims", "w2"), { coins: 50 }));
+    await assertFails(setDoc(doc(db, "users", "alice", "game", "other"), { coins: 50 }));
+  });
+
+  test("other users and signed-out visitors can't read or write it", async () => {
+    await seedGame();
+    const anon = env.unauthenticatedContext().firestore();
+    for (const db of [dbAs("bob"), anon]) {
+      for (const p of paths) {
+        await assertFails(getDoc(ref(db, "alice", p)));
+        await assertFails(setDoc(ref(db, "alice", p), { coins: 1 }));
+      }
+      await assertFails(getDocs(collection(db, "users", "alice", "claims")));
+    }
   });
 });
