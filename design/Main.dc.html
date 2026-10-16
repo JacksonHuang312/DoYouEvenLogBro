@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Status screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101113}
+a{color:#7fb0ff}a:hover{color:#b3d0ff}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #101113; color: #ece8df; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="padding: 22px 20px 16px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #26282c">
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <div style="font-size: 12px; color: #8d8a83">2,480 coins</div>
+      <div style="font-size: 12px; color: #8d8a83">Power 1,284</div>
+    </div>
+    <div style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 700; line-height: 1; text-transform: uppercase">[Player name]</div>
+        <div style="font-size: 12px; color: #8d8a83">Iron Oath-Keeper</div>
+      </div>
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 44px; font-weight: 700; line-height: 0.85; color: {{accent}}">27</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="height: 4px; background: #26282c"><div style="width: 64%; height: 100%; background: {{accent}}"></div></div>
+      <div style="font-size: 11px; color: #8d8a83">6,420 / 10,000 XP to level 28</div>
+    </div>
+  </div>
+
+  <div role="tablist" aria-label="Hero sections" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 12px; border-bottom: 1px solid #26282c">
+    <button role="tab" aria-selected="true" style="min-height: 44px; background: none; border: none; border-bottom: 2px solid #ece8df; color: #ece8df; font-size: 12px">Stats</button>
+    <button role="tab" aria-selected="false" style="min-height: 44px; background: none; border: none; border-bottom: 2px solid transparent; color: #8d8a83; font-size: 12px">Gear</button>
+    <button role="tab" aria-selected="false" style="min-height: 44px; background: none; border: none; border-bottom: 2px solid transparent; color: #8d8a83; font-size: 12px">Shop</button>
+    <button role="tab" aria-selected="false" style="min-height: 44px; background: none; border: none; border-bottom: 2px solid transparent; color: #8d8a83; font-size: 12px">Titles</button>
+  </div>
+
+  <div style="padding: 12px 20px 0; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em">Body stats</div>
+      <div role="group" aria-label="Compare to" style="display: flex">
+        <sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+          <button onClick="{{p.pick}}" aria-pressed="{{p.on}}" style="{{p.style}}">{{p.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+    <svg width="350" height="262" viewBox="-60 -26 440 330" role="img" aria-label="Radar chart of six body-part stats compared with an earlier period">
+      <polygon points="{{ring2}}" fill="none" stroke="#26282c" stroke-width="1"></polygon>
+      <polygon points="{{ring4}}" fill="none" stroke="#33363b" stroke-width="1"></polygon>
+      <sc-for list="{{axes}}" as="a" hint-placeholder-count="6">
+        <line x1="160" y1="150" x2="{{a.x}}" y2="{{a.y}}" stroke="#26282c" stroke-width="1"></line>
+        <text x="{{a.lx}}" y="{{a.ly}}" text-anchor="{{a.anchor}}" fill="#b9b5ac" font-size="15" font-family="IBM Plex Mono, monospace">{{a.name}}</text>
+      </sc-for>
+      <polygon points="{{reqPts}}" fill="none" stroke="#d9a441" stroke-width="1.5" stroke-dasharray="3 4"></polygon>
+      <polygon points="{{prevPts}}" fill="none" stroke="#6f6c66" stroke-width="1.5" stroke-dasharray="6 4"></polygon>
+      <polygon points="{{curPts}}" fill="{{accentFill}}" stroke="{{accent}}" stroke-width="2"></polygon>
+    </svg>
+    <div style="display: flex; gap: 16px; font-size: 11px; color: #8d8a83">
+      <span><span style="{{swatchNow}}"></span>Now</span>
+      <span><span style="display: inline-block; width: 12px; border-top: 2px dashed #6f6c66; vertical-align: middle; margin-right: 6px"></span>{{prevLabel}}</span>
+      <span><span style="display: inline-block; width: 12px; border-top: 2px dotted #d9a441; vertical-align: middle; margin-right: 6px"></span>Boss minimum</span>
+    </div>
+  </div>
+
+  <div style="margin: 14px 20px 0; border-top: 1px solid #26282c">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+      <div style="display: grid; grid-template-columns: 1fr 64px 64px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid #1d1f22; font-size: 13px">
+        <span style="color: #b9b5ac">{{r.name}}</span>
+        <span style="text-align: right; font-weight: 600">{{r.val}}<span style="font-weight: 400; color: {{accent}}">{{r.bonus}}</span></span>
+        <span style="{{r.deltaStyle}}">{{r.delta}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <nav style="margin-top: auto; border-top: 1px solid #26282c; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; padding: 0 4px 12px">
+    <button style="min-height: 52px; background: none; border: none; border-top: 2px solid transparent; color: #8d8a83; font-size: 12px">Train</button>
+    <button style="min-height: 52px; background: none; border: none; border-top: 2px solid transparent; color: #8d8a83; font-size: 12px">Quests</button>
+    <button aria-label="Start workout" style="justify-self: center; margin-top: 6px; width: 46px; height: 40px; background: {{accent}}; border: none; color: #101113; display: flex; align-items: center; justify-content: center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+    </button>
+    <button style="min-height: 52px; background: none; border: none; border-top: 2px solid transparent; color: #8d8a83; font-size: 12px">Battle</button>
+    <button aria-current="page" style="min-height: 52px; background: none; border: none; border-top: 2px solid {{accent}}; color: #ece8df; font-size: 12px">Hero</button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5b9bff","options":["#5b9bff","#e07a3f","#4fb58f","#ece8df"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { period: '1M' }; }
+  renderVals() {
+    const accent = this.props.accent ?? '#5b9bff';
+    const names = ['Chest','Shoulders','Core','Legs','Arms','Back'];
+    const angles = [-120,-60,0,60,120,180];
+    const now = [62,71,48,84,39,55];
+    const bonus = [2,0,0,3,0,1];
+    const prior = { '1W':[60,70,48,82,40,54], '1M':[55,64,45,76,37,50], '1Y':[30,38,28,44,22,31] };
+    const req = [40,40,40,40,40,40];
+    const cx = 160, cy = 150, R = 120;
+    const pt = (i, v) => { const a = angles[i] * Math.PI / 180; return [cx + Math.cos(a) * R * v / 100, cy + Math.sin(a) * R * v / 100]; };
+    const poly = (vals) => vals.map((v, i) => pt(i, v).map(n => n.toFixed(1)).join(',')).join(' ');
+    const ring = (f) => poly([f,f,f,f,f,f]);
+    const prev = prior[this.state.period];
+    const labelFor = { '1W':'1 week ago', '1M':'1 month ago', '1Y':'1 year ago' };
+    const axes = names.map((name, i) => {
+      const [x, y] = pt(i, 100); const [lx, ly] = pt(i, 120);
+      const anchor = Math.abs(lx - cx) < 5 ? 'middle' : (lx > cx ? 'start' : 'end');
+      return { name, x: x.toFixed(1), y: y.toFixed(1), lx: lx.toFixed(1), ly: (ly + 5).toFixed(1), anchor };
+    });
+    const rows = names.map((name, i) => {
+      const d = now[i] - prev[i];
+      return { name, val: String(now[i]), bonus: bonus[i] ? ' +' + bonus[i] : '', delta: d > 0 ? '+' + d : d < 0 ? String(d) : '0',
+        deltaStyle: 'text-align:right;color:' + (d > 0 ? '#7cc49a' : d < 0 ? '#e08a7a' : '#8d8a83') };
+    });
+    const periods = ['1W','1M','1Y'].map(label => {
+      const on = label === this.state.period;
+      return { label, on: String(on), pick: () => this.setState({ period: label }),
+        style: 'min-width:44px;min-height:36px;background:none;border:none;font-family:IBM Plex Mono,monospace;font-size:12px;' + (on ? 'color:#ece8df;text-decoration:underline;text-underline-offset:5px' : 'color:#8d8a83') };
+    });
+    const nav = ['Status','Quests','Battle','Gear','Shop'].map((label, i) => ({ label, cur: i === 0 ? 'page' : 'false',
+      style: 'min-height:52px;background:none;border:none;border-top:2px solid ' + (i === 0 ? accent : 'transparent') + ';font-family:IBM Plex Mono,monospace;font-size:12px;color:' + (i === 0 ? '#ece8df' : '#8d8a83') }));
+    return { accent, axes, rows, periods, nav, accentFill: accent + '2e',
+      swatchNow: 'display:inline-block;width:12px;border-top:2px solid ' + accent + ';vertical-align:middle;margin-right:6px',
+      ring2: ring(50), ring4: ring(100),
+      curPts: poly(now), prevPts: poly(prev), reqPts: poly(req), prevLabel: labelFor[this.state.period] };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Train</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101113}
+a{color:#7fb0ff}a:hover{color:#b3d0ff}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #101113; color: #ece8df; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="padding: 22px 20px 14px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #26282c">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div style="font-size: 12px; color: #8d8a83">Fri, Oct 16</div>
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 700; line-height: 1; text-transform: uppercase">Train</div>
+    </div>
+    <button aria-label="Search exercise library" style="width: 44px; height: 44px; background: none; border: 1px solid #33363b; color: #ece8df; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+    </button>
+  </div>
+
+  <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #26282c">
+    <div style="font-size: 11px; color: #5b9bff">Scheduled today</div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; text-transform: uppercase">Push day</div>
+      <div style="font-size: 12px; color: #8d8a83">5 exercises · ~55 min</div>
+    </div>
+    <div style="font-size: 12px; color: #b9b5ac">Bench Press, Overhead Press, Incline DB Press, Lateral Raise, Tricep Pushdown</div>
+    <div style="font-size: 12px; color: #b9b5ac">Full coins if done today. Tomorrow pays 80%.</div>
+    <button style="min-height: 50px; border: none; background: #ece8df; color: #101113; font-size: 14px; font-weight: 600">Start Push day</button>
+  </div>
+
+  <div style="padding: 14px 20px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282c">
+    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8d8a83"><span>This week</span><span>3 of 5 done</span></div>
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; text-align: center; font-size: 11px">
+      <sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+        <div style="display: flex; flex-direction: column; gap: 6px; align-items: center">
+          <span style="{{d.labelStyle}}">{{d.day}}</span>
+          <span style="{{d.markStyle}}" aria-label="{{d.status}}">{{d.mark}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="padding: 16px 20px 0; display: flex; flex-direction: column">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 600; text-transform: uppercase">Routines</div>
+      <a href="#" style="font-size: 12px">New routine</a>
+    </div>
+    <sc-for list="{{routines}}" as="r" hint-placeholder-count="3">
+      <div style="display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-top: 1px solid #1d1f22">
+        <span style="font-size: 14px">{{r.name}}</span>
+        <span style="font-size: 12px; color: #8d8a83; text-align: right">{{r.next}}</span>
+        <span style="font-size: 11px; color: #8d8a83">{{r.meta}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="padding: 12px 20px 0; display: flex; justify-content: space-between; font-size: 12px">
+    <span style="color: #8d8a83">Last: Pull day · Wed · +180 coins</span>
+    <a href="#">History</a>
+  </div>
+
+  <nav style="margin-top: auto; border-top: 1px solid #26282c; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; padding: 0 4px 12px">
+    <button aria-current="page" style="min-height: 52px; background: none; border: none; border-top: 2px solid #5b9bff; color: #ece8df; font-size: 12px">Train</button>
+    <button style="min-height: 52px; background: none; border: none; border-top: 2px solid transparent; color: #8d8a83; font-size: 12px">Quests</button>
+    <button aria-label="Start workout" style="justify-self: center; margin-top: 6px; width: 46px; height: 40px; background: #5b9bff; border: none; color: #101113; display: flex; align-items: center; justify-content: center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+    </button>
+    <button style="min-height: 52px; background: none; border: none; border-top: 2px solid transparent; color: #8d8a83; font-size: 12px">Battle</button>
+    <button style="min-height: 52px; background: none; border: none; border-top: 2px solid transparent; color: #8d8a83; font-size: 12px">Hero</button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const days = [['M','done'],['T','rest'],['W','done'],['T','late'],['F','today'],['S','planned'],['S','rest']];
+    const look = {
+      done: { mark: '✓', status: 'Done on schedule', c: '#7cc49a', b: '#7cc49a' },
+      late: { mark: '~', status: 'Done a day late', c: '#d9a441', b: '#d9a441' },
+      today: { mark: '•', status: 'Scheduled today', c: '#101113', b: '#5b9bff', fill: '#5b9bff' },
+      planned: { mark: '', status: 'Scheduled', c: '#8d8a83', b: '#4a4d52' },
+      rest: { mark: '', status: 'Rest day', c: '#8d8a83', b: 'transparent' }
+    };
+    const week = days.map(([day, s]) => { const l = look[s]; return { day, mark: l.mark, status: l.status,
+      labelStyle: 'color:' + (s === 'today' ? '#ece8df' : '#8d8a83'),
+      markStyle: 'width:28px;height:28px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:13px;color:' + l.c + ';border:1px solid ' + l.b + ';background:' + (l.fill || 'transparent') }; });
+    const routines = [
+      { name: 'Push day', meta: 'Chest · Shoulders · Arms', next: 'Today' },
+      { name: 'Pull day', meta: 'Back · Arms', next: 'Mon' },
+      { name: 'Leg day', meta: 'Legs · Core', next: 'Sat' }
+    ];
+    return { week, routines };
+  }
+}
+</script>
+</body>
+</html>
