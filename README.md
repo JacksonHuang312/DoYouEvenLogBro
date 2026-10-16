@@ -9,7 +9,9 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
    - **Authentication → Sign-in method**: enable **Google** and **Email/Password** (username +
      password accounts use Email/Password under the hood; see `src/lib/accounts.ts`).
    - **Firestore Database**: create it (production mode).
-2. **Env vars**: copy `.env.example` to `.env.local` and fill in the config values.
+2. **Env vars**: copy `.env.example` to `.env.local` and fill in the config values. The game's API
+   routes (`/api/claim`, `/api/recompute`) also need the `FIREBASE_ADMIN_*` service-account values
+   (server only, never committed; see `.env.example`).
 3. **Rules and indexes**: deploy them with the Firebase CLI:
    ```sh
    npx firebase-tools login
@@ -24,7 +26,8 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
 
 ## Deploying to Vercel
 
-- Import the repo in Vercel and add the same `NEXT_PUBLIC_FIREBASE_*` env vars.
+- Import the repo in Vercel and add the same `NEXT_PUBLIC_FIREBASE_*` env vars, plus the
+  `FIREBASE_ADMIN_*` ones. `firebase-admin` needs Node.js 22 or newer.
 - In Firebase **Authentication → Settings → Authorized domains**, add your `*.vercel.app` domain (and any custom domain), or Google sign-in will fail there.
 
 ## Data model
@@ -40,7 +43,16 @@ A free, Hevy-style workout tracker for the web. Next.js + Firebase, deployed on 
 | `users/{uid}/followers/{followerUid}` | Who follows `uid` (the mirror). Counts come from server-side aggregation |
 | `users/{uid}/followRequests/{requesterUid}` | Pending requests to follow a private account; the owner accepts (writing both follow docs) or declines |
 | `users/{uid}/routines/{id}` | Saved workout templates: exercises with set count and rest time |
-| `users/{uid}/customExercises/{id}` | User-created exercises (ids start with `c_`), with an optional 192px JPEG photo stored inline as `imageData` |
+| `users/{uid}/customExercises/{id}` | User-created exercises (ids start with `c_`), with an optional 192px JPEG photo stored inline as `imageData`. `muscle` is one of the 17 sub-muscles in `src/lib/game/config.ts` |
+| `users/{uid}/game/state`, `game/muscles` | RPG state (coins, XP, level, calibration) and per-sub-muscle facts (1RM estimates, last trained, weeks trained). Server-written only |
+| `users/{uid}/claims/{workoutId}` | What claiming a workout paid; makes `/api/claim` idempotent. Server-written only |
+| `users/{uid}/snapshots/{weekId}` | Weekly stat snapshot (week id = its Sunday's date). Server-written only |
+
+The RPG layer is designed in `GAME_DESIGN.md`. Game rules are pure functions in `src/lib/game/`
+(tunables in `config.ts`); rewards are granted only by API routes using `firebase-admin`. After a
+workout saves, the client queues `POST /api/claim`; after an edit or delete, `POST /api/recompute`
+(see `src/lib/gameSync.ts`). Accounts from before the RPG are set up once with
+`npm run backfill` (run it before deploying the rules; `-- --dry-run` to preview).
 
 Each workout's page, `/w/{uid}/{workoutId}`, is also its share link. Anyone can open it, signed in
 or not, unless the owner's account is private. Signed-in users can like and comment.
@@ -73,6 +85,12 @@ NEXT_PUBLIC_FIREBASE_EMULATOR=1 NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-dyelb npm r
 
 With the emulator flag, `window.__emulatorSignIn(email, password)` signs in as a seeded user from
 the browser console (Google sign-in isn't available against the emulator).
+
+## Unit tests
+
+```sh
+npm test              # Vitest: the game logic in src/lib/game/
+```
 
 ## Testing the security rules
 
