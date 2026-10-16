@@ -11,7 +11,8 @@
     "emulators": "firebase emulators:start --only firestore,auth --project demo-dyelb",
     "test:rules:ci": "firebase emulators:exec --only firestore --project demo-dyelb \"npm run test:rules\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "backfill": "tsx scripts/backfill-game.ts"
   },
   "dependencies": {
     "firebase": "^13.0.0",
