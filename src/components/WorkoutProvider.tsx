@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { alertDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
+import { dropClaim, flushGameQueue, queueClaim } from "@/lib/gameSync";
 import { loadExerciseHistory, withRecords } from "@/lib/records";
 import type { Exercise, Routine } from "@/lib/types";
 import { saveWorkout } from "@/lib/workouts";
@@ -71,6 +72,14 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
   const photo = draft?.photo ?? null;
   useEffect(() => persistPhoto(storageKey, photo), [storageKey, photo]);
 
+  // Sends game requests left queued while offline or before the tab closed (see gameSync.ts).
+  useEffect(() => {
+    const flush = () => void flushGameQueue(uid);
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, [uid]);
+
   const update = useCallback((fn: (w: DraftWorkout) => DraftWorkout) => {
     setDraft((w) => (w ? fn(w) : w));
   }, []);
@@ -117,8 +126,12 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
       // Not awaited: with the offline cache the write is queued locally and the
       // promise only settles once the server acks, which never happens offline.
       setDraft(null);
+      // Rewards are claimed once the save reaches the server, without holding anything up here.
+      queueClaim(uid, workout.id);
+      void flushGameQueue(uid);
       saveWorkout(uid, workout, draft.photo || undefined).catch((err) => {
         console.error(err);
+        dropClaim(uid, workout.id);
         setDraft(draft);
         void alertDialog({
           title: "Couldn't save workout",

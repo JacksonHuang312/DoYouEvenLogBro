@@ -13,6 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { firebase } from "./firebase";
+import { dropClaim, flushGameQueue, queueRecompute } from "./gameSync";
 import type { Workout } from "./types";
 
 function workoutsCol(uid: string) {
@@ -45,6 +46,9 @@ export async function getWorkoutPhoto(uid: string, workoutId: string): Promise<s
 
 /** Deletes a workout along with its photo, likes and comments, so nothing is left orphaned. */
 export async function deleteWorkout(uid: string, id: string) {
+  // Its stats come off once the delete reaches the server (coins and XP already paid stay).
+  dropClaim(uid, id);
+  queueRecompute(uid);
   const ref = doc(workoutsCol(uid), id);
   // The workout itself goes first, so live lists drop it at once, even before the cleanup
   // below has fetched what to remove (the rules let the owner clear these without it).
@@ -62,6 +66,7 @@ export async function deleteWorkout(uid: string, id: string) {
     await batch.commit();
   }
   await deleted;
+  void flushGameQueue(uid);
 }
 
 export async function getWorkout(uid: string, id: string): Promise<Workout | null> {

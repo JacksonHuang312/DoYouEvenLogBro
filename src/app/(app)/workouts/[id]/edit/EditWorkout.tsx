@@ -12,6 +12,7 @@ import { WorkoutDetailsForm } from "@/components/WorkoutDetailsForm";
 import { alertDialog, errorDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
+import { flushGameQueue, queueClaim, queueRecompute } from "@/lib/gameSync";
 import { loadExerciseHistory, withRecords } from "@/lib/records";
 import { workoutPath } from "@/lib/social";
 import { getWorkout, getWorkoutPhoto, saveWorkout } from "@/lib/workouts";
@@ -99,6 +100,10 @@ export function EditWorkout() {
     const photo = current === originalPhoto ? undefined : current;
     // Not awaited: offline, the write is queued and only settles once the server acks.
     saveWorkout(profile.uid, workout, photo).catch((e) => errorDialog("Couldn't save workout", e));
+    // Rebuild stats from the edited history, and claim it if it now counts and never was.
+    queueClaim(profile.uid, workout.id);
+    queueRecompute(profile.uid);
+    void flushGameQueue(profile.uid);
     router.replace(back);
   }
 
