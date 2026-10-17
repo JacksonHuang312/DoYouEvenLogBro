@@ -159,12 +159,14 @@ describe("weekStrip", () => {
     expect(days.map((d) => d.letter).join("")).toBe("SMTWTFS");
     expect(days.map((d) => d.status)).toEqual(["done", "rest", "rest", "today", "future", "future", "future"]);
     expect(days[0].name).toBe("Sunday");
+    expect(days.map((d) => d.isToday)).toEqual([false, false, false, true, false, false, false]);
     expect(count).toBe(1);
   });
 
   test("a counted workout today makes today done", () => {
     const { days } = weekStrip([workout(T0, [[SQUAT, fourSets]])], lookup, T0, UTC);
     expect(days[3].status).toBe("done");
+    expect(days[3].isToday).toBe(true);
   });
 
   test("warm-ups and cardio don't count toward the 4 working sets", () => {

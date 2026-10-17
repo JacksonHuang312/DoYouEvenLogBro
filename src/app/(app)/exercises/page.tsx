@@ -17,7 +17,7 @@ export default function ExercisesPage() {
     <div className="space-y-3">
       <BackHeader
         title="Exercises"
-        href="/profile"
+        href="/train"
         right={
           <button onClick={() => setCreating((c) => !c)} className="whitespace-nowrap text-sm font-medium text-accent">
             {creating ? "Cancel" : "+ Custom"}

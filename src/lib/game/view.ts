@@ -108,6 +108,8 @@ export interface DayCell {
   /** Full weekday name, for screen readers. */
   name: string;
   status: DayStatus;
+  /** Whether this is today, whether or not a workout is done. */
+  isToday: boolean;
 }
 
 const addDays = (id: string, n: number) => new Date(Date.parse(`${id}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
@@ -132,7 +134,7 @@ export function weekStrip(
     const id = addDays(first, i);
     const name = weekdayName(id);
     const status: DayStatus = doneDays.has(id) ? "done" : id === today ? "today" : id < today ? "rest" : "future";
-    return { dayId: id, letter: name[0], name, status };
+    return { dayId: id, letter: name[0], name, status, isToday: id === today };
   });
   const thisWeek = counted.filter((w) => days.some((d) => d.dayId === dayId(w.startedAt, timeZone))).length;
   return { days, workouts: thisWeek };
