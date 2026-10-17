@@ -47,6 +47,31 @@
   --text-caption--line-height: 1rem;
 }
 
+/*
+ * The RPG look (GAME_DESIGN.md 7.1): flat, fixed colors, one accent. Separate from the themes in
+ * src/lib/themes.ts, which only override the --color-* names above, so these never change with a theme.
+ * Used by the Train/Quests/Battle/Hero screens and the bottom nav (bg-rpg-*, text-rpg-*, font-rpg-*).
+ */
+@theme {
+  --color-rpg-bg: #101113;
+  --color-rpg-surface: #17181b;
+  --color-rpg-line: #26282c;
+  --color-rpg-line-soft: #1d1f22;
+  --color-rpg-line-strong: #33363b;
+  --color-rpg-text: #ece8df;
+  --color-rpg-text-2: #b9b5ac;
+  --color-rpg-muted: #8d8a83;
+  --color-rpg-accent: #5b9bff;
+  --color-rpg-good: #7cc49a;
+  --color-rpg-warn: #d9a441;
+  --color-rpg-bad: #e08a7a;
+}
+
+@theme inline {
+  --font-rpg-head: var(--font-barlow), "Arial Narrow", sans-serif;
+  --font-rpg-body: var(--font-plex), ui-monospace, Menlo, Consolas, monospace;
+}
+
 :root {
   color-scheme: dark;
 }

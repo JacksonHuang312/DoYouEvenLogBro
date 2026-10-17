@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/AuthProvider";
 import { DialogHost } from "@/components/DialogHost";
 import { FirestoreReconnect } from "@/components/FirestoreReconnect";
@@ -6,6 +7,10 @@ import { ThemeApplier } from "@/components/ThemeApplier";
 import { TouchActive } from "@/components/TouchActive";
 import { themeCss, themeScript } from "@/lib/themes";
 import "./globals.css";
+
+// The RPG screens' type (GAME_DESIGN.md 7.1). Exposed as CSS variables; only the .font-rpg-* utilities use them.
+const barlow = Barlow_Condensed({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-barlow", display: "swap" });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex", display: "swap" });
 
 export const metadata: Metadata = {
   // Link previews (Discord, iMessage, X) need absolute image URLs; relative ones resolve against this.
@@ -37,7 +42,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // suppressHydrationWarning: the inline script sets data-theme before React hydrates.
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="en" className={`h-full antialiased ${barlow.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
