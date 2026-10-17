@@ -56,6 +56,11 @@ function useLive<T>(key: string, empty: T, listen: (settle: (data: T) => void, f
   return { status: timedOut === key ? "unavailable" : "loading", data: empty };
 }
 
+/** Logs a failed listener. Permission errors (rules not deployed yet) are a warning: the screen already says it can't load. */
+function report(what: string, err: { code?: string }) {
+  (err.code === "permission-denied" ? console.warn : console.error)(`Couldn't load ${what}`, err);
+}
+
 const NO_MUSCLES: MusclesFacts = {};
 const NO_SNAPSHOTS: Snapshot[] = [];
 
@@ -69,7 +74,7 @@ function useGameDoc<T>(uid: string, name: "state" | "muscles", empty: T, pick: (
         else if (!snap.metadata.fromCache) settle(empty);
       },
       (err) => {
-        console.error(`Couldn't load game/${name}`, err);
+        report(`game/${name}`, err);
         fail();
       },
     ),
@@ -98,7 +103,7 @@ export function useSnapshots(uid: string): Live<Snapshot[]> {
         settle(snap.docs.map((d) => d.data() as Snapshot));
       },
       (err) => {
-        console.error("Couldn't load snapshots", err);
+        report("snapshots", err);
         fail();
       },
     ),
