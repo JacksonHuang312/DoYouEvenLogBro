@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Do You Even Log Bro?",
     short_name: "Log Bro",
     description: "Free workout tracker: log sets, reps and weight.",
-    start_url: "/",
+    start_url: "/train",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

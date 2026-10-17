@@ -117,7 +117,7 @@ function WorkoutView({ author, workout }: { author: UserProfile; workout: Workou
     });
     if (!ok) return;
     deleteWorkout(author.uid, workout.id).catch((e) => errorDialog("Couldn't delete workout", e));
-    router.replace("/home");
+    router.replace("/train");
   }
 
   return (

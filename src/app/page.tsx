@@ -29,12 +29,12 @@ export default function Home() {
   // Set when they try to create an account with a short password, so the hint shows even if it's empty.
   const [triedShortPassword, setTriedShortPassword] = useState(false);
   // While an account is being created the user exists before its profile does; hold the
-  // redirect so it doesn't flash onboarding on the way to /home.
+  // redirect so it doesn't flash onboarding on the way to /train.
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (loading || !user || (busy && !profile)) return;
-    router.replace(profile ? "/home" : "/onboarding");
+    router.replace(profile ? "/train" : "/onboarding");
   }, [loading, user, profile, busy, router]);
 
   if (loading || (user && !busy)) return <Spinner />;
@@ -61,7 +61,7 @@ export default function Home() {
     try {
       if (signingUp) {
         await signUpWithUsername(username, password, unit);
-        // Stay busy until the new profile arrives, then the effect goes to /home. If it somehow
+        // Stay busy until the new profile arrives, then the effect goes to /train. If it somehow
         // doesn't, fall through to the normal redirect (onboarding) instead of waiting forever.
         setTimeout(() => setBusy(false), 8000);
       } else {

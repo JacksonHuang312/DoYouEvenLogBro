@@ -18,7 +18,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (loading) return;
     if (!user) router.replace("/");
-    else if (profile) router.replace("/home");
+    else if (profile) router.replace("/train");
   }, [loading, user, profile, router]);
 
   if (loading || !user || profile) return <Spinner />;
