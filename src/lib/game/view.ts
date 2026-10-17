@@ -161,6 +161,13 @@ export function dayLabel(ms: number, now: number, timeZone: string): string {
   return ago < 7 ? fmt({ weekday: "short" }) : fmt({ month: "short", day: "numeric" });
 }
 
+/** When a sub-muscle was last trained, for the stat breakdown: "never", "today", "3d ago". */
+export function trainedLabel(lastTrained: number | null, now: number, timeZone: string): string {
+  if (lastTrained == null) return "never";
+  const ago = Math.max(0, daysBetween(dayId(lastTrained, timeZone), dayId(now, timeZone)));
+  return ago === 0 ? "today" : `${ago}d ago`;
+}
+
 export const STAT_LABELS: Record<Stat, string> = {
   chest: "Chest",
   back: "Back",

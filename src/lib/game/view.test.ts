@@ -13,6 +13,7 @@ import {
   pickSnapshot,
   resolveTimeZone,
   routineStats,
+  trainedLabel,
   weekStrip,
 } from "./view";
 
@@ -198,6 +199,14 @@ describe("routineStats", () => {
   test("skips cardio and unknown exercises", () => {
     expect(routineStats([BIKE, "c_unknown", SQUAT], lookup)).toEqual(["legs"]);
     expect(routineStats([], lookup)).toEqual([]);
+  });
+});
+
+describe("trainedLabel", () => {
+  test("says never, today, or how many days ago", () => {
+    expect(trainedLabel(null, T0, UTC)).toBe("never");
+    expect(trainedLabel(T0 - 1000, T0, UTC)).toBe("today");
+    expect(trainedLabel(T0 - 3 * DAY, T0, UTC)).toBe("3d ago");
   });
 });
 
