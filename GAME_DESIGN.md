@@ -39,7 +39,7 @@ Example: quads 90, all other leg muscles 20 → Legs = 0.35×90 + 0.65×20 = 44.
 ### 2.2 Sub-muscle score
 
 Combines strength and frequency **(tunable split, start 80% strength / 20% frequency)**:
-- **Strength:** best estimated 1RM from working sets (warm-ups excluded), using Epley: `1RM = weight × (1 + reps / 30)`, relative to the user's bodyweight, normalized against strength standards by sex/age into 0–100.
+- **Strength:** best estimated 1RM from working sets (warm-ups excluded), using Epley: `1RM = weight × (1 + reps / 30)`, relative to the user's bodyweight, normalized against strength standards by sex/age into 0–100. **Reps above 12 are counted as 12 in the estimate (tunable)** so light high-rep sets can't inflate a 1RM. Stats have **no cap**: the standards table extrapolates past 100 and the radar axis scales up (see section 12).
 - **Bodyweight exercises** (`weightKg == null`): use bodyweight × an exercise factor, or a reps-based score.
 - **Frequency:** how many of the last 4 weeks the sub-muscle was trained.
 
@@ -92,6 +92,7 @@ At least **4 working sets** (warm-ups excluded).
 ### 3.3 XP and levels
 
 - XP comes mostly from stat gains, plus a little from completing workouts and quests.
+- Workout-completion XP pays at most once every **12 hours (tunable)**, matching the 2-workouts-a-day coin cap. Stat-gain XP is unaffected.
 - XP per level is flat (no growth curve); real strength gains slow down naturally. Levels are uncapped.
 
 ### 3.4 Weekly quests
@@ -105,7 +106,9 @@ At least **4 working sets** (warm-ups excluded).
 
 ### 3.6 Pause mode
 
-Vacation/injury pause freezes decay and the schedule.
+Vacation pause freezes decay and the schedule. You pick a planned length of **at least 7 days (tunable max 4 weeks)**; it ends automatically. No battles or boss clears while paused.
+
+**Injury flags** are separate from pause: the user marks up to 2 stats as injured (optional note and expected return). While flagged, quests skip that stat, its decay is frozen, and the boss minimum for it is waived. Flags auto-expire after 8 weeks unless renewed. The flag shows on the user's Hero for people who follow them (user can hide it).
 
 ---
 
@@ -146,13 +149,16 @@ A class changes how stats convert into combat attributes, never which muscles co
 
 - **Slots:** helmet, chestplate, gloves, leggings, boots.
 - **Rarity ladder:** Common → Uncommon → Rare → Epic → Legendary → Mythic.
-- **Unnamed gear** caps at Epic. **Named gear** starts at Epic and climbs Epic → Legendary → Mythic. Mythic requires boss-only materials.
+- **Named vs unnamed:** items that *start* at Legendary or Mythic are **named**. Everything that starts below (Common–Epic) is **unnamed**.
+- **Unnamed gear** can climb all the way to Legendary (Epic → Legendary), but stops there. It never reaches Mythic.
+- **Named gear** starts at Legendary or Mythic. Native Legendary can climb to Mythic (requires boss-only materials).
+- **Ascended vs native:** an Epic upgraded to Legendary ("ascended") is always worse than a native Legendary: about **85%** of native stats at +0 and about **92%** at +2 (**tunable**), so a maxed ascended item still loses to a fresh native one. Only named gear gets unique set bonuses and abilities.
 - **Upgrades:** +0 → +1 → +2 → next rarity at +0. Costs coins + salvage. **Upgrades never fail.**
-- **Level requirement to equip** by rarity **(tunable: Epic 20, Legendary 35, Mythic 50)**.
+- **Level requirement to equip** by rarity **(tunable: Epic 8, Legendary 15, Mythic 25)**.
 - **Sets:** bonuses at 3 and 5 pieces.
-- **Shop:** weekly rotating stock, deliberately pricey. Legendary very rare in the shop.
-- **Boss loot:** better odds than the shop, still hard. Pity system: guaranteed Legendary after X boss kills without one.
-- **Coin sinks:** salvage/sell duplicates, upgrades, shop rerolls, class switches, title slots.
+- **Shop:** weekly rotating stock, deliberately pricey. Sells **Common through Epic only**. Legendary and Mythic are never sold.
+- **Boss loot:** the only source of Legendary and Mythic. Pity system: guaranteed Legendary after X boss kills without one.
+- **Coin sinks:** salvage/sell duplicates, upgrades, shop rerolls, class switches, title slots, cosmetics.
 
 ### 5.1 Titles
 
@@ -222,7 +228,7 @@ Bottom nav: **Train · Quests · [ + ] · Battle · Hero**
 | `users/{uid}/claims/{workoutId}` | claim result (coins, XP, timestamp) — idempotency record |
 | `users/{uid}/snapshots/{weekId}` | weekly stat snapshot for comparisons |
 | `users/{uid}/quests/{weekId}` | that week's generated quests and progress |
-| `users/{uid}/inventory/{itemId}` | owned items: base item id, rarity, upgrade level, named flag |
+| `users/{uid}/inventory/{itemId}` | owned items: base item id, origin rarity (tier it started at), current rarity, upgrade level, named flag (true if origin is Legendary/Mythic) |
 | `users/{uid}/battles/{id}` | battle results, cooldowns, per-player damage/heal/absorb |
 | `publicStats/{uid}` | leaderboard numbers; readable under the same privacy rule as workouts |
 
@@ -295,6 +301,14 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - New screens and the new nav use only the fixed 7.1 palette and ignore per-user themes; old screens keep their themes until Phase 8.
 - The Hero screen shows a loading skeleton until Firestore answers, so established users never flash "Calibrating…".
 
+**Power multiplier**
+- Legs and Back count **1.2x in Power only** (largest muscle groups by mass). The six radar stats stay unscaled. All other stats 1.0x. Value lives in `config.ts`. Implemented in Phase 5.
+
+**Starting economy values (tune after ~2 weeks of real use; all in `config.ts`)**
+- Income at 4 workouts/week: about 300 coins from workouts, about 450-500 with quests and boss wins.
+- Shop prices: Common 150, Uncommon 450, Rare 1,000, Epic 2,500. Weekly stock of about 6 items, each marked up about 25%.
+- Legendary and Mythic are not sold (boss drops only).
+
 **Rollout order (not yet done; do it once, after Phase 3)**
 1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
 2. Deploy the Firestore rules (`npx firebase-tools deploy --only firestore:rules`). Must come after the backfill, or exercises with old free-text muscles can't be edited.
@@ -305,7 +319,39 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 
 ## 11. Open questions
 
-- Should Legs and Back get a 1.2× power multiplier as the largest muscle groups? (Decide before Phase 5.)
 - Exact strength-standard tables for normalizing 1RM to 0–100 (current ratios are placeholders).
 - Exact decay rate after day 7.
-- Shop prices and the final coin numbers.
+- Final shop prices and coin numbers (starting values are in section 10).
+
+---
+
+## 12. Balance rules (agreed after review)
+
+**Anti-abuse (soft, not blocking)**
+- Bodyweight changes of more than 5% from the last entry, and any single claim that raises a stat by more than 8 points **(tunable)**, show a non-blocking "Does this look right?" notice with the sets that caused it and an Edit button. Editing triggers the existing recompute. No hard caps.
+- Pity: guaranteed Legendary after **6** first-clear boss kills without one **(tunable)**. Mythic has its own longer pity.
+
+**Power stacking**
+- Gear and titles affect battle power only. The radar shows raw stats.
+- All percentage bonuses (titles, sets, class) share one additive bucket capped at **+25%**.
+- Gear's share of total power is capped at 30% **in the formula**: `gear ≤ 0.3 / 0.7 × body power`.
+
+**Economy**
+- Sell price is 25% of buy price. Duplicate boss drops convert to salvage materials, not coins.
+- Cosmetics (hero frames, banners, avatar items) are a coin sink, cosmetic only, added after the main phases.
+
+**Stats have no cap.** They keep growing past 100; the radar axis scales to the highest stat. Verify `computeStats` and the radar don't clamp at 100.
+
+**Gear stats (recommended starting values, tunable)**
+- Power per piece: Common 3, Uncommon 6, Rare 10, Epic 15, Legendary 22, Mythic 32. Each +step adds 4% of the piece's base.
+- Full-set totals: Epic 75, Legendary 110, Mythic 160. A full Mythic set only counts fully at an average stat of roughly 70+, so gear can't carry a weak lifter.
+- Set bonus: 3 pieces +8% gear power, 5 pieces +20%. Named sets also get a unique effect.
+- Slots feed combat attributes (70% primary / 30% secondary): Helmet HP/DEF, Chestplate DEF/HP, Gloves ATK/HP, Leggings HP/ATK, Boots ATK/DEF.
+
+**Classes must matter in fights.** Bosses need a mechanic that rewards a tank and a healer (e.g. a damage type only DEF counters, a damage-over-time only healing offsets). Otherwise everyone picks Striker.
+
+**Check at the start of Phase 3 (ask Claude Code to confirm against `config.ts` and the code)**
+1. Is there a rep cap in the Epley estimate? If not, add cap 12.
+2. Do `computeStats`, `displayStats` or the radar clamp stats at 100? If so, remove it.
+3. Is workout XP limited by the 12-hour rule? If not, add it.
+4. Are the level gates still 20/35/50 anywhere in config? Change to 8/15/25.
