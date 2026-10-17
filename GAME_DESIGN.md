@@ -240,19 +240,72 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 
 ## 9. Implementation phases
 
-1. **Foundation** — this design doc; `src/lib/game/` config + pure functions + Vitest tests; firebase-admin setup; server-owned docs + rules + rule tests; `POST /api/claim` end to end; backfill script; custom-exercise muscle dropdown.
-2. **Stats UI** — Hero · Stats screen with radar on real data, sub-muscle breakdown, new bottom nav, Train home screen.
+1. **Foundation (DONE)** — this design doc; `src/lib/game/` config + pure functions + Vitest tests; firebase-admin setup; server-owned docs + rules + rule tests; `POST /api/claim` end to end; backfill script; custom-exercise muscle dropdown.
+2. **Stats UI (DONE)** — Hero · Stats screen with radar on real data, sub-muscle breakdown, new bottom nav, Train home screen.
 3. **Rewards + scheduling + quests** — Rewards screen, scheduled workouts, weekly quests, pause mode.
 4. **Items** — inventory, shop, upgrades, sets, titles.
 5. **Combat** — classes, weekly bosses, tower, auto-battle, cooldowns.
 6. **Social** — friend leaderboards, party raids.
 7. **Later** — trading.
+8. **Restyle existing screens** — apply the section 7.1 look to every screen that predates the RPG (Friends feed, Profile, Settings, Calendar, Routine editor, Exercise library, Search, and the active workout). Done last, so each screen is touched once after the game adds its data to it.
 
 ---
 
-## 10. Open questions
+## 9.1 Phase 8: Restyle existing screens
 
-- Should Legs and Back get a 1.2× power multiplier as the largest muscle groups?
-- Exact strength-standard tables for normalizing 1RM to 0–100.
+**Why:** Phase 2 built the new screens (Train, Hero, nav) in the section 7.1 look but deliberately left every older screen alone, so the app currently has two visual styles. This phase makes them match.
+
+**Scope**
+- Convert each older screen to the 7.1 tokens: flat dark ground (#101113), surface #17181b, hairlines #26282c, one accent #5b9bff, Barlow Condensed headings, IBM Plex Mono body.
+- Remove the old per-user theme system (src/lib/themes.ts) only if the user agrees; otherwise keep it as an opt-out.
+- Show game data where it belongs, once those features exist: level and title on profiles and feed posts, class badge, and gear on profiles.
+- Keep every behavior identical. This phase changes appearance, not features.
+
+**Rules**
+- One screen per commit, so any screen can be reverted alone.
+- Keep the same 7.1 anti-patterns list: no glow, gradients, glass panels, nested cards, badge spam, or icon-tile grids.
+- Keep 44px tap targets and 390px layouts working.
+- Run lint, type-check, Vitest, the rules tests and a production build when done.
+- Compare each restyled screen against the same data before and after: nothing may be lost.
+
+---
+
+## 10. Decisions made during the build
+
+These came up while building Phases 1 and 2 and weren't in the sections above. `src/lib/game/config.ts` and the code are the source of truth; this list explains why things behave the way they do.
+
+**Economy and XP**
+- Coins: 50 base per workout, plus a 25 scheduled bonus that follows the off-day curve (always 0 until scheduling exists in Phase 3). Daily cap 150, counted by claim day in the user's time zone, so backdating can't farm coins.
+- XP: 20 per workout, plus 10 per power point above the user's previous peak power. The peak rule means regaining decayed stats never pays twice. No stat XP during calibration. 500 XP per level.
+- Backfill computes stats and XP from history but does **not** replay coins. Each existing user gets a flat 500-coin welcome bonus instead.
+- Recompute (after a workout edit or delete) rebuilds muscle facts and snapshots without touching coins, XP or claim records. It only ever lowers `peakPower`, to the highest power the corrected history reached, so fixing a typo doesn't block future XP.
+
+**Stat math**
+- Epley estimate caps reps at 15; sets over 600 kg or 100 reps are ignored; workouts starting more than 24 h in the future are rejected.
+- Bodyweight exercises with no weight logged count as bodyweight × 0.65; with added weight, bodyweight × 0.65 + the added weight.
+- Missing bodyweight defaults to 75 kg; unknown sex averages the male and female standards. No onboarding prompts yet.
+- Decay: after 7 days untrained, the strength part loses 1% per day, down to a floor of 50%.
+- Calibration starts at the first counted workout and ends after 14 days or 6 workouts. During it, shown stats are population averages (30 per sub-muscle) while real numbers are stored underneath.
+- Weeks start Sunday; the week id is that Sunday's date (e.g. 2026-10-11). Snapshots are written at claim time.
+- Workouts under 4 working sets get no claim record, so they can still be claimed if later edited up to 4+ sets.
+- Free-text custom-exercise muscles are mapped to the closest of the 17 values (alias table first, then nearest spelling); the backfill logs guesses for review.
+
+**UI (Phase 2)**
+- The Friends feed stays at /home, reachable from the avatar menu ("Friends feed"). The avatar menu also holds Profile, Find friends, Calendar, Follow requests (only when pending, with a dot on the avatar), Settings and Sign out.
+- New screens and the new nav use only the fixed 7.1 palette and ignore per-user themes; old screens keep their themes until Phase 8.
+- The Hero screen shows a loading skeleton until Firestore answers, so established users never flash "Calibrating…".
+
+**Rollout order (not yet done; do it once, after Phase 3)**
+1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
+2. Deploy the Firestore rules (`npx firebase-tools deploy --only firestore:rules`). Must come after the backfill, or exercises with old free-text muscles can't be edited.
+3. Merge and deploy the app.
+Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIREBASE_ADMIN_PRIVATE_KEY (Production and Preview, marked Sensitive) and Node 22+.
+
+---
+
+## 11. Open questions
+
+- Should Legs and Back get a 1.2× power multiplier as the largest muscle groups? (Decide before Phase 5.)
+- Exact strength-standard tables for normalizing 1RM to 0–100 (current ratios are placeholders).
 - Exact decay rate after day 7.
-- Base coins per workout, daily cap, and shop prices.
+- Shop prices and the final coin numbers.
