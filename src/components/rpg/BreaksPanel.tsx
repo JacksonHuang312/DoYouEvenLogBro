@@ -15,7 +15,8 @@ import {
   setInjuryVisibility,
   startPause,
 } from "@/lib/gameApi";
-import { dayId } from "@/lib/game/time";
+import { addDays, dayId } from "@/lib/game/time";
+import { DatePicker } from "./DatePicker";
 import { OfflineNote } from "./Disclosure";
 
 const SECONDARY = "min-h-11 border border-rpg-line-strong px-3 text-[13px] text-rpg-text-2 disabled:opacity-40";
@@ -251,10 +252,15 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
               })}
             </div>
           </div>
-          <label className="flex flex-col gap-1 text-[11px] text-rpg-muted">
-            Back around (shown to followers, optional)
-            <input type="date" min={today} value={back} onChange={(e) => setBack(e.target.value)} className={FIELD} />
-          </label>
+          <DatePicker
+            label="Back around (shown to followers, optional)"
+            value={back}
+            onChange={setBack}
+            today={today}
+            min={today}
+            max={addDays(today, INJURY.expiryWeeks * 7)}
+            disabled={off}
+          />
           <label className="flex flex-col gap-1 text-[11px] text-rpg-muted">
             Note (private, optional)
             <input
