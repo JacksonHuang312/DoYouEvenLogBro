@@ -2,6 +2,7 @@
 
 import { collection, doc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
+import type { PublicInjury } from "./game/breaks";
 import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
 import type { QuestsDoc } from "./game/quests";
@@ -185,4 +186,32 @@ export function useQuests(uid: string, timeZone: string): QuestsLive {
   const data = live.data ?? fallback;
   const status: LoadStatus = data ? "ready" : live.status;
   return { status, data, weekId: week, error: failure?.week === week ? failure.message : null, retry };
+}
+
+/** publicStats/{uid}: what followers may see of a player (today, injury flags). Lapsed flags stay in it until the next change. */
+export interface PublicStats {
+  injuries?: PublicInjury[];
+  updatedAt?: number;
+}
+
+/**
+ * Another player's public stats. Readable only under the same privacy rule as their workouts, so
+ * for a private account you don't follow the listener is denied and the status is "unavailable":
+ * callers just show nothing.
+ */
+export function usePublicStats(uid: string): Live<PublicStats | null> {
+  return useLive<PublicStats | null>(`publicStats/${uid}`, null, (settle, fail) =>
+    onSnapshot(
+      doc(firebase().db, "publicStats", uid),
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.exists()) settle(snap.data() as PublicStats);
+        else if (!snap.metadata.fromCache) settle(null);
+      },
+      (err) => {
+        report("publicStats", err);
+        fail();
+      },
+    ),
+  );
 }

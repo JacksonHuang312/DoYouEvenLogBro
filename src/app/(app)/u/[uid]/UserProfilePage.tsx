@@ -6,8 +6,10 @@ import { useProfile } from "@/components/AuthProvider";
 import { ProfileView } from "@/components/ProfileView";
 import { Spinner } from "@/components/Spinner";
 import { BackHeader } from "@/components/ui";
+import { injuryLine } from "@/lib/game/injuryLine";
 import { getProfile } from "@/lib/profile";
 import type { UserProfile } from "@/lib/types";
+import { usePublicStats } from "@/lib/useGame";
 
 /** Someone's profile. Your own lives at /profile, so this sends you there. */
 export function UserProfilePage() {
@@ -16,6 +18,9 @@ export function UserProfilePage() {
   const router = useRouter();
   const isMe = uid === viewer.uid;
   const [loaded, setLoaded] = useState<{ uid: string; profile: UserProfile | null } | null>(null);
+  // Denied for a private account you don't follow: then there is simply no line.
+  const publicStats = usePublicStats(uid);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     if (isMe) {
@@ -37,5 +42,7 @@ export function UserProfilePage() {
       </div>
     );
   }
-  return <ProfileView profile={loaded.profile} />;
+  // publicStats keeps flags after they lapse, so lapsed ones are dropped here.
+  const line = injuryLine(publicStats.data?.injuries, now, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  return <ProfileView profile={loaded.profile} injuryLine={line} />;
 }

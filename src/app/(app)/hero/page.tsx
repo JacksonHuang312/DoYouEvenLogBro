@@ -7,6 +7,7 @@ import { RadarChart } from "@/components/rpg/RadarChart";
 import { ComingSoon, RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
 import type { Snapshot } from "@/lib/game/claim";
+import { ownInjuryTag } from "@/lib/game/injuryLine";
 import { STAT_MUSCLES, type Stat } from "@/lib/game/config";
 import type { MusclesFacts } from "@/lib/game/facts";
 import { RADAR_ORDER } from "@/lib/game/radar";
@@ -51,6 +52,8 @@ export default function HeroPage() {
   const snapshots = useSnapshots(profile.uid);
   const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>("Stats");
+  // From game/state, so it shows as soon as that answers. Flags that have lapsed aren't listed.
+  const injuryTag = ownInjuryTag(state.data, now);
 
   // "Calibrating…" is only ever shown from a view built after both listeners have answered.
   const status = combineStatus(state.status, muscles.status);
@@ -69,6 +72,9 @@ export default function HeroPage() {
         title={profile.username}
       />
       <LevelStrip view={view} />
+      {injuryTag && (
+        <p className="border-b border-rpg-line px-5 py-2.5 text-xs text-rpg-warn">{injuryTag}</p>
+      )}
 
       <div role="tablist" aria-label="Hero sections" className="grid grid-cols-4 border-b border-rpg-line px-3">
         {TABS.map((t) => (

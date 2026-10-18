@@ -35,7 +35,7 @@ const METRICS: { id: Metric; label: string }[] = [
  * A profile: yours (/profile) or someone else's (/u/{uid}), like Hevy. Private accounts only
  * show their workouts to the owner and approved followers; everyone else sees a lock.
  */
-export function ProfileView({ profile }: { profile: UserProfile }) {
+export function ProfileView({ profile, injuryLine }: { profile: UserProfile; injuryLine?: string | null }) {
   const viewer = useProfile();
   const router = useRouter();
   const isMe = viewer.uid === profile.uid;
@@ -64,7 +64,7 @@ export function ProfileView({ profile }: { profile: UserProfile }) {
       {status == null ? (
         <Spinner />
       ) : canSee ? (
-        <VisibleProfile profile={profile} isMe={isMe} status={status} />
+        <VisibleProfile profile={profile} isMe={isMe} status={status} injuryLine={injuryLine} />
       ) : (
         <WithRail railOnMobile rail={<ProfileCard profile={profile} isMe={false} status={status} workouts={null} />}>
           <div className="space-y-2 py-16 text-center lg:rounded-xl lg:bg-surface">
@@ -114,11 +114,13 @@ function ProfileCard({
   isMe,
   status,
   workouts,
+  injuryLine,
 }: {
   profile: UserProfile;
   isMe: boolean;
   status: string;
   workouts: number | null;
+  injuryLine?: string | null;
 }) {
   // Refetch the counts when the viewer follows or unfollows.
   const counts = useFollowCounts(profile.uid, status);
@@ -143,6 +145,7 @@ function ProfileCard({
         </div>
       </div>
       {profile.bio && <Bio text={profile.bio} />}
+      {injuryLine && <p className="mt-4 text-sm font-medium text-[#d9a441]">{injuryLine}</p>}
       {!isMe && (
         <div className="mt-4">
           <FollowButton target={profile} block />
@@ -184,7 +187,17 @@ function Bio({ text }: { text: string }) {
   );
 }
 
-function VisibleProfile({ profile, isMe, status }: { profile: UserProfile; isMe: boolean; status: string }) {
+function VisibleProfile({
+  profile,
+  isMe,
+  status,
+  injuryLine,
+}: {
+  profile: UserProfile;
+  isMe: boolean;
+  status: string;
+  injuryLine?: string | null;
+}) {
   const viewer = useProfile();
   const [count, setCount] = useState<{ uid: string; count: number | null } | null>(null);
   const [metric, setMetric] = useState<Metric>("duration");
@@ -229,7 +242,7 @@ function VisibleProfile({ profile, isMe, status }: { profile: UserProfile; isMe:
       railOnMobile
       rail={
         <>
-          <ProfileCard profile={profile} isMe={isMe} status={status} workouts={workoutCount} />
+          <ProfileCard profile={profile} isMe={isMe} status={status} workouts={workoutCount} injuryLine={injuryLine} />
 
           <RailCard className="max-lg:pt-4">
             <div className="flex items-baseline justify-between gap-2">
