@@ -4,7 +4,8 @@ import { Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import type { GameState } from "@/lib/game/claim";
-import { INJURY, PAUSE, type Stat } from "@/lib/game/config";
+import { INJURY, PAUSE, STATS, type Stat } from "@/lib/game/config";
+import { STAT_LABELS } from "@/lib/game/view";
 import { injuryView, pausePlan, pauseView } from "@/lib/game/breaksView";
 import {
   clearInjury,
@@ -17,8 +18,9 @@ import {
 import { dayId } from "@/lib/game/time";
 import { OfflineNote } from "./Disclosure";
 
-const SECONDARY = "min-h-11 border border-rpg-line-strong px-3 text-xs disabled:opacity-40";
-const PRIMARY = "min-h-11 bg-rpg-text px-4 text-sm font-semibold text-rpg-bg disabled:opacity-40";
+const SECONDARY = "min-h-11 border border-rpg-line-strong px-3 text-[13px] text-rpg-text-2 disabled:opacity-40";
+const PRIMARY = "min-h-11 bg-rpg-text px-4 text-[13px] font-semibold text-rpg-bg disabled:opacity-40";
+const STEP = "flex h-11 w-11 shrink-0 items-center justify-center border border-rpg-line-strong text-rpg-text-2 disabled:opacity-40";
 const FIELD = "min-h-11 w-full border border-rpg-line-strong bg-rpg-bg px-3 text-[13px] text-rpg-text";
 const SUBHEAD = "font-rpg-head text-lg font-semibold uppercase";
 
@@ -127,23 +129,23 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
               onClick={() => setDays((d) => Math.max(PAUSE.minDays, d - 1))}
               disabled={days <= PAUSE.minDays}
               aria-label="One day shorter"
-              className="flex h-11 w-11 items-center justify-center border border-rpg-line-strong disabled:opacity-40"
+              className={STEP}
             >
               <Minus size={16} aria-hidden />
             </button>
-            <div aria-live="polite" className="min-w-0 flex-1 text-center text-[13px]">
+            <div aria-live="polite" className="min-w-0 flex-1 border border-rpg-line px-2 py-2.5 text-center text-[13px]">
               {days} days · back {plan.backOn}
             </div>
             <button
               onClick={() => setDays((d) => Math.min(PAUSE.maxDays, d + 1))}
               disabled={days >= PAUSE.maxDays}
               aria-label="One day longer"
-              className="flex h-11 w-11 items-center justify-center border border-rpg-line-strong disabled:opacity-40"
+              className={STEP}
             >
               <Plus size={16} aria-hidden />
             </button>
           </div>
-          <button onClick={() => void start()} disabled={off || plan.error != null} className={SECONDARY}>
+          <button onClick={() => void start()} disabled={off || plan.error != null} className={PRIMARY}>
             Start pause
           </button>
           {view.nextPauseFrom ? (
@@ -225,16 +227,30 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
         <p className="text-[11px] text-rpg-muted">That&apos;s the limit of {INJURY.maxStats}. Clear one to flag another.</p>
       ) : (
         <div className="flex flex-col gap-2 border-t border-rpg-line-soft pt-3">
-          <label className="flex flex-col gap-1 text-[11px] text-rpg-muted">
-            Stat
-            <select value={chosen} onChange={(e) => setStat(e.target.value as Stat)} className={FIELD}>
-              {view.flaggable.map((f) => (
-                <option key={f.stat} value={f.stat}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-col gap-1 text-[11px] text-rpg-muted">
+            <span id="flag-stat">Stat</span>
+            <div role="group" aria-labelledby="flag-stat" className="grid grid-cols-3 gap-1.5">
+              {STATS.map((s) => {
+                const free = view.flaggable.some((f) => f.stat === s);
+                const picked = free && chosen === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStat(s)}
+                    disabled={!free}
+                    aria-pressed={picked}
+                    className={`min-h-11 border text-[13px] disabled:opacity-40 ${
+                      picked
+                        ? "border-rpg-accent bg-rpg-accent font-semibold text-rpg-bg"
+                        : "border-rpg-line-strong text-rpg-text-2"
+                    }`}
+                  >
+                    {STAT_LABELS[s]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <label className="flex flex-col gap-1 text-[11px] text-rpg-muted">
             Back around (shown to followers, optional)
             <input type="date" min={today} value={back} onChange={(e) => setBack(e.target.value)} className={FIELD} />
@@ -260,7 +276,7 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
         aria-checked={view.shown}
         onClick={() => void run("Couldn't change who sees your flags", () => setInjuryVisibility(!view.shown))}
         disabled={off}
-        className="flex min-h-11 w-full items-center justify-between gap-3 border-t border-rpg-line-soft text-left text-xs disabled:opacity-40"
+        className="flex min-h-11 w-full items-center justify-between gap-3 border-t border-rpg-line-soft py-2 text-left text-[13px] disabled:opacity-40"
       >
         <span className="min-w-0">
           Show injuries to followers
@@ -268,11 +284,11 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
         </span>
         <span
           aria-hidden
-          className={`flex h-6 w-10 shrink-0 items-center border px-0.5 ${
-            view.shown ? "justify-end border-rpg-accent bg-rpg-accent" : "justify-start border-rpg-line-strong"
+          className={`flex h-6 w-6 shrink-0 items-center justify-center border ${
+            view.shown ? "border-rpg-accent" : "border-rpg-line-strong"
           }`}
         >
-          <span className={`h-4 w-4 ${view.shown ? "bg-rpg-bg" : "bg-rpg-muted"}`} />
+          {view.shown && <span className="h-3 w-3 bg-rpg-accent" />}
         </span>
       </button>
     </div>
