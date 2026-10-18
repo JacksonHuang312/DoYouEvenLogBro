@@ -1,12 +1,15 @@
 "use client";
 
 import { collection, doc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
+import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc } from "./game/schedule";
+import { weekId as weekIdOf } from "./game/time";
 import type { LoadStatus } from "./game/view";
 import { firebase } from "./firebase";
+import { ApiError, loadQuests } from "./gameApi";
 
 /*
  * Live, read-only views of the game docs the server writes (GAME_DESIGN.md 8.3). The owner can
@@ -114,4 +117,72 @@ export function useSnapshots(uid: string): Live<Snapshot[]> {
 /** game/schedule: the weekly schedule and which days were filled. data is null once the server confirms none was saved yet. */
 export function useSchedule(uid: string): Live<ScheduleDoc | null> {
   return useGameDoc<ScheduleDoc | null>(uid, "schedule", null, (d) => d as ScheduleDoc);
+}
+
+export interface QuestsLive extends Live<QuestsDoc | null> {
+  /** The id of the week the quests are for (this week, in the game's time zone). */
+  weekId: string;
+  /** Why the server couldn't make or load this week's quests, if it couldn't. Offline is not an error. */
+  error: string | null;
+  /** Asks the server again (the Retry button). */
+  retry: () => void;
+}
+
+/**
+ * This week's quests. Opening the screen calls POST /api/quests, which generates them the first
+ * time the week is opened; a live listener on quests/{weekId} then keeps them current through
+ * claims, rerolls and injury swaps. Offline, whatever is cached shows and nothing is requested.
+ */
+export function useQuests(uid: string, timeZone: string): QuestsLive {
+  const [week] = useState(() => weekIdOf(Date.now(), timeZone));
+  const [made, setMade] = useState<{ week: string; doc: QuestsDoc } | null>(null);
+  const [failure, setFailure] = useState<{ week: string; message: string } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  const live = useLive<QuestsDoc | null>(`${uid}/quests/${week}`, null, (settle, fail) =>
+    onSnapshot(
+      doc(firebase().db, "users", uid, "quests", week),
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.exists()) settle(snap.data() as QuestsDoc);
+        else if (!snap.metadata.fromCache) settle(null);
+      },
+      (err) => {
+        report("quests", err);
+        fail();
+      },
+    ),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const ask = () => {
+      if (!navigator.onLine) return;
+      loadQuests()
+        .then(({ quests }) => !cancelled && quests.weekId === week && (setMade({ week, doc: quests }), setFailure(null)))
+        .catch((err) => {
+          // A request that never left the device is just "offline", not something to report.
+          if (!cancelled && !(err instanceof ApiError && err.status === 0)) {
+            setFailure({ week, message: err instanceof Error ? err.message : "Couldn't load quests." });
+          }
+        });
+    };
+    ask();
+    window.addEventListener("online", ask);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", ask);
+    };
+  }, [uid, week, attempt]);
+
+  const retry = useCallback(() => {
+    setFailure(null);
+    setAttempt((n) => n + 1);
+  }, []);
+
+  // The listener is the source of truth; what the route returned covers the moment before it answers.
+  const fallback = made?.week === week ? made.doc : null;
+  const data = live.data ?? fallback;
+  const status: LoadStatus = data ? "ready" : live.status;
+  return { status, data, weekId: week, error: failure?.week === week ? failure.message : null, retry };
 }
