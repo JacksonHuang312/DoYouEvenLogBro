@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workout rewards</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101113}
+a{color:#7fb0ff}a:hover{color:#b3d0ff}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #101113; color: #ece8df; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="padding: 32px 20px 18px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #26282c">
+    <div style="font-size: 12px; color: #7cc49a">Done on schedule</div>
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 700; line-height: 0.95; text-transform: uppercase">Push day complete</div>
+    <div style="font-size: 12px; color: #8d8a83">58 min · 18 working sets · 14,320 lb</div>
+  </div>
+
+  <div style="padding: 16px 20px; display: grid; grid-template-columns: 1fr auto; row-gap: 8px; font-size: 13px; border-bottom: 1px solid #26282c">
+    <span style="color: #8d8a83">Workout</span><span style="text-align: right">120</span>
+    <span style="color: #8d8a83">Scheduled-day bonus</span><span style="text-align: right">+60</span>
+    <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 600; text-transform: uppercase">Coins</span>
+    <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 600; text-align: right">+180</span>
+    <span style="grid-column: 1 / -1; font-size: 11px; color: #8d8a83">180 of 300 daily cap used</span>
+  </div>
+
+  <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282c">
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 600; text-transform: uppercase">+340 XP</span>
+      <span style="font-size: 12px; color: #8d8a83">Level 27 · 6,760 / 10,000</span>
+    </div>
+    <div style="height: 4px; background: #26282c; display: flex"><div style="width: 64%; background: #5b9bff"></div><div style="width: 3.4%; background: #b3d0ff"></div></div>
+  </div>
+
+  <div style="padding: 16px 20px 0; display: flex; flex-direction: column">
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 600; text-transform: uppercase; padding-bottom: 6px">Stats</div>
+    <sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+      <div style="display: grid; grid-template-columns: 1fr auto 52px; gap: 10px; padding: 9px 0; border-top: 1px solid #1d1f22; font-size: 13px">
+        <span style="color: #b9b5ac">{{s.name}}</span>
+        <span style="color: #8d8a83">{{s.from}} → <span style="color: #ece8df">{{s.to}}</span></span>
+        <span style="text-align: right; color: #7cc49a">{{s.d}}</span>
+      </div>
+    </sc-for>
+    <div style="padding: 9px 0; border-top: 1px solid #1d1f22; font-size: 12px; color: #d9a441">Bench PR 205 × 5 beat your estimate · Chest bonus +1</div>
+  </div>
+
+  <div style="padding: 16px 20px 0; display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; justify-content: space-between; font-size: 13px"><span>The Neglected Limb</span><span style="color: #8d8a83">7 / 12 sets</span></div>
+    <div style="height: 4px; background: #26282c; display: flex"><div style="width: 33%; background: #5b9bff"></div><div style="width: 25%; background: #b3d0ff"></div></div>
+  </div>
+
+  <div style="margin-top: auto; padding: 16px 20px 24px">
+    <button style="width: 100%; min-height: 50px; border: none; background: #ece8df; color: #101113; font-size: 14px; font-weight: 600">Done</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { stats: [
+      { name: 'Chest', from: '62', to: '64', d: '+2' },
+      { name: 'Shoulders', from: '71', to: '72', d: '+1' },
+      { name: 'Arms', from: '39', to: '40', d: '+1' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>
