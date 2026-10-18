@@ -6,6 +6,7 @@ import { CustomExercisesProvider } from "@/lib/customExercises";
 import { useAuth } from "./AuthProvider";
 import { BottomNav } from "./BottomNav";
 import { FollowingProvider } from "./Follow";
+import { RewardsHost } from "./RewardsHost";
 import { Sidebar } from "./Sidebar";
 import { Spinner } from "./Spinner";
 import { WorkoutProvider } from "./WorkoutProvider";
@@ -43,6 +44,7 @@ export function SignedInChrome({ uid, children }: { uid: string; children: React
           </div>
           <Sidebar />
           <BottomNav />
+          <RewardsHost uid={uid} />
         </FollowingProvider>
       </CustomExercisesProvider>
     </WorkoutProvider>
