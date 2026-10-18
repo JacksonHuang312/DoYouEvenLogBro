@@ -254,7 +254,11 @@ function SaveWorkout({
       return;
     }
     const id = finish(draft!.startedAt + durationMin * 60_000);
-    if (id) router.push(workoutPath(profile.uid, id));
+    if (!id) return;
+    // The saved workout's page is fetched from the server; offline that fetch fails and the browser
+    // falls back to a full page load (the dinosaur page). /train is part of the app shell and already
+    // loaded, and its "Rewards pending" bar shows the claim is waiting.
+    router.push(navigator.onLine ? workoutPath(profile.uid, id) : "/train");
   }
 
   return (
