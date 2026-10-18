@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { dayId, daysBetween, isValidTimeZone, recentWeekIds, weekId } from "./time";
+import { addDays, dayId, dayStartMs, daysBetween, isValidTimeZone, recentWeekIds, weekId, weekdayOf } from "./time";
 import { DAY, T0 } from "./test-helpers";
 
 describe("isValidTimeZone", () => {
@@ -52,5 +52,38 @@ describe("recentWeekIds", () => {
   test("lists this week and the ones before it, newest first", () => {
     expect(recentWeekIds(T0, "UTC", 3)).toEqual(["2026-10-11", "2026-10-04", "2026-09-27"]);
     expect(recentWeekIds(T0 + 7 * DAY, "UTC", 1)).toEqual(["2026-10-18"]);
+  });
+});
+
+describe("addDays and weekdayOf", () => {
+  test("move across months and name the weekday", () => {
+    expect(addDays("2026-10-30", 3)).toBe("2026-11-02");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(weekdayOf("2026-10-11")).toBe(0);
+    expect(weekdayOf("2026-10-14")).toBe(3);
+    expect(weekdayOf("2026-10-17")).toBe(6);
+  });
+});
+
+describe("dayStartMs", () => {
+  test("is local midnight in the time zone", () => {
+    expect(dayStartMs("2026-10-14", "UTC")).toBe(Date.UTC(2026, 9, 14));
+    expect(dayStartMs("2026-10-14", "America/Los_Angeles")).toBe(Date.UTC(2026, 9, 14, 7));
+    // Auckland is UTC+13 in October.
+    expect(dayStartMs("2026-10-15", "Pacific/Auckland")).toBe(Date.UTC(2026, 9, 14, 11));
+  });
+
+  test("handles days either side of a DST change", () => {
+    // Los Angeles falls back on 2026-11-01: that day is 25 hours long.
+    expect(dayStartMs("2026-11-01", "America/Los_Angeles")).toBe(Date.UTC(2026, 10, 1, 7));
+    expect(dayStartMs("2026-11-02", "America/Los_Angeles")).toBe(Date.UTC(2026, 10, 2, 8));
+  });
+
+  test("round-trips with dayId", () => {
+    for (const tz of ["UTC", "America/Los_Angeles", "Asia/Kolkata", "Pacific/Auckland"]) {
+      const start = dayStartMs("2026-10-14", tz);
+      expect(dayId(start, tz)).toBe("2026-10-14");
+      expect(dayId(start - 1, tz)).toBe("2026-10-13");
+    }
   });
 });

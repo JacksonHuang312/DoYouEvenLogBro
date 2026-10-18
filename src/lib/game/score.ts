@@ -3,6 +3,7 @@ import {
   DECAY,
   DEFAULT_BODYWEIGHT_KG,
   FREQUENCY_WEEKS,
+  WEEKS_KEPT,
   ONE_RM_BONUS_CAP,
   POWER_MULTIPLIERS,
   STANDARD_SEX_FACTOR,
@@ -16,7 +17,8 @@ import {
   type SubMuscle,
 } from "./config";
 import type { MuscleFacts, MusclesFacts } from "./facts";
-import { recentWeekIds } from "./time";
+import { frozenMs, intervalsFor, type Freeze, type Interval } from "./freeze";
+import { addDays, dayStartMs, recentWeekIds } from "./time";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -46,16 +48,33 @@ export function strengthScore(muscle: SubMuscle, est1RMKg: number | null, profil
   return Math.max(0, (100 * est1RMKg) / bodyweight / standard);
 }
 
-/** Frequency 0–100: the share of the last FREQUENCY_WEEKS weeks (this one included) it was trained. */
-export function frequencyScore(weeks: string[], now: number, timeZone: string): number {
-  const recent = recentWeekIds(now, timeZone, FREQUENCY_WEEKS);
-  return (100 * recent.filter((w) => weeks.includes(w)).length) / FREQUENCY_WEEKS;
+/** A week with this many frozen days (a pause or injury) does not count against the frequency. */
+const FROZEN_WEEK_DAYS = 4;
+
+/**
+ * Frequency 0–100: the share of the last FREQUENCY_WEEKS weeks (this one included) it was
+ * trained. Weeks mostly spent frozen are skipped and older weeks stand in, so a pause or an
+ * injury does not cost the frequency part.
+ */
+export function frequencyScore(weeks: string[], now: number, timeZone: string, frozen: readonly Interval[] = []): number {
+  const window = recentWeekIds(now, timeZone, WEEKS_KEPT)
+    .filter((w) => {
+      if (frozen.length === 0) return true;
+      const start = dayStartMs(w, timeZone);
+      const days = frozenMs(frozen, start, Math.min(now, dayStartMs(addDays(w, 7), timeZone))) / DAY_MS;
+      return Math.round(days) < FROZEN_WEEK_DAYS;
+    })
+    .slice(0, FREQUENCY_WEEKS);
+  return (100 * window.filter((w) => weeks.includes(w)).length) / FREQUENCY_WEEKS;
 }
 
-/** Multiplier on the strength part: 1 within the grace period, then compounding down to the floor. */
-export function decayFactor(lastTrained: number | null, now: number): number {
+/**
+ * Multiplier on the strength part: 1 within the grace period, then compounding down to the
+ * floor. `frozen` is the time since lastTrained that does not count (pauses, injuries).
+ */
+export function decayFactor(lastTrained: number | null, now: number, frozen = 0): number {
   if (lastTrained == null) return 1;
-  const days = (now - lastTrained) / DAY_MS;
+  const days = Math.max(0, now - lastTrained - frozen) / DAY_MS;
   if (days <= DECAY.graceDays) return 1;
   return Math.max(DECAY.floor, (1 - DECAY.perDay) ** (days - DECAY.graceDays));
 }
@@ -72,10 +91,13 @@ export function subMuscleScore(
   profile: BodyProfile,
   now: number,
   timeZone: string,
+  freeze: Freeze,
 ): number {
   if (!facts) return 0;
-  const strength = strengthScore(muscle, calculated1RM(facts), profile) * decayFactor(facts.lastTrained, now);
-  return STRENGTH_SHARE * strength + (1 - STRENGTH_SHARE) * frequencyScore(facts.weeks, now, timeZone);
+  const intervals = intervalsFor(freeze, muscle);
+  const frozen = facts.lastTrained == null ? 0 : frozenMs(intervals, facts.lastTrained, now);
+  const strength = strengthScore(muscle, calculated1RM(facts), profile) * decayFactor(facts.lastTrained, now, frozen);
+  return STRENGTH_SHARE * strength + (1 - STRENGTH_SHARE) * frequencyScore(facts.weeks, now, timeZone, intervals);
 }
 
 /** How far an actual lift beat the calculated 1RM (0.04 = 4% heavier), or 0. */
@@ -86,9 +108,15 @@ export function oneRMBonusRatio(facts: MuscleFacts | undefined): number {
 
 export type SubMuscleScores = Record<SubMuscle, number>;
 
-export function subMuscleScores(muscles: MusclesFacts, profile: BodyProfile, now: number, timeZone: string): SubMuscleScores {
+export function subMuscleScores(
+  muscles: MusclesFacts,
+  profile: BodyProfile,
+  now: number,
+  timeZone: string,
+  freeze: Freeze,
+): SubMuscleScores {
   return Object.fromEntries(
-    SUB_MUSCLES.map((m) => [m, subMuscleScore(m, muscles[m], profile, now, timeZone)]),
+    SUB_MUSCLES.map((m) => [m, subMuscleScore(m, muscles[m], profile, now, timeZone, freeze)]),
   ) as SubMuscleScores;
 }
 
@@ -110,8 +138,14 @@ export function statBonus(stat: Stat, scores: SubMuscleScores, muscles: MusclesF
 
 export type StatLine = Record<Stat, { value: number; bonus: number }>;
 
-export function computeStats(muscles: MusclesFacts, profile: BodyProfile, now: number, timeZone: string): StatLine {
-  const scores = subMuscleScores(muscles, profile, now, timeZone);
+export function computeStats(
+  muscles: MusclesFacts,
+  profile: BodyProfile,
+  now: number,
+  timeZone: string,
+  freeze: Freeze,
+): StatLine {
+  const scores = subMuscleScores(muscles, profile, now, timeZone, freeze);
   return Object.fromEntries(
     STATS.map((s) => [s, { value: statScore(s, scores), bonus: statBonus(s, scores, muscles) }]),
   ) as StatLine;

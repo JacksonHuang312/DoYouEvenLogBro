@@ -42,8 +42,11 @@ export const STRENGTH_SHARE = 0.8;
 /** Frequency: how many of the last N weeks (this one included) the sub-muscle was trained. */
 export const FREQUENCY_WEEKS = 4;
 
-/** Training weeks kept per sub-muscle in game/muscles. Must be at least FREQUENCY_WEEKS. */
-export const WEEKS_KEPT = 8;
+/**
+ * Training weeks kept per sub-muscle in game/muscles. Must be at least FREQUENCY_WEEKS plus the
+ * longest freeze (an injury flag, INJURY.expiryWeeks), since frozen weeks are skipped when counting.
+ */
+export const WEEKS_KEPT = 16;
 
 /**
  * Estimated 1RM ÷ bodyweight that scores 100 for an adult male (placeholder strength standards;
@@ -169,6 +172,70 @@ export const XP = {
   perPowerPoint: 10,
   /** Flat, uncapped levels. */
   perLevel: 500,
+};
+
+// ---- Schedule (sections 3.2, 7.2) ----
+
+export const SCHEDULE = {
+  /**
+   * A workout can fill a scheduled day this many days away (the off-day curve's reach, COINS.offDayMaxDays).
+   * Also the most days after a scheduled day that a claim can still use it.
+   */
+  matchDays: COINS.offDayMaxDays,
+  /** A workout done on its day but claimed the next day (sync delay) still pays in full. */
+  syncGraceDays: 1,
+  /** Schedule versions kept in game/schedule. A change starts tomorrow, so history never rewrites. */
+  versionsKept: 10,
+  /** Weeks of matched scheduled days kept (they stop mattering after matchDays). */
+  matchedWeeksKept: 5,
+};
+
+// ---- Weekly quests (section 3.4) ----
+
+export const QUESTS = {
+  /** One reward per slot: weakest stat, weakest sub-muscle, consistency. About 100 coins a week. */
+  rewards: [
+    { coins: 30, xp: 25 },
+    { coins: 30, xp: 25 },
+    { coins: 40, xp: 25 },
+  ],
+  /** Working sets for the weakest-stat quest and the weakest-sub-muscle quest. */
+  statSets: 12,
+  muscleSets: 8,
+  /** Consistency quests: distinct training days, or counted workouts. */
+  daysTarget: 3,
+  workoutsTarget: 4,
+  /** "N scheduled workouts on their day": needs at least `scheduledMin` slots left this week; at most `scheduledMax`. */
+  scheduledMin: 2,
+  scheduledMax: 4,
+  /** Core is ranked as if its score were divided by this, so it is picked less often. Matches its power multiplier. */
+  coreWeight: POWER_MULTIPLIERS.core,
+  /** Only sub-muscles weighing at least this much in their stat get a quest (never "neck"). */
+  minMuscleWeight: 0.15,
+  /** Rerolls pick randomly among this many of the weakest candidates. */
+  rerollPool: 3,
+  /** Coins for the first and second reroll of a week. */
+  rerollCosts: [25, 50],
+  /** A finished quest can still be claimed this many days after its week ends. */
+  claimGraceDays: 3,
+};
+
+// ---- Pause mode and injury flags (section 3.6) ----
+
+export const PAUSE = {
+  minDays: 7,
+  maxDays: 28,
+  /** Days between the end of one pause and the start of the next. */
+  cooldownDays: 14,
+  /** Ended pauses are kept this long (decay needs them to stay frozen). */
+  historyDays: 365,
+};
+
+export const INJURY = {
+  maxStats: 2,
+  expiryWeeks: 8,
+  maxNoteLength: 200,
+  historyDays: 365,
 };
 
 /** Weeks start Sunday 00:00 in the user's time zone (section 3.5). */

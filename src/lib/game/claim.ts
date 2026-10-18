@@ -1,8 +1,10 @@
 import type { Workout } from "../types";
+import type { Injury, Pause } from "./breaks";
 import { advanceCalibration, calibrationDone, displayStats, NEW_CALIBRATION, type Calibration } from "./calibration";
 import { COINS, DEFAULT_BODYWEIGHT_KG, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type Sex } from "./config";
 import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./economy";
 import { mergeFacts, workoutFacts, type MusclesFacts } from "./facts";
+import { NO_FREEZE, type Freeze } from "./freeze";
 import { computeStats, power, type BodyProfile, type StatLine } from "./score";
 import { workingSets, type ExerciseLookup } from "./sets";
 import { dayId, weekId } from "./time";
@@ -26,6 +28,12 @@ export interface GameState {
   timeZone: string;
   /** Whether the pre-RPG welcome bonus was paid (by the backfill script). */
   welcomeBonus: boolean;
+  /** Vacation pauses, past and current (section 3.6). Missing on docs from before Phase 3. */
+  pauses?: Pause[];
+  /** Injury flags, past and current. Missing on docs from before Phase 3. */
+  injuries?: Injury[];
+  /** Whether followers see the injury flags (publicStats). Missing counts as shown. */
+  showInjuries?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -82,6 +90,9 @@ export function newGameState(now: number, timeZone: string): GameState {
     sex: null,
     timeZone,
     welcomeBonus: false,
+    pauses: [],
+    injuries: [],
+    showInjuries: true,
     createdAt: now,
     updatedAt: now,
   };
@@ -101,8 +112,8 @@ function snapshotOf(stats: StatLine, at: number, timeZone: string): Snapshot {
   return { weekId: weekId(at, timeZone), stats: roundStats(stats), power: round1(power(stats)), takenAt: at };
 }
 
-function snapshotAt(muscles: MusclesFacts, profile: BodyProfile, at: number, timeZone: string): Snapshot {
-  return snapshotOf(computeStats(muscles, profile, at, timeZone), at, timeZone);
+function snapshotAt(muscles: MusclesFacts, profile: BodyProfile, at: number, timeZone: string, freeze: Freeze): Snapshot {
+  return snapshotOf(computeStats(muscles, profile, at, timeZone, freeze), at, timeZone);
 }
 
 /**
@@ -118,6 +129,7 @@ export function applyClaim({
   lookup,
   now,
   timeZone,
+  freeze,
   daysOff = null,
   payCoins = true,
 }: {
@@ -127,6 +139,8 @@ export function applyClaim({
   lookup: ExerciseLookup;
   now: number;
   timeZone: string;
+  /** Pauses and injuries that stand decay still; build it with freezeFor(state). */
+  freeze: Freeze;
   daysOff?: number | null;
   payCoins?: boolean;
 }): ClaimOutcome {
@@ -139,8 +153,8 @@ export function applyClaim({
     muscles,
     workoutFacts(workout, lookup, state.bodyweightKg ?? DEFAULT_BODYWEIGHT_KG, timeZone),
   );
-  const realBefore = computeStats(muscles, profile, now, timeZone);
-  const realAfter = computeStats(nextMuscles, profile, now, timeZone);
+  const realBefore = computeStats(muscles, profile, now, timeZone, freeze);
+  const realAfter = computeStats(nextMuscles, profile, now, timeZone, freeze);
   const powerAfter = power(realAfter);
 
   // No stat XP during calibration. The workout that ends it sets the baseline peak instead,
@@ -195,7 +209,7 @@ export function applyClaim({
     state: nextState,
     muscles: nextMuscles,
     result,
-    snapshot: snapshotAt(nextMuscles, profile, now, timeZone),
+    snapshot: snapshotAt(nextMuscles, profile, now, timeZone, freeze),
   };
 }
 
@@ -217,6 +231,7 @@ export function replayMuscles(
   profile: BodyProfile,
   timeZone: string,
   now: number,
+  freeze: Freeze,
 ): { muscles: MusclesFacts; snapshots: Snapshot[]; peakPower: number } {
   const bodyweight = profile.bodyweightKg ?? DEFAULT_BODYWEIGHT_KG;
   let muscles: MusclesFacts = {};
@@ -225,7 +240,7 @@ export function replayMuscles(
   for (const w of claimable(workouts, now)) {
     if (workingSets(w, lookup).length < MIN_WORKING_SETS) continue;
     muscles = mergeFacts(muscles, workoutFacts(w, lookup, bodyweight, timeZone));
-    const stats = computeStats(muscles, profile, replayTime(w), timeZone);
+    const stats = computeStats(muscles, profile, replayTime(w), timeZone, freeze);
     peakPower = Math.max(peakPower, power(stats));
     const snapshot = snapshotOf(stats, replayTime(w), timeZone);
     snapshots.set(snapshot.weekId, snapshot);
@@ -259,7 +274,7 @@ export function backfillHistory(
   const snapshots = new Map<string, Snapshot>();
 
   for (const w of sorted) {
-    const outcome = applyClaim({ state, muscles, workout: w, lookup, now: replayTime(w), timeZone, payCoins: false });
+    const outcome = applyClaim({ state, muscles, workout: w, lookup, now: replayTime(w), timeZone, freeze: NO_FREEZE, payCoins: false });
     if (!outcome.counted) continue;
     ({ state, muscles } = outcome);
     claims.push({ ...outcome.result, backfilled: true });

@@ -1,4 +1,5 @@
 import type { DocumentSnapshot, Firestore } from "firebase-admin/firestore";
+import { freezeFor } from "../game/breaks";
 import { calibrationDone, displayStats } from "../game/calibration";
 import {
   applyClaim,
@@ -79,7 +80,15 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
     const now = Date.now();
     const state = stateSnap.exists ? (stateSnap.data() as GameState) : newGameState(now, timeZone ?? DEFAULT_TIME_ZONE);
     const muscles = musclesSnap.exists ? (musclesSnap.data() as MusclesDoc).muscles : {};
-    const outcome = applyClaim({ state, muscles, workout, lookup, now, timeZone: timeZone ?? state.timeZone });
+    const outcome = applyClaim({
+      state,
+      muscles,
+      workout,
+      lookup,
+      now,
+      timeZone: timeZone ?? state.timeZone,
+      freeze: freezeFor(state),
+    });
     if (!outcome.counted) {
       // No claim record, so the workout can still be claimed if it's edited to count.
       return { status: "not-counted", reason: outcome.reason, workingSets: outcome.workingSets, required: MIN_WORKING_SETS };
@@ -113,7 +122,8 @@ export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> 
     const profile = profileOf(state);
     const history = workouts.docs.map((d) => ({ id: d.id, ...d.data() }) as ClaimableWorkout);
     const lookup = buildExerciseLookup(custom.docs.map(customExercise));
-    const replay = replayMuscles(history, lookup, profile, state.timeZone, now);
+    const freeze = freezeFor(state);
+    const replay = replayMuscles(history, lookup, profile, state.timeZone, now, freeze);
 
     tx.set(r.muscles, { muscles: replay.muscles, updatedAt: now } satisfies MusclesDoc);
     const keep = new Set(replay.snapshots.map((s) => s.weekId));
@@ -123,7 +133,7 @@ export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> 
     if (stateSnap.exists && peakPower !== state.peakPower) tx.update(r.state, { peakPower, updatedAt: now });
 
     const shown = roundStats(
-      displayStats(computeStats(replay.muscles, profile, now, state.timeZone), state.calibration, now),
+      displayStats(computeStats(replay.muscles, profile, now, state.timeZone, freeze), state.calibration, now),
     );
     return { stats: shown, power: Math.round(power(shown) * 10) / 10, calibrating: !calibrationDone(state.calibration, now) };
   });

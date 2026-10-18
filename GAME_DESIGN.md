@@ -302,6 +302,9 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - New screens and the new nav use only the fixed 7.1 palette and ignore per-user themes; old screens keep their themes until Phase 8.
 - The Hero screen shows a loading skeleton until Firestore answers, so established users never flash "Calibrating…".
 
+**Phase 5 note: injury flags and bosses**
+- Injury flags waive the boss minimum for the flagged stat (section 3.6), which makes them worth abusing. Limit renewals when boss minimums are built: for example 2 renewals, then the flag must be cleared for 7 days before a new one can be set. `Injury.renewals` already counts renewals so this needs no migration.
+
 **Power multiplier**
 - Legs and Back count **1.2x in Power only** (largest muscle groups by mass). The six radar stats stay unscaled. All other stats 1.0x. Value lives in `config.ts`. Implemented in Phase 5.
 

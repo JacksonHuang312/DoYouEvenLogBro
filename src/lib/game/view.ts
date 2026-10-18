@@ -1,4 +1,5 @@
 import type { Workout } from "../types";
+import { freezeFor } from "./breaks";
 import { calibrationDone, displayStats, type Calibration } from "./calibration";
 import { newGameState, profileOf, roundStats, type GameState, type Snapshot } from "./claim";
 import { CALIBRATION, DEFAULT_TIME_ZONE, EXCLUDED_CATEGORIES, type Stat } from "./config";
@@ -58,13 +59,14 @@ export function heroView(state: GameState | null, muscles: MusclesFacts, now: nu
   const game = state ?? newGameState(now, timeZone);
   const profile = profileOf(game);
   const calibrating = !calibrationDone(game.calibration, now);
-  const real = computeStats(muscles, profile, now, timeZone);
+  const freeze = freezeFor(game);
+  const real = computeStats(muscles, profile, now, timeZone, freeze);
   const stats = roundStats(displayStats(real, game.calibration, now));
   return {
     calibrating,
     calibration: calibrationProgress(game.calibration, now),
     stats,
-    scores: subMuscleScores(muscles, profile, now, timeZone),
+    scores: subMuscleScores(muscles, profile, now, timeZone, freeze),
     power: calibrating ? null : round1(power(stats)),
     level: levelProgress(game.xp),
     coins: game.coins,

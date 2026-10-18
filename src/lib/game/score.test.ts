@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { DECAY, ONE_RM_BONUS_CAP, STRENGTH_STANDARDS, SUB_MUSCLES, type SubMuscle } from "./config";
 import type { MuscleFacts } from "./facts";
+import { NO_FREEZE } from "./freeze";
 import {
   ageFactor,
   calculated1RM,
@@ -117,16 +118,16 @@ describe("subMuscleScore", () => {
 
   test("is 80% strength + 20% frequency", () => {
     const f = facts({ repEst1RMKg: standard / 2 }); // strength 50, 1 of 4 weeks = 25
-    expect(subMuscleScore("chest", f, male80, T0, "UTC")).toBeCloseTo(0.8 * 50 + 0.2 * 25);
+    expect(subMuscleScore("chest", f, male80, T0, "UTC", NO_FREEZE)).toBeCloseTo(0.8 * 50 + 0.2 * 25);
   });
 
   test("untrained is 0", () => {
-    expect(subMuscleScore("chest", undefined, male80, T0, "UTC")).toBe(0);
+    expect(subMuscleScore("chest", undefined, male80, T0, "UTC", NO_FREEZE)).toBe(0);
   });
 
   test("decay applies to the strength part only", () => {
     const f = facts({ repEst1RMKg: standard, lastTrained: T0 - 30 * DAY, weeks: [] });
-    expect(subMuscleScore("chest", f, male80, T0, "UTC")).toBeCloseTo(0.8 * 100 * decayFactor(T0 - 30 * DAY, T0));
+    expect(subMuscleScore("chest", f, male80, T0, "UTC", NO_FREEZE)).toBeCloseTo(0.8 * 100 * decayFactor(T0 - 30 * DAY, T0));
   });
 });
 
@@ -159,7 +160,7 @@ describe("1RM bonus", () => {
 describe("computeStats", () => {
   test("produces all six stats from facts", () => {
     const muscles = { chest: facts({ repEst1RMKg: STRENGTH_STANDARDS.chest * 80 }) };
-    const stats = computeStats(muscles, male80, T0, "UTC");
+    const stats = computeStats(muscles, male80, T0, "UTC", NO_FREEZE);
     expect(Object.keys(stats)).toEqual(["chest", "back", "shoulders", "arms", "legs", "core"]);
     expect(stats.chest.value).toBeCloseTo(0.8 * 100 + 0.2 * 25);
     expect(stats.back).toEqual({ value: 0, bonus: 0 });
@@ -167,8 +168,8 @@ describe("computeStats", () => {
 
   test("matches subMuscleScores + statScore", () => {
     const muscles = { lats: facts({ repEst1RMKg: 90 }), "middle back": facts({ repEst1RMKg: 100 }) };
-    const scores = subMuscleScores(muscles, male80, T0, "UTC");
-    expect(computeStats(muscles, male80, T0, "UTC").back.value).toBeCloseTo(statScore("back", scores));
+    const scores = subMuscleScores(muscles, male80, T0, "UTC", NO_FREEZE);
+    expect(computeStats(muscles, male80, T0, "UTC", NO_FREEZE).back.value).toBeCloseTo(statScore("back", scores));
   });
 });
 
@@ -186,6 +187,48 @@ describe("power", () => {
 
   test("an empty profile has no power", () => {
     const empty = {} as Partial<Record<SubMuscle, MuscleFacts>>;
-    expect(power(computeStats(empty, male80, T0, "UTC"))).toBe(0);
+    expect(power(computeStats(empty, male80, T0, "UTC", NO_FREEZE))).toBe(0);
+  });
+});
+
+describe("freeze (pauses and injuries)", () => {
+  const standard = STRENGTH_STANDARDS.chest * 80;
+
+  test("frozen days don't count toward decay", () => {
+    const f = facts({ repEst1RMKg: standard, lastTrained: T0 - 30 * DAY, weeks: [] });
+    const frozen = { all: [[T0 - 25 * DAY, T0 - 5 * DAY] as const], byStat: {} };
+    const expected = 0.8 * 100 * decayFactor(T0 - 30 * DAY, T0, 20 * DAY);
+    expect(subMuscleScore("chest", f, male80, T0, "UTC", frozen)).toBeCloseTo(expected);
+    expect(expected).toBeGreaterThan(subMuscleScore("chest", f, male80, T0, "UTC", NO_FREEZE));
+  });
+
+  test("a pause covering everything since the last workout means no decay", () => {
+    const f = facts({ repEst1RMKg: standard, lastTrained: T0 - 30 * DAY, weeks: [] });
+    const frozen = { all: [[T0 - 31 * DAY, T0 + DAY] as const], byStat: {} };
+    expect(subMuscleScore("chest", f, male80, T0, "UTC", frozen)).toBeCloseTo(80);
+  });
+
+  test("an injury only freezes its own stat", () => {
+    const f = facts({ repEst1RMKg: standard, lastTrained: T0 - 30 * DAY, weeks: [] });
+    const armsInjured = { all: [], byStat: { arms: [[T0 - 40 * DAY, T0] as const] } };
+    expect(subMuscleScore("chest", f, male80, T0, "UTC", armsInjured)).toBeCloseTo(
+      subMuscleScore("chest", f, male80, T0, "UTC", NO_FREEZE),
+    );
+    expect(subMuscleScore("biceps", f, male80, T0, "UTC", armsInjured)).toBeGreaterThan(
+      subMuscleScore("biceps", f, male80, T0, "UTC", NO_FREEZE),
+    );
+  });
+
+  test("weeks mostly frozen are skipped when counting frequency", () => {
+    const weeks = ["2026-09-20", "2026-09-13"];
+    expect(frequencyScore(weeks, T0, "UTC")).toBe(25);
+    const pause = [[Date.UTC(2026, 8, 27), T0] as const];
+    // 10-11, 10-04 and 09-27 are skipped, so the window is 09-20, 09-13, 09-06 and 08-30: 2 of 4.
+    expect(frequencyScore(weeks, T0, "UTC", pause)).toBe(50);
+  });
+
+  test("a week with under 4 frozen days still counts", () => {
+    const pause = [[Date.UTC(2026, 9, 11), Date.UTC(2026, 9, 13)] as const];
+    expect(frequencyScore(["2026-10-11"], T0, "UTC", pause)).toBe(25);
   });
 });
