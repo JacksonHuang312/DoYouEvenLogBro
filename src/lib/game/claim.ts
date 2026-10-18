@@ -6,6 +6,7 @@ import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./ec
 import { mergeFacts, workoutFacts, type MusclesFacts } from "./facts";
 import { NO_FREEZE, type Freeze } from "./freeze";
 import { statOf } from "./muscles";
+import type { QuestUpdate } from "./quests";
 import { computeStats, power, type BodyProfile, type StatLine } from "./score";
 import { setLoadKg, workingSets, type ExerciseLookup } from "./sets";
 import { dayId, weekId } from "./time";
@@ -88,6 +89,8 @@ export interface ClaimResult {
   oneRm?: OneRmLine[];
   /** The scheduled day this workout filled, or null if none (written by the claim route). */
   schedule?: { day: string; daysOff: number } | null;
+  /** Quests this workout moved forward or finished (written by the claim route). Paid quests are in coins/xp.balance. */
+  quests?: QuestUpdate[];
   /** Set on claims written by the backfill script (which pays no coins). */
   backfilled?: boolean;
 }

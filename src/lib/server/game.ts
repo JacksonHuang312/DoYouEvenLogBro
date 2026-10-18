@@ -15,13 +15,15 @@ import {
   type Snapshot,
 } from "../game/claim";
 import { DEFAULT_TIME_ZONE, MIN_WORKING_SETS } from "../game/config";
+import { claimDeadline, generateQuests, questContext, questsAfterWorkout, withQuestRewards, type QuestsDoc, type QuestUpdate } from "../game/quests";
 import { emptySchedule, matchWorkout, withMatch, type ScheduleDoc } from "../game/schedule";
 import { computeStats, power, type StatLine } from "../game/score";
 import { buildExerciseLookup } from "../game/sets";
-import { dayId } from "../game/time";
+import { dayId, weekId as weekIdOf } from "../game/time";
 import type { Workout } from "../types";
 import { adminDb } from "./admin";
 import { HttpError } from "./api";
+import { questWeek, readLookup, readWeekWorkouts } from "./quests";
 import { customExercise, gameRefs } from "./refs";
 
 /** POST /api/claim response. */
@@ -59,14 +61,20 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
     if (!workoutSnap.exists) throw new HttpError(404, "Workout not found");
 
     const workout = { id: workoutSnap.id, ...workoutSnap.data() } as Workout;
-    const customIds = [...new Set(workout.exercises.map((e) => e.exerciseId).filter((id) => id.startsWith("c_")))];
-    const custom = customIds.length ? await tx.getAll(...customIds.map((id) => r.customExercises.doc(id))) : [];
-    const lookup = buildExerciseLookup(custom.filter((d) => d.exists).map(customExercise));
 
     const now = Date.now();
     const state = stateSnap.exists ? (stateSnap.data() as GameState) : newGameState(now, timeZone ?? DEFAULT_TIME_ZONE);
     const muscles = musclesSnap.exists ? (musclesSnap.data() as MusclesDoc).muscles : {};
     const zone = timeZone ?? state.timeZone;
+
+    // The quests of the week the workout was done in: this week's (made now if missing), or an
+    // older week's while it can still be claimed. All reads happen before any write.
+    const week = weekIdOf(workout.startedAt, zone);
+    const questsSnap = await tx.get(r.quests.doc(week));
+    const savedQuests = questsSnap.exists ? (questsSnap.data() as QuestsDoc) : null;
+    const questsOpen = week === weekIdOf(now, zone) || (savedQuests != null && now < claimDeadline(week, savedQuests.timeZone));
+    const weekWorkouts = questsOpen ? await readWeekWorkouts(tx, r, week, zone) : [];
+    const lookup = await readLookup(tx, r, [workout, ...weekWorkouts]);
 
     // Which scheduled day (if any) this workout fills; the bonus follows the off-day curve.
     const schedule = scheduleSnap.exists ? (scheduleSnap.data() as ScheduleDoc) : emptySchedule(now);
@@ -89,13 +97,44 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
       return { status: "not-counted", reason: outcome.reason, workingSets: outcome.workingSets, required: MIN_WORKING_SETS };
     }
 
-    const result: ClaimResult = { ...outcome.result, schedule: match ? { day: match.day, daysOff: match.daysOff } : null };
+    const scheduleAfter = match ? withMatch(schedule, match, { id: workoutId, day: workoutDay }, claimDay, now) : schedule;
 
-    tx.set(r.state, outcome.state);
+    // Quest progress is counted from the week's workouts, with and without this one. Finished
+    // quests are paid here; their coins and XP don't count toward the daily cap.
+    let nextState = outcome.state;
+    let quests: QuestUpdate[] = [];
+    let questsToWrite: QuestsDoc | null = null;
+    if (questsOpen) {
+      const doc =
+        savedQuests ??
+        generateQuests(questContext({ uid, weekId: week, state, muscles, schedule, now, timeZone: zone }), zone, now);
+      const others = weekWorkouts.filter((w) => w.id !== workoutId);
+      const quest = questsAfterWorkout(
+        doc,
+        questWeek(week, zone, others, lookup, schedule),
+        questWeek(week, zone, [...others, workout], lookup, scheduleAfter),
+        now,
+      );
+      nextState = withQuestRewards(outcome.state, quest.paid, now);
+      quests = quest.updates;
+      if (!savedQuests || quest.paid.length > 0) questsToWrite = quest.doc;
+    }
+
+    const result: ClaimResult = {
+      ...outcome.result,
+      coins: { ...outcome.result.coins, balance: nextState.coins },
+      xp: { ...outcome.result.xp, balance: nextState.xp },
+      level: { ...outcome.result.level, after: nextState.level },
+      schedule: match ? { day: match.day, daysOff: match.daysOff } : null,
+      quests,
+    };
+
+    tx.set(r.state, nextState);
     tx.set(r.muscles, { muscles: outcome.muscles, updatedAt: now } satisfies MusclesDoc);
     tx.set(claimRef, result);
     tx.set(r.snapshots.doc(outcome.snapshot.weekId), outcome.snapshot);
-    if (match) tx.set(r.schedule, withMatch(schedule, match, { id: workoutId, day: workoutDay }, claimDay, now));
+    if (match) tx.set(r.schedule, scheduleAfter);
+    if (questsToWrite) tx.set(r.quests.doc(week), questsToWrite);
     return { status: "claimed", result };
   });
 }
