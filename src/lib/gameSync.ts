@@ -1,5 +1,7 @@
 import { waitForPendingWrites } from "firebase/firestore";
 import { firebase } from "./firebase";
+import { clearRewardsPending, pendingIds, storeClaimResult } from "./rewardsStore";
+import type { ClaimResponse } from "./server/game";
 
 /**
  * Game requests that wait for the network: claiming a finished workout's rewards (POST
@@ -43,6 +45,7 @@ export function queueClaim(uid: string, workoutId: string) {
 /** Drops a queued claim, e.g. when its workout failed to save or was deleted. */
 export function dropClaim(uid: string, workoutId: string) {
   update(uid, (tasks) => tasks.filter((t) => !(t.kind === "claim" && t.workoutId === workoutId)));
+  clearRewardsPending(uid, workoutId);
 }
 
 /** Queues a stats rebuild. Only one is ever queued; queuing again marks it as newer. */
@@ -79,9 +82,16 @@ export function flushGameQueue(uid: string): Promise<void> {
   return run;
 }
 
+/** A "Rewards pending" marker only makes sense while its claim is queued: clears the ones whose claim is gone. */
+function clearOrphanedPending(uid: string) {
+  const queued = new Set(read(uid).flatMap((t) => (t.kind === "claim" ? [t.workoutId] : [])));
+  for (const id of pendingIds(uid)) if (!queued.has(id)) clearRewardsPending(uid, id);
+}
+
 async function flush(uid: string) {
   const now = Date.now();
   update(uid, (tasks) => tasks.filter((t) => now - t.queuedAt < MAX_AGE_MS));
+  clearOrphanedPending(uid);
   if (read(uid).length === 0 || !navigator.onLine) return;
 
   const { auth, db } = firebase();
@@ -93,6 +103,7 @@ async function flush(uid: string) {
 
   for (const task of read(uid)) {
     const res = await send(task, token);
+    if (task.kind === "claim") await handleClaimAnswer(uid, task.workoutId, res);
     if (finished(res)) {
       // Removed only if unchanged, so a recompute queued during the request still runs.
       update(uid, (tasks) => tasks.filter((t) => !(sameTask(t, task) && t.queuedAt === task.queuedAt)));
@@ -101,5 +112,21 @@ async function flush(uid: string) {
       // that hasn't synced; carry on with the rest.)
       return;
     }
+  }
+}
+
+/**
+ * Hands a claim's answer to the Rewards screen. A claim the server refuses for good (a 4xx
+ * other than "try again") will never answer, so its "Rewards pending" marker is cleared.
+ */
+async function handleClaimAnswer(uid: string, workoutId: string, res: Response) {
+  if (res.ok) {
+    try {
+      storeClaimResult(uid, workoutId, (await res.clone().json()) as ClaimResponse);
+    } catch {
+      clearRewardsPending(uid, workoutId);
+    }
+  } else if (finished(res)) {
+    clearRewardsPending(uid, workoutId);
   }
 }

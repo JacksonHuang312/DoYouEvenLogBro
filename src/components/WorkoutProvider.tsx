@@ -4,8 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { alertDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
+import { summaryOf } from "@/lib/game/rewards";
 import { dropClaim, flushGameQueue, queueClaim } from "@/lib/gameSync";
 import { loadExerciseHistory, withRecords } from "@/lib/records";
+import { markRewardsPending } from "@/lib/rewardsStore";
 import type { Exercise, Routine } from "@/lib/types";
 import { saveWorkout } from "@/lib/workouts";
 
@@ -127,6 +129,7 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
       // promise only settles once the server acks, which never happens offline.
       setDraft(null);
       // Rewards are claimed once the save reaches the server, without holding anything up here.
+      markRewardsPending(uid, workout.id, summaryOf(workout));
       queueClaim(uid, workout.id);
       void flushGameQueue(uid);
       saveWorkout(uid, workout, draft.photo || undefined).catch((err) => {
