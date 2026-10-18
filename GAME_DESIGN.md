@@ -248,7 +248,7 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 
 1. **Foundation (DONE)** — this design doc; `src/lib/game/` config + pure functions + Vitest tests; firebase-admin setup; server-owned docs + rules + rule tests; `POST /api/claim` end to end; backfill script; custom-exercise muscle dropdown.
 2. **Stats UI (DONE)** — Hero · Stats screen with radar on real data, sub-muscle breakdown, new bottom nav, Train home screen.
-3. **Rewards + scheduling + quests** — Rewards screen, scheduled workouts, weekly quests, pause mode.
+3. **Rewards + scheduling + quests (DONE)** — Rewards screen, scheduled workouts, weekly quests, pause mode.
 4. **Items** — inventory, shop, upgrades, sets, titles.
 5. **Combat** — classes, weekly bosses, tower, auto-battle, cooldowns.
 6. **Social** — friend leaderboards, party raids.
@@ -301,6 +301,34 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - The Friends feed stays at /home, reachable from the avatar menu ("Friends feed"). The avatar menu also holds Profile, Find friends, Calendar, Follow requests (only when pending, with a dot on the avatar), Settings and Sign out.
 - New screens and the new nav use only the fixed 7.1 palette and ignore per-user themes; old screens keep their themes until Phase 8.
 - The Hero screen shows a loading skeleton until Firestore answers, so established users never flash "Calibrating…".
+
+**UI (Phase 3, Part B)**
+
+*Rewards flow*
+- `finish()` stays synchronous: one line writes a "pending" marker (workout name, start, duration, working sets, volume) to localStorage (`rewardsStore.ts`). `gameSync` stores each claim answer there and emits an event. `RewardsHost` (in `SignedInChrome`) shows a "Rewards pending" bar above the nav while a claim is queued ("Syncing — rewards when you're back online" when offline), then opens `RewardsScreen` full screen. It never opens over `/workout`; it waits until you leave.
+- Which answers are shown: one the user was waiting for (a marker existed), or any `claimed` answer (old queued claims, edit claims). A repeat `already-claimed` with no marker is not shown again. A lost response that is retried still shows, because its marker survived. Unseen answers expire after 3 days; the five newest are kept.
+- If the queue drops a claim (save failed, 30-day age limit, a 4xx the server won't accept) the marker is cleared. Every flush also clears markers whose claim is no longer queued, so the bar can't get stuck.
+- Header: on schedule, "a day late / early", extra, or "done while paused". Early vs late comes from the slot's day against the workout's start; a claim made late on the slot's own day reads late. With no summary (claims queued before Part B) the direction isn't guessed: "Done N days off schedule". "Paused" means a pause covered the workout's day.
+- XP bar: the new segment starts at `xp.balance − (xp.total + quest XP)`, because quest XP is inside the balance but not in `xp.total`. A level-up fills from zero and says "Level 26 → 27". When no workout XP was paid, the screen says it pays every 12 hours and when the next one is, from `game/state.workoutXpAt`.
+- Stat changes show one decimal (62 → 64.1, +2.1), only the stats that moved, and are replaced by a calibration note while calibrating. The 1RM line is in the user's unit and names the exercise. A not-counted answer shows "3 of 4 working sets".
+
+*Train*
+- The card shows the slot a workout started now would fill, using the server's own `matchWorkout`: scheduled today (with what tomorrow pays), a make-up for a missed slot within 3 days, or the next slot (early within 3 days pays the reduced bonus; farther out pays none). A pause replaces it with the return date; logging still works. With no schedule set the old suggestion shows plus a link to the schedule editor.
+- Workouts the server hasn't matched yet are matched on the device and drawn with a dashed border, with a line saying marks are predictions until sync. Strip marks: ✓ on schedule, ~ late or early (on the scheduled day), • today, empty box planned, – missed, + extra (a workout with no open slot within 3 days), blank rest.
+- Each routine's next day looks 8 days ahead and skips filled slots; the same weekday a week on reads "Next Wed".
+
+*Quests screen*
+- Opening it calls `POST /api/quests` (once, and again when the device comes back online); a listener on `quests/{weekId}` keeps it current. Progress is counted on the client from the week's workouts. This screen uses the browser's time zone for the week, the same one it sends to the server.
+- Claim shows only for finished, unpaid quests (needed after editing a workout). Reroll asks for confirmation, shows the price (25, then 50) and is off when coins are short or none are left.
+- Schedule editor: per routine, seven day chips; a weekday holds one routine, so tapping a day another routine has moves it. Saving starts tomorrow.
+- Breaks: pause by stepper (7 to 28 days) with confirmations, "End pause early" opens after 7 full days; injuries: flag up to 2 stats (date and private note optional), renew 8 weeks, clear, and the followers toggle. The panel asks `breaks.ts` itself, so it never disagrees with the server's reasons.
+- Every control on this screen needs the network, so it shows "You're offline" and disables itself when there is no connection.
+
+*Injury display*
+- Your Hero shows "Injured: Arms, Legs", plus "hidden from followers" when you've turned that off. A follower's view of your profile reads `publicStats/{uid}` and drops entries whose `expiresAt` has passed, since nothing cleans that document. "Back around" appears only when every live flag has a return date, and uses the latest one.
+
+*Not built*
+- The Train mockup's "Last: Pull day · Wed · +180 coins" shows no coins (it would need a claims read). The Quests tab has the schedule editor but no calendar view (section 7.2).
 
 **Phase 5 note: injury flags and bosses**
 - Injury flags waive the boss minimum for the flagged stat (section 3.6), which makes them worth abusing. Limit renewals when boss minimums are built: for example 2 renewals, then the flag must be cleared for 7 days before a new one can be set. `Injury.renewals` already counts renewals so this needs no migration.
