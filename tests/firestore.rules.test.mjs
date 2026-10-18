@@ -753,6 +753,8 @@ describe("game data", () => {
     ["game", "muscles"],
     ["claims", "w1"],
     ["snapshots", "2026-10-11"],
+    ["game", "schedule"],
+    ["quests", "2026-10-11"],
   ];
   const ref = (db, uid, [col, id]) => doc(db, "users", uid, col, id);
 
@@ -769,6 +771,7 @@ describe("game data", () => {
     for (const p of paths) await assertSucceeds(getDoc(ref(dbAs("alice"), "alice", p)));
     await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "claims")));
     await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "snapshots")));
+    await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "quests")));
   });
 
   test("the owner can't create, change or delete any of it", async () => {
@@ -782,6 +785,7 @@ describe("game data", () => {
     // Nor create new ones.
     await assertFails(setDoc(doc(db, "users", "alice", "claims", "w2"), { coins: 50 }));
     await assertFails(setDoc(doc(db, "users", "alice", "game", "other"), { coins: 50 }));
+    await assertFails(setDoc(doc(db, "users", "alice", "quests", "2026-10-18"), { quests: [] }));
   });
 
   test("other users and signed-out visitors can't read or write it", async () => {
@@ -793,6 +797,56 @@ describe("game data", () => {
         await assertFails(setDoc(ref(db, "alice", p), { coins: 1 }));
       }
       await assertFails(getDocs(collection(db, "users", "alice", "claims")));
+      await assertFails(getDocs(collection(db, "users", "alice", "quests")));
     }
+  });
+});
+
+describe("public stats (injury flags)", () => {
+  const statsRef = (db, uid = "alice") => doc(db, "publicStats", uid);
+  const flags = { injuries: [{ stat: "arms", expiresAt: 1, expectedReturn: "2026-11-20" }], updatedAt: 1 };
+
+  /** alice has flags; she may be private, and bob may be one of her followers. */
+  async function seedStats({ alicePrivate = false, bobFollows = false } = {}) {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 8);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(statsRef(db), flags);
+      if (alicePrivate) await setDoc(doc(db, "users", "alice"), { isPrivate: true }, { merge: true });
+      if (bobFollows) await setDoc(doc(db, "users", "alice", "followers", "bob"), { createdAt: Date.now() });
+    });
+  }
+
+  test("a public account's flags can be read by anyone, signed in or not", async () => {
+    await seedStats();
+    await assertSucceeds(getDoc(statsRef(dbAs("alice"))));
+    await assertSucceeds(getDoc(statsRef(dbAs("bob"))));
+    await assertSucceeds(getDoc(statsRef(env.unauthenticatedContext().firestore())));
+  });
+
+  test("a private account's flags are for its owner and approved followers only", async () => {
+    await seedStats({ alicePrivate: true });
+    await assertSucceeds(getDoc(statsRef(dbAs("alice"))));
+    await assertFails(getDoc(statsRef(dbAs("bob"))));
+    await assertFails(getDoc(statsRef(env.unauthenticatedContext().firestore())));
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), "users", "alice", "followers", "bob"), { createdAt: Date.now() }),
+    );
+    await assertSucceeds(getDoc(statsRef(dbAs("bob"))));
+  });
+
+  test("nobody writes them from the client, not even the owner", async () => {
+    await seedStats({ bobFollows: true });
+    for (const db of [dbAs("alice"), dbAs("bob"), env.unauthenticatedContext().firestore()]) {
+      await assertFails(setDoc(statsRef(db), { injuries: [], updatedAt: 2 }));
+      await assertFails(setDoc(statsRef(db), { injuries: [] }, { merge: true }));
+      await assertFails(deleteDoc(statsRef(db)));
+    }
+    await assertFails(setDoc(statsRef(dbAs("bob"), "bob"), flags));
+  });
+
+  test("an account with no profile doc can't be read through it", async () => {
+    await assertFails(getDoc(statsRef(dbAs("bob"), "ghost")));
   });
 });

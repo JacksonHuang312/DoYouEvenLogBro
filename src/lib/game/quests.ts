@@ -178,7 +178,7 @@ function build(slot: 0 | 1 | 2, rerolls: number, ctx: QuestContext, avoid: Avoid
     const muscle = chosen.item;
     const sets = QUESTS.muscleSets;
     const title = chosen.weakest
-      ? `Your ${muscle} is lagging: log ${sets} working sets of ${muscle}`
+      ? `Lagging muscle: log ${sets} working sets of ${muscle}`
       : `Log ${sets} working sets of ${muscle}`;
     return { ...base, slot, kind: "muscle-sets", muscle, target: sets, title };
   }

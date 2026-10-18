@@ -275,9 +275,9 @@ service cloud.firestore {
         allow create, update: if isUser(uid) && validRoutine(request.resource.data);
       }
 
-      // Game data (GAME_DESIGN.md 8.3): game/state, game/muscles, claims/{workoutId} and
-      // snapshots/{weekId}. Only the server writes it (the Admin SDK bypasses these rules);
-      // the owner can read their own.
+      // Game data (GAME_DESIGN.md 8.3): game/state, game/muscles, game/schedule, claims/{workoutId},
+      // snapshots/{weekId} and quests/{weekId}. Only the server writes it (the Admin SDK bypasses
+      // these rules); the owner can read their own.
       match /game/{docId} {
         allow read: if isUser(uid);
         allow write: if false;
@@ -289,6 +289,11 @@ service cloud.firestore {
       }
 
       match /snapshots/{weekId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
+      match /quests/{weekId} {
         allow read: if isUser(uid);
         allow write: if false;
       }
@@ -328,6 +333,14 @@ service cloud.firestore {
           && exerciseId.matches('^c_[A-Za-z0-9]+$')
           && validExercise(request.resource.data);
       }
+    }
+
+    // What other people may see of a player's game (GAME_DESIGN.md 8.3): today only injury flags
+    // (stat and expected return, never the private note). Readable under the same privacy rule
+    // as the player's workouts; only the server writes it.
+    match /publicStats/{uid} {
+      allow read: if canReadWorkouts(uid);
+      allow write: if false;
     }
   }
 }
