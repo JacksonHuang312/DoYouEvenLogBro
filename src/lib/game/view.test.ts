@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { clearInjury, flagInjury } from "./breaks";
 import { calibrationDone, NEW_CALIBRATION } from "./calibration";
 import { newGameState, type GameState, type Snapshot } from "./claim";
 import { CALIBRATION, POPULATION_AVERAGE_SCORE, STATS } from "./config";
@@ -120,6 +121,35 @@ describe("heroView", () => {
     expect(ny.timeZone).toBe("America/New_York");
     expect(utc.timeZone).toBe(UTC);
     expect(ny.scores.chest).not.toBe(utc.scores.chest);
+  });
+});
+
+describe("heroView injured stats", () => {
+  const flag = (state: GameState, stat: "chest" | "legs", showInjuries?: boolean): GameState => {
+    const r = flagInjury(state, stat, {}, T0 - DAY, UTC);
+    if (!r.ok) throw new Error(r.error);
+    return showInjuries === undefined ? r.value : { ...r.value, showInjuries };
+  };
+
+  test("lists the stats flagged as injured, from your own state", () => {
+    const base = newGameState(T0 - 90 * DAY, UTC);
+    expect(heroView(base, {}, T0, UTC).injured).toEqual([]);
+    expect(heroView(null, {}, T0, UTC).injured).toEqual([]);
+    expect(heroView(flag(flag(base, "chest"), "legs"), {}, T0, UTC).injured.sort()).toEqual(["chest", "legs"]);
+  });
+
+  test("still lists them with 'show to followers' off", () => {
+    const hidden = flag(newGameState(T0 - 90 * DAY, UTC), "chest", false);
+    expect(hidden.showInjuries).toBe(false);
+    expect(heroView(hidden, {}, T0, UTC).injured).toEqual(["chest"]);
+  });
+
+  test("drops a cleared flag and a lapsed one", () => {
+    const flagged = flag(newGameState(T0 - 90 * DAY, UTC), "chest");
+    const cleared = clearInjury(flagged, "chest", T0);
+    if (!cleared.ok) throw new Error(cleared.error);
+    expect(heroView(cleared.value, {}, T0 + DAY, UTC).injured).toEqual([]);
+    expect(heroView(flagged, {}, T0 + 9 * 7 * DAY, UTC).injured).toEqual([]);
   });
 });
 

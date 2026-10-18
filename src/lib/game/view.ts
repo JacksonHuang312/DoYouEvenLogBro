@@ -1,5 +1,5 @@
 import type { Workout } from "../types";
-import { freezeFor } from "./breaks";
+import { freezeFor, injuredStats } from "./breaks";
 import { calibrationDone, displayStats, type Calibration } from "./calibration";
 import { newGameState, profileOf, roundStats, type GameState, type Snapshot } from "./claim";
 import { CALIBRATION, DEFAULT_TIME_ZONE, EXCLUDED_CATEGORIES, type Stat } from "./config";
@@ -44,6 +44,8 @@ export interface HeroView {
   power: number | null;
   level: { level: number; into: number; needed: number };
   coins: number;
+  /** Stats you have flagged as injured right now (from your own game/state, whatever followers can see). */
+  injured: Stat[];
   timeZone: string;
 }
 
@@ -70,6 +72,7 @@ export function heroView(state: GameState | null, muscles: MusclesFacts, now: nu
     power: calibrating ? null : round1(power(stats)),
     level: levelProgress(game.xp),
     coins: game.coins,
+    injured: injuredStats(game, now),
     timeZone,
   };
 }

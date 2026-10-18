@@ -236,7 +236,7 @@ function StatsPanel({
           </p>
         )}
 
-        <RadarChart values={values} previous={previous} previousLabel={previousLabel} />
+        <RadarChart values={values} previous={previous} previousLabel={previousLabel} injured={view.injured} />
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-rpg-muted">
           <span className="flex items-center gap-1.5">
@@ -261,6 +261,7 @@ function StatsPanel({
             view={view}
             muscles={muscles}
             previous={compared ? compared.stats[stat].value : null}
+            injured={view.injured.includes(stat)}
             open={open === stat}
             onToggle={() => setOpen(open === stat ? null : stat)}
             now={now}
@@ -276,6 +277,7 @@ function StatRow({
   view,
   muscles,
   previous,
+  injured,
   open,
   onToggle,
   now,
@@ -284,6 +286,7 @@ function StatRow({
   view: HeroView;
   muscles: MusclesFacts;
   previous: number | null;
+  injured: boolean;
   open: boolean;
   onToggle: () => void;
   now: number;
@@ -302,8 +305,9 @@ function StatRow({
         aria-controls={panelId}
         className="grid min-h-11 w-full grid-cols-[1fr_64px_64px] items-baseline py-2 text-left text-[13px]"
       >
-        <span className="flex items-center gap-1.5 self-center text-rpg-text-2">
+        <span className={`flex items-center gap-1.5 self-center ${injured ? "text-rpg-warn" : "text-rpg-text-2"}`}>
           {STAT_LABELS[stat]}
+          {injured && <span className="text-[11px]">injured</span>}
           {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
         </span>
         <span className="text-right font-semibold">

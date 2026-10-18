@@ -11,16 +11,19 @@ export function RadarChart({
   values,
   previous,
   previousLabel,
+  injured = [],
 }: {
   values: Record<Stat, number>;
   /** The comparison period's values, or null for none. */
   previous: Record<Stat, number> | null;
   previousLabel?: string;
+  /** Stats flagged as injured: their labels are drawn in amber. */
+  injured?: Stat[];
 }) {
   const current = RADAR_ORDER.map((s) => values[s]);
   const scale = radarScale([...current, ...(previous ? RADAR_ORDER.map((s) => previous[s]) : [])]);
   const description =
-    `Radar chart of six stats: ${RADAR_ORDER.map((s) => `${STAT_LABELS[s]} ${Math.round(values[s])}`).join(", ")}.` +
+    `Radar chart of six stats: ${RADAR_ORDER.map((s) => `${STAT_LABELS[s]} ${Math.round(values[s])}${injured.includes(s) ? " (injured)" : ""}`).join(", ")}.` +
     (previous && previousLabel ? ` Compared with ${previousLabel}.` : "");
 
   return (
@@ -33,7 +36,7 @@ export function RadarChart({
         return (
           <g key={stat}>
             <line x1={RADAR.cx} y1={RADAR.cy} x2={a.x} y2={a.y} className="stroke-rpg-line" strokeWidth={1} />
-            <text x={a.lx} y={a.ly} textAnchor={a.anchor} fontSize={15} className="fill-rpg-text-2 font-rpg-body">
+            <text x={a.lx} y={a.ly} textAnchor={a.anchor} fontSize={15} className={`${injured.includes(stat) ? "fill-rpg-warn" : "fill-rpg-text-2"} font-rpg-body`}>
               {STAT_LABELS[stat]}
             </text>
           </g>
