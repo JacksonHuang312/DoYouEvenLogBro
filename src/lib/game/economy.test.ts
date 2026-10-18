@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { COINS, XP } from "./config";
-import { coinPayout, levelForXp, levelProgress, scheduledBonus, statXp } from "./economy";
+import { coinPayout, levelForXp, levelProgress, scheduledBonus, statXp, workoutXp } from "./economy";
 
 describe("scheduledBonus", () => {
   test("full on the day, −20% per day off, 0 beyond 3 days", () => {
@@ -45,6 +45,16 @@ describe("statXp", () => {
     expect(statXp(110, 100)).toBe(10 * XP.perPowerPoint);
     expect(statXp(90, 100)).toBe(0);
     expect(statXp(100.04, 100)).toBe(Math.round(0.04 * XP.perPowerPoint));
+  });
+});
+
+describe("workoutXp", () => {
+  const HOUR = 60 * 60 * 1000;
+  test("pays at most once per cooldown", () => {
+    const t = Date.UTC(2026, 9, 14, 12);
+    expect(workoutXp(null, t)).toBe(XP.perWorkout);
+    expect(workoutXp(t - (XP.workoutCooldownHours * HOUR - 1), t)).toBe(0);
+    expect(workoutXp(t - XP.workoutCooldownHours * HOUR, t)).toBe(XP.perWorkout);
   });
 });
 

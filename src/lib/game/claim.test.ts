@@ -137,6 +137,28 @@ describe("applyClaim", () => {
     expect(outcome.state).toMatchObject({ coins: 0, coinDay: null, coinsToday: 0, xp: XP.perWorkout });
   });
 
+  test("workout XP pays at most once per 12 hours of claim time; stats still count", () => {
+    const first = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC });
+    if (!first.counted) throw new Error();
+    expect(first.state.workoutXpAt).toBe(T0);
+    const soon = T0 + (XP.workoutCooldownHours - 1) * 60 * 60 * 1000;
+    const second = applyClaim({ state: first.state, muscles: first.muscles, workout: benchDay(soon, 90), lookup, now: soon, timeZone: UTC });
+    if (!second.counted) throw new Error();
+    expect(second.result.xp.workout).toBe(0);
+    expect(second.state.workoutXpAt).toBe(T0);
+    expect(second.muscles.chest!.repEst1RMKg).toBeGreaterThan(first.muscles.chest!.repEst1RMKg!);
+    const later = T0 + XP.workoutCooldownHours * 60 * 60 * 1000;
+    const third = applyClaim({ state: second.state, muscles: second.muscles, workout: benchDay(later), lookup, now: later, timeZone: UTC });
+    expect(third.counted && third.result.xp.workout).toBe(XP.perWorkout);
+  });
+
+  test("a state from before the 12-hour rule still pays workout XP", () => {
+    const old: GameState = newGameState(T0, UTC);
+    delete old.workoutXpAt;
+    const outcome = applyClaim({ state: old, muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC });
+    expect(outcome.counted && outcome.result.xp.workout).toBe(XP.perWorkout);
+  });
+
   test("no stat XP during calibration; the last calibration workout sets the peak", () => {
     const { state, results } = calibrated();
     expect(results.every((r) => r.xp.stats === 0)).toBe(true);

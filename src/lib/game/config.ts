@@ -108,7 +108,7 @@ export const BODYWEIGHT_FACTOR = {
 };
 
 /** Epley gets wild at high reps, so the estimate uses at most this many. */
-export const EPLEY_MAX_REPS = 15;
+export const EPLEY_MAX_REPS = 12;
 
 /** Sets beyond these are treated as typos and ignored by the game. */
 export const SANITY = { maxLoadKg: 600, maxReps: 100 };
@@ -163,6 +163,8 @@ export const COINS = {
 
 export const XP = {
   perWorkout: 20,
+  /** Workout XP pays at most once per this many hours (claim time), matching the 2-a-day coin cap. Stat XP is unaffected. */
+  workoutCooldownHours: 12,
   /** Per point of power above the highest power reached before. */
   perPowerPoint: 10,
   /** Flat, uncapped levels. */

@@ -14,22 +14,30 @@ export const RADAR = {
 
 const fmt = (n: number) => n.toFixed(1);
 
-/** The point for axis `i` at `value` (0–100 of the radius). */
-export function radarPoint(i: number, value: number): [number, number] {
+/**
+ * The value at the outer edge: 100, or the highest value shown when a stat is past 100 (stats
+ * have no cap, so the axis grows instead of clipping).
+ */
+export function radarScale(values: number[]): number {
+  return Math.max(100, ...values.filter(Number.isFinite));
+}
+
+/** The point for axis `i` at `value`, where `scale` is at the outer edge. */
+export function radarPoint(i: number, value: number, scale = 100): [number, number] {
   const a = (RADAR.angles[i] * Math.PI) / 180;
-  const r = (RADAR.radius * value) / 100;
+  const r = (RADAR.radius * value) / scale;
   return [RADAR.cx + Math.cos(a) * r, RADAR.cy + Math.sin(a) * r];
 }
 
-/** `points` attribute for a polygon with one value (0–100) per axis, in RADAR_ORDER. */
-export function radarPolygon(values: number[]): string {
-  return values.map((v, i) => radarPoint(i, Math.min(100, Math.max(0, v))).map(fmt).join(",")).join(" ");
+/** `points` attribute for a polygon with one value per axis, in RADAR_ORDER. Negative values sit at the centre. */
+export function radarPolygon(values: number[], scale = 100): string {
+  return values.map((v, i) => radarPoint(i, Math.max(0, v), scale).map(fmt).join(",")).join(" ");
 }
 
-/** A ring at `percent` of the radius. */
-export const radarRing = (percent: number) => radarPolygon(RADAR_ORDER.map(() => percent));
+/** A ring at `value` on an axis whose edge is `scale`. */
+export const radarRing = (value: number, scale = 100) => radarPolygon(RADAR_ORDER.map(() => value), scale);
 
-/** Spoke end and label position for axis `i`. */
+/** Spoke end and label position for axis `i` (always at the outer edge). */
 export function radarAxis(i: number) {
   const [x, y] = radarPoint(i, 100);
   const [lx, ly] = radarPoint(i, 120);

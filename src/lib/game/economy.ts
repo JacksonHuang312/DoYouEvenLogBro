@@ -28,6 +28,15 @@ export function coinPayout({ daysOff, earnedToday }: { daysOff: number | null; e
   return { base, scheduledBonus: bonus, capped: base + bonus - total, total };
 }
 
+/**
+ * Workout-completion XP for a claim at `now`: XP.perWorkout, or 0 within workoutCooldownHours of
+ * the last claim that paid it (`lastPaidAt`, null if none has).
+ */
+export function workoutXp(lastPaidAt: number | null, now: number): number {
+  const cooldownMs = XP.workoutCooldownHours * 60 * 60 * 1000;
+  return lastPaidAt != null && now - lastPaidAt < cooldownMs ? 0 : XP.perWorkout;
+}
+
 /** XP for power gained above the previous peak, so regaining decayed stats pays nothing twice. */
 export function statXp(powerAfter: number, peakPower: number): number {
   return Math.round(Math.max(0, powerAfter - peakPower) * XP.perPowerPoint);

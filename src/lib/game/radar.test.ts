@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { STATS } from "./config";
-import { RADAR, RADAR_ORDER, radarAxis, radarPoint, radarPolygon, radarRing } from "./radar";
+import { RADAR, RADAR_ORDER, radarAxis, radarPoint, radarPolygon, radarRing, radarScale } from "./radar";
 
 describe("radar", () => {
   test("axis order is Chest, Shoulders, Core, Legs, Arms, Back and covers every stat once", () => {
@@ -26,10 +26,19 @@ describe("radar", () => {
     expect(backY).toBeCloseTo(RADAR.cy);
   });
 
-  test("polygons have one point per axis and clamp out-of-range values", () => {
+  test("polygons have one point per axis; negative values sit at the centre", () => {
     expect(radarPolygon([10, 20, 30, 40, 50, 60]).split(" ")).toHaveLength(6);
-    expect(radarPolygon([150, -5, 0, 0, 0, 0])).toBe(radarPolygon([100, 0, 0, 0, 0, 0]));
+    expect(radarPolygon([0, -5, 0, 0, 0, 0])).toBe(radarPolygon([0, 0, 0, 0, 0, 0]));
     expect(radarRing(50).split(" ")).toHaveLength(6);
+  });
+
+  test("values past 100 aren't clipped: the scale grows to the highest one", () => {
+    expect(radarScale([40, 80, 60, 0, 0, 0])).toBe(100);
+    expect(radarScale([150, 80, 60, 0, 0, 0])).toBe(150);
+    // 150 on a 150 scale is the edge; 100 on it sits two thirds of the way out.
+    expect(radarPolygon([150, 0, 0, 0, 0, 0], 150)).toBe(radarPolygon([100, 0, 0, 0, 0, 0]));
+    const [x] = radarPoint(2, 100, 150);
+    expect(x).toBeCloseTo(RADAR.cx + (RADAR.radius * 2) / 3);
   });
 
   test("labels sit outside the ring and anchor away from the centre", () => {

@@ -1,7 +1,7 @@
 import type { Workout } from "../types";
 import { advanceCalibration, calibrationDone, displayStats, NEW_CALIBRATION, type Calibration } from "./calibration";
-import { COINS, DEFAULT_BODYWEIGHT_KG, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, XP, type Sex } from "./config";
-import { coinPayout, levelForXp, statXp, type CoinPayout } from "./economy";
+import { COINS, DEFAULT_BODYWEIGHT_KG, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type Sex } from "./config";
+import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./economy";
 import { mergeFacts, workoutFacts, type MusclesFacts } from "./facts";
 import { computeStats, power, type BodyProfile, type StatLine } from "./score";
 import { workingSets, type ExerciseLookup } from "./sets";
@@ -17,6 +17,8 @@ export interface GameState {
   /** Claim day (dayId in the user's time zone) that coinsToday counts, for the daily cap. */
   coinDay: string | null;
   coinsToday: number;
+  /** Claim time of the last claim that paid workout XP (12-hour rule). Missing on docs from before the rule. */
+  workoutXpAt?: number | null;
   calibration: Calibration;
   bodyweightKg: number | null;
   age: number | null;
@@ -73,6 +75,7 @@ export function newGameState(now: number, timeZone: string): GameState {
     peakPower: 0,
     coinDay: null,
     coinsToday: 0,
+    workoutXpAt: null,
     calibration: NEW_CALIBRATION,
     bodyweightKg: null,
     age: null,
@@ -104,7 +107,8 @@ function snapshotAt(muscles: MusclesFacts, profile: BodyProfile, at: number, tim
 
 /**
  * Claims a saved workout at `now`: new stat facts, coins (daily cap, scheduled bonus by
- * `daysOff`), XP and level. Pure; the caller checks idempotency and writes the results.
+ * `daysOff`), XP (workout XP at most once per 12 hours of claim time) and level. Pure; the
+ * caller checks idempotency and writes the results.
  * `payCoins: false` is for the backfill, which replays XP and stats but not coins.
  */
 export function applyClaim({
@@ -157,7 +161,8 @@ export function applyClaim({
     ? coinPayout({ daysOff, earnedToday })
     : { base: 0, scheduledBonus: 0, capped: 0, total: 0 };
 
-  const xpGained = XP.perWorkout + gainXp;
+  const completionXp = workoutXp(state.workoutXpAt ?? null, now);
+  const xpGained = completionXp + gainXp;
   const nextState: GameState = {
     ...state,
     coins: state.coins + coins.total,
@@ -166,6 +171,7 @@ export function applyClaim({
     peakPower,
     coinDay: payCoins ? today : state.coinDay,
     coinsToday: payCoins ? earnedToday + coins.total : state.coinsToday,
+    workoutXpAt: completionXp > 0 ? now : (state.workoutXpAt ?? null),
     calibration,
     timeZone,
     updatedAt: now,
@@ -177,7 +183,7 @@ export function applyClaim({
     workoutId: workout.id,
     claimedAt: now,
     coins: { ...coins, balance: nextState.coins },
-    xp: { workout: XP.perWorkout, stats: gainXp, total: xpGained, balance: nextState.xp },
+    xp: { workout: completionXp, stats: gainXp, total: xpGained, balance: nextState.xp },
     level: { before: state.level, after: nextState.level },
     stats: { before: roundStats(shownBefore), after: roundStats(shownAfter) },
     power: { before: round1(power(shownBefore)), after: round1(power(shownAfter)) },

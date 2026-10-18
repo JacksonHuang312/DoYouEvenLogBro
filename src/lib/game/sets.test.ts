@@ -15,6 +15,7 @@ describe("epley", () => {
 
   test("reps past the cap add nothing", () => {
     expect(epley(50, 40)).toBe(epley(50, EPLEY_MAX_REPS));
+    expect(EPLEY_MAX_REPS).toBe(12);
   });
 });
 

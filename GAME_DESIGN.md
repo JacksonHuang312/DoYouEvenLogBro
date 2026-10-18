@@ -282,14 +282,15 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 
 **Economy and XP**
 - Coins: 50 base per workout, plus a 25 scheduled bonus that follows the off-day curve (always 0 until scheduling exists in Phase 3). Daily cap 150, counted by claim day in the user's time zone, so backdating can't farm coins.
-- XP: 20 per workout, plus 10 per power point above the user's previous peak power. The peak rule means regaining decayed stats never pays twice. No stat XP during calibration. 500 XP per level.
+- XP: 20 per workout (at most once per 12 hours of claim time, so a third same-day workout pays stat XP only), plus 10 per power point above the user's previous peak power. The peak rule means regaining decayed stats never pays twice. No stat XP during calibration. 500 XP per level.
 - Backfill computes stats and XP from history but does **not** replay coins. Each existing user gets a flat 500-coin welcome bonus instead.
 - Recompute (after a workout edit or delete) rebuilds muscle facts and snapshots without touching coins, XP or claim records. It only ever lowers `peakPower`, to the highest power the corrected history reached, so fixing a typo doesn't block future XP.
 
 **Stat math**
-- Epley estimate caps reps at 15; sets over 600 kg or 100 reps are ignored; workouts starting more than 24 h in the future are rejected.
+- Epley estimate caps reps at 12 (section 2.2); sets over 600 kg or 100 reps are ignored; workouts starting more than 24 h in the future are rejected.
 - Bodyweight exercises with no weight logged count as bodyweight × 0.65; with added weight, bodyweight × 0.65 + the added weight.
 - Missing bodyweight defaults to 75 kg; unknown sex averages the male and female standards. No onboarding prompts yet.
+- Stats have no cap: strength keeps scaling past the standard (100), and the radar's edge becomes the highest stat shown, with the 50 and 100 rings moving inward.
 - Decay: after 7 days untrained, the strength part loses 1% per day, down to a floor of 50%.
 - Calibration starts at the first counted workout and ends after 14 days or 6 workouts. During it, shown stats are population averages (30 per sub-muscle) while real numbers are stored underneath.
 - Weeks start Sunday; the week id is that Sunday's date (e.g. 2026-10-11). Snapshots are written at claim time.

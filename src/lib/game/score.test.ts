@@ -49,8 +49,9 @@ describe("strengthScore", () => {
     expect(strengthScore("chest", standard / 2, male80)).toBeCloseTo(50);
   });
 
-  test("is capped at 100 and 0 with no lifts", () => {
-    expect(strengthScore("chest", 1000, male80)).toBe(100);
+  test("keeps scaling past 100 and is 0 with no lifts", () => {
+    const standard = STRENGTH_STANDARDS.chest * 80;
+    expect(strengthScore("chest", standard * 1.5, male80)).toBeCloseTo(150);
     expect(strengthScore("chest", null, male80)).toBe(0);
   });
 

@@ -27,8 +27,6 @@ export interface BodyProfile {
   sex: Sex | null;
 }
 
-const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
-
 /** How the strength standards scale for this person's age. */
 export function ageFactor(age: number | null): number {
   if (age == null) return 1;
@@ -37,12 +35,15 @@ export function ageFactor(age: number | null): number {
   return Math.max(AGE_FACTOR.min, 1 - (age - AGE_FACTOR.peakAgeEnd) * AGE_FACTOR.perYearAfterPeak);
 }
 
-/** Strength 0–100: estimated 1RM relative to bodyweight, against the standard for sex and age. */
+/**
+ * Strength: estimated 1RM relative to bodyweight, against the standard for sex and age. The
+ * standard scores 100; stronger lifts keep scaling past it (stats have no cap).
+ */
 export function strengthScore(muscle: SubMuscle, est1RMKg: number | null, profile: BodyProfile): number {
   if (est1RMKg == null || est1RMKg <= 0) return 0;
   const bodyweight = profile.bodyweightKg ?? DEFAULT_BODYWEIGHT_KG;
   const standard = STRENGTH_STANDARDS[muscle] * STANDARD_SEX_FACTOR[profile.sex ?? "unknown"] * ageFactor(profile.age);
-  return clamp((100 * est1RMKg) / bodyweight / standard, 0, 100);
+  return Math.max(0, (100 * est1RMKg) / bodyweight / standard);
 }
 
 /** Frequency 0–100: the share of the last FREQUENCY_WEEKS weeks (this one included) it was trained. */
@@ -64,7 +65,7 @@ export function calculated1RM(facts: MuscleFacts): number | null {
   return facts.repEst1RMKg ?? facts.maxLoadKg;
 }
 
-/** Sub-muscle score 0–100: decayed strength blended with frequency. Untrained is 0. */
+/** Sub-muscle score: decayed strength blended with frequency (0–100). Untrained is 0; no upper cap. */
 export function subMuscleScore(
   muscle: SubMuscle,
   facts: MuscleFacts | undefined,
