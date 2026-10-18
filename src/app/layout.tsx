@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/AuthProvider";
 import { DialogHost } from "@/components/DialogHost";
+import { RpgDialogHost } from "@/components/rpg/RpgDialogHost";
 import { FirestoreReconnect } from "@/components/FirestoreReconnect";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import { TouchActive } from "@/components/TouchActive";
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>{children}</AuthProvider>
         <DialogHost />
+        <RpgDialogHost />
         <TouchActive />
         <ThemeApplier />
         <FirestoreReconnect />

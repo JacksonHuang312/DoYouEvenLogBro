@@ -10,7 +10,7 @@ import { RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
 import { useWorkout } from "@/components/WorkoutProvider";
 import { useCustomExercises } from "@/lib/customExercises";
-import { confirmDialog, errorDialog } from "@/lib/dialog";
+import { confirmRpgDialog, errorRpgDialog } from "@/lib/rpgDialog";
 import { buildExerciseLookup } from "@/lib/game/sets";
 import { trainSchedule, type PlanDay, type PlanStatus } from "@/lib/game/train";
 import { dayLabel, resolveTimeZone, routineStats, STAT_LABELS } from "@/lib/game/view";
@@ -67,7 +67,7 @@ export default function TrainPage() {
   async function startFrom(routine: Routine) {
     if (
       draft &&
-      !(await confirmDialog({
+      !(await confirmRpgDialog({
         title: "Replace workout in progress?",
         message: `Starting "${routine.name}" discards the workout you have open.`,
         confirmLabel: "Replace",
@@ -79,13 +79,13 @@ export default function TrainPage() {
   }
 
   async function remove(routine: Routine) {
-    const ok = await confirmDialog({
+    const ok = await confirmRpgDialog({
       title: `Delete "${routine.name}"?`,
       message: "Workouts you've already logged from it are kept.",
       confirmLabel: "Delete",
       destructive: true,
     });
-    if (ok) deleteRoutine(profile.uid, routine.id).catch((e) => errorDialog("Couldn't delete routine", e));
+    if (ok) deleteRoutine(profile.uid, routine.id).catch((e) => errorRpgDialog("Couldn't delete routine", e));
   }
 
   // The scheduled routine if there is one, otherwise the most recently edited.

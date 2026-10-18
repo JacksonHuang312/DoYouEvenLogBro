@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { errorDialog } from "@/lib/dialog";
+import { errorRpgDialog } from "@/lib/rpgDialog";
 import type { ScheduleDoc, WeekdayRoutines } from "@/lib/game/schedule";
 import { daysLabel, editableDays, pendingFrom, sameDays, startsOn, toggleDay, WEEKDAYS } from "@/lib/game/questsView";
 import { saveSchedule } from "@/lib/gameApi";
@@ -64,7 +64,7 @@ export function ScheduleEditor({
       setDraft(null);
       setSaved(`Saved. It starts ${dayName(startsOn(today))}.`);
     } catch (err) {
-      void errorDialog("Couldn't save schedule", err);
+      void errorRpgDialog("Couldn't save schedule", err);
     } finally {
       setSaving(false);
     }

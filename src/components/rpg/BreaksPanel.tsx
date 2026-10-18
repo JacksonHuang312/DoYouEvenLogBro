@@ -2,7 +2,7 @@
 
 import { Minus, Plus } from "lucide-react";
 import { useState } from "react";
-import { confirmDialog, errorDialog } from "@/lib/dialog";
+import { confirmRpgDialog, errorRpgDialog } from "@/lib/rpgDialog";
 import type { GameState } from "@/lib/game/claim";
 import { INJURY, PAUSE, STATS, type Stat } from "@/lib/game/config";
 import { STAT_LABELS } from "@/lib/game/view";
@@ -51,7 +51,7 @@ export function BreaksPanel({
       const res = await action();
       setNotice(res.swappedQuests ? "Quests for that stat were replaced." : (done ?? null));
     } catch (err) {
-      void errorDialog(title, err);
+      void errorRpgDialog(title, err);
     } finally {
       setBusy(false);
     }
@@ -87,7 +87,7 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
   const plan = pausePlan(state, days, now, timeZone);
 
   async function start() {
-    const ok = await confirmDialog({
+    const ok = await confirmRpgDialog({
       title: `Pause for ${days} days?`,
       message: `Decay and your schedule freeze until ${plan.backOn}. You can end it early after ${PAUSE.minDays} days, and the next pause can't start for ${PAUSE.cooldownDays} days after this one.`,
       confirmLabel: "Start pause",
@@ -96,7 +96,7 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
   }
 
   async function end() {
-    const ok = await confirmDialog({
+    const ok = await confirmRpgDialog({
       title: "End your pause?",
       message: `Decay and your schedule start again today. The next pause can't start for ${PAUSE.cooldownDays} days.`,
       confirmLabel: "End pause",
@@ -182,7 +182,7 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
   }
 
   async function clear(s: Stat, label: string) {
-    const ok = await confirmDialog({
+    const ok = await confirmRpgDialog({
       title: `Clear the ${label} flag?`,
       message: "Decay and quests for that stat count again from now.",
       confirmLabel: "Clear flag",

@@ -8,7 +8,7 @@ import { RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { ScheduleEditor } from "@/components/rpg/ScheduleEditor";
 import { TabHeader } from "@/components/rpg/TabHeader";
 import { useCustomExercises } from "@/lib/customExercises";
-import { confirmDialog, errorDialog } from "@/lib/dialog";
+import { confirmRpgDialog, errorRpgDialog } from "@/lib/rpgDialog";
 import { activeInjuries, activePause } from "@/lib/game/breaks";
 import { questCards, rerollInfo, type QuestCard } from "@/lib/game/questsView";
 import { buildExerciseLookup } from "@/lib/game/sets";
@@ -64,7 +64,7 @@ export default function QuestsPage() {
     try {
       await claimQuest(quests.data.weekId, card.id);
     } catch (err) {
-      void errorDialog("Couldn't claim the quest", err);
+      void errorRpgDialog("Couldn't claim the quest", err);
     } finally {
       setBusy(null);
     }
@@ -72,7 +72,7 @@ export default function QuestsPage() {
 
   async function swap(card: QuestCard) {
     if (!quests.data || !reroll || reroll.cost == null) return;
-    const ok = await confirmDialog({
+    const ok = await confirmRpgDialog({
       title: "Reroll this quest?",
       message: `You get a different quest in its place for ${reroll.cost} coins. ${reroll.left - 1} reroll${reroll.left === 2 ? "" : "s"} left after this one.`,
       confirmLabel: `Reroll for ${reroll.cost}`,
@@ -82,7 +82,7 @@ export default function QuestsPage() {
     try {
       await rerollQuest(quests.data.weekId, card.id, quests.data.rerollsUsed);
     } catch (err) {
-      void errorDialog("Couldn't reroll the quest", err);
+      void errorRpgDialog("Couldn't reroll the quest", err);
     } finally {
       setBusy(null);
     }
