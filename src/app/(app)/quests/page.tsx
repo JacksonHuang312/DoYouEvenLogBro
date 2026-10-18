@@ -16,6 +16,7 @@ import { dayId, weekId as weekIdOf } from "@/lib/game/time";
 import { claimQuest, rerollQuest } from "@/lib/gameApi";
 import { useRoutines } from "@/lib/routines";
 import { useGameState, useQuests, useSchedule } from "@/lib/useGame";
+import { useNow } from "@/lib/useNow";
 import { useOnline } from "@/lib/useOnline";
 import { useWorkouts } from "@/lib/useWorkouts";
 
@@ -30,7 +31,7 @@ export default function QuestsPage() {
   const routines = useRoutines(profile.uid);
   const custom = useCustomExercises();
   const lookup = useMemo(() => buildExerciseLookup(custom), [custom]);
-  const [now] = useState(() => Date.now());
+  const now = useNow(gameState.data?.updatedAt);
 
   // This screen sends the browser's time zone with every request, so it counts weeks the same way.
   const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
