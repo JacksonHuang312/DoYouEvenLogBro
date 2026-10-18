@@ -12,10 +12,11 @@ import { useWorkout } from "@/components/WorkoutProvider";
 import { useCustomExercises } from "@/lib/customExercises";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { buildExerciseLookup } from "@/lib/game/sets";
-import { dayLabel, resolveTimeZone, routineStats, STAT_LABELS, weekStrip, type DayCell } from "@/lib/game/view";
+import { trainSchedule, type PlanDay, type PlanStatus } from "@/lib/game/train";
+import { dayLabel, resolveTimeZone, routineStats, STAT_LABELS } from "@/lib/game/view";
 import { deleteRoutine, useRoutines } from "@/lib/routines";
 import type { Routine } from "@/lib/types";
-import { useGameState } from "@/lib/useGame";
+import { useGameState, useSchedule } from "@/lib/useGame";
 import { useWorkouts } from "@/lib/useWorkouts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,6 +31,7 @@ export default function TrainPage() {
   const custom = useCustomExercises();
   const lookup = useMemo(() => buildExerciseLookup(custom), [custom]);
   const gameState = useGameState(profile.uid);
+  const schedule = useSchedule(profile.uid);
   const [now] = useState(() => Date.now());
   // A week back plus slack for the time zone: enough to cover this week.
   const [since] = useState(() => Date.now() - 8 * DAY_MS);
@@ -38,7 +40,23 @@ export default function TrainPage() {
 
   const timeZone = resolveTimeZone(gameState.data, Intl.DateTimeFormat().resolvedOptions().timeZone);
   const today = new Date(now).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone });
-  const week = weekWorkouts ? weekStrip(weekWorkouts, lookup, now, timeZone) : null;
+
+  // "Unavailable" (offline, nothing cached) counts as "no schedule yet": Train still has to work.
+  const plan = useMemo(
+    () =>
+      routines && weekWorkouts && gameState.status !== "loading" && schedule.status !== "loading"
+        ? trainSchedule({
+            schedule: schedule.data,
+            state: gameState.data,
+            routines,
+            workouts: weekWorkouts,
+            lookup,
+            now,
+            timeZone,
+          })
+        : null,
+    [routines, weekWorkouts, gameState.status, gameState.data, schedule.status, schedule.data, lookup, now, timeZone],
+  );
 
   function begin(routine: Routine) {
     startRoutine(routine);
@@ -70,7 +88,10 @@ export default function TrainPage() {
     if (ok) deleteRoutine(profile.uid, routine.id).catch((e) => errorDialog("Couldn't delete routine", e));
   }
 
-  const suggestion = routines?.[0];
+  // The scheduled routine if there is one, otherwise the most recently edited.
+  const card = plan?.card;
+  const scheduled = card?.routineId ? routines?.find((r) => r.id === card.routineId) : undefined;
+  const offer = scheduled ?? routines?.[0];
 
   return (
     <RpgScreen>
@@ -95,25 +116,33 @@ export default function TrainPage() {
             <p className="text-xs text-rpg-text-2">Workout in progress.</p>
             <PrimaryLink href="/workout">Resume workout</PrimaryLink>
           </>
-        ) : !routines ? (
+        ) : !routines || !plan ? (
           <>
             <Skeleton className="h-[30px] w-2/3" />
             <Skeleton className="h-3 w-full" />
             <Skeleton className="h-[50px] w-full" />
           </>
-        ) : suggestion ? (
+        ) : offer ? (
           <>
-            <Heading title={suggestion.name} meta={`${suggestion.exercises.length} exercises`} />
-            <p className="line-clamp-2 text-xs text-rpg-text-2">{suggestion.exercises.map((e) => e.name).join(", ")}</p>
+            {card && card.kicker && <div className="text-[11px] text-rpg-accent">{card.kicker}</div>}
+            <Heading title={offer.name} meta={`${offer.exercises.length} exercises`} />
+            <p className="line-clamp-2 text-xs text-rpg-text-2">{offer.exercises.map((e) => e.name).join(", ")}</p>
+            {card?.note && <p className="text-xs text-rpg-text-2">{card.note}</p>}
             <button
-              onClick={() => begin(suggestion)}
+              onClick={() => begin(offer)}
               className="min-h-[50px] truncate bg-rpg-text px-4 text-sm font-semibold text-rpg-bg"
             >
-              Start {suggestion.name}
+              Start {offer.name}
             </button>
+            {!plan.hasSchedule && (
+              <Link href="/quests" className="flex min-h-11 items-center text-xs text-rpg-accent">
+                Set a weekly schedule to earn the scheduled-day bonus
+              </Link>
+            )}
           </>
         ) : (
           <>
+            {card?.kind === "paused" && card.note && <p className="text-xs text-rpg-text-2">{card.note}</p>}
             <Heading title="No routines yet" />
             <p className="text-xs text-rpg-text-2">Save the workouts you repeat as routines to start them in one tap.</p>
             <button
@@ -132,13 +161,16 @@ export default function TrainPage() {
       <section className={`${SECTION} flex flex-col gap-2 py-3.5`} aria-label="This week">
         <div className="flex justify-between text-[11px] text-rpg-muted">
           <span>This week</span>
-          {week && <span>{week.workouts === 1 ? "1 workout" : `${week.workouts} workouts`}</span>}
+          {plan && <span>{plan.summary}</span>}
         </div>
         <div className="grid grid-cols-7 gap-1.5 text-center text-[11px]">
-          {week
-            ? week.days.map((d) => <Day key={d.dayId} day={d} />)
+          {plan
+            ? plan.days.map((d) => <Day key={d.dayId} day={d} />)
             : Array.from({ length: 7 }, (_, i) => <Skeleton key={i} className="mx-auto h-[28px] w-7" />)}
         </div>
+        {plan?.anyPredicted && (
+          <p className="text-[11px] text-rpg-muted">Dashed marks are predictions until your workouts sync.</p>
+        )}
       </section>
 
       <section className="flex flex-col px-5 pt-4">
@@ -152,10 +184,14 @@ export default function TrainPage() {
         {routines?.length === 0 && <p className="py-3 text-xs text-rpg-muted">No routines yet.</p>}
         {routines?.map((r) => {
           const stats = routineStats(r.exercises.map((e) => e.exerciseId), lookup);
+          const next = plan?.nextByRoutine[r.id];
           return (
             <div key={r.id} className="flex items-center gap-1 border-t border-rpg-line-soft py-1.5">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm">{r.name}</div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm">{r.name}</span>
+                  {next && <span className="shrink-0 text-xs text-rpg-muted">{next}</span>}
+                </div>
                 <div className="truncate text-[11px] text-rpg-muted">
                   {[`${r.exercises.length} exercises`, ...stats.map((s) => STAT_LABELS[s])].join(" · ")}
                 </div>
@@ -206,22 +242,27 @@ function PrimaryLink({ href, children }: { href: string; children: React.ReactNo
   );
 }
 
-const MARK: Record<DayCell["status"], { text: string; label: string; cls: string }> = {
-  done: { text: "✓", label: "Workout done", cls: "border-rpg-good text-rpg-good" },
-  today: { text: "•", label: "Today, no workout yet", cls: "border-rpg-accent bg-rpg-accent text-rpg-bg" },
-  rest: { text: "", label: "No workout", cls: "border-transparent" },
-  future: { text: "", label: "Upcoming", cls: "border-transparent" },
+const MARK: Record<PlanStatus, { text: string; cls: string }> = {
+  done: { text: "✓", cls: "border-rpg-good text-rpg-good" },
+  "on-time": { text: "✓", cls: "border-rpg-good text-rpg-good" },
+  late: { text: "~", cls: "border-rpg-warn text-rpg-warn" },
+  early: { text: "~", cls: "border-rpg-warn text-rpg-warn" },
+  today: { text: "•", cls: "border-rpg-accent bg-rpg-accent text-rpg-bg" },
+  planned: { text: "", cls: "border-[#4a4d52] text-rpg-muted" },
+  missed: { text: "–", cls: "border-transparent text-rpg-muted" },
+  extra: { text: "+", cls: "border-rpg-line-strong text-rpg-text-2" },
+  rest: { text: "", cls: "border-transparent" },
 };
 
-function Day({ day }: { day: DayCell }) {
+function Day({ day }: { day: PlanDay }) {
   const mark = MARK[day.status];
   return (
     <div className="flex flex-col items-center gap-1.5">
       <span className={day.isToday ? "text-rpg-text" : "text-rpg-muted"}>{day.letter}</span>
       <span
         role="img"
-        aria-label={`${day.name}: ${mark.label}`}
-        className={`flex h-7 w-7 items-center justify-center border text-[13px] ${mark.cls}`}
+        aria-label={`${day.name}: ${day.label}`}
+        className={`flex h-7 w-7 items-center justify-center border text-[13px] ${mark.cls} ${day.predicted ? "border-dashed" : ""}`}
       >
         {mark.text}
       </span>

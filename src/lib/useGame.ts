@@ -4,6 +4,7 @@ import { collection, doc, limit, onSnapshot, orderBy, query } from "firebase/fir
 import { useEffect, useState } from "react";
 import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
+import type { ScheduleDoc } from "./game/schedule";
 import type { LoadStatus } from "./game/view";
 import { firebase } from "./firebase";
 
@@ -64,7 +65,7 @@ function report(what: string, err: { code?: string }) {
 const NO_MUSCLES: MusclesFacts = {};
 const NO_SNAPSHOTS: Snapshot[] = [];
 
-function useGameDoc<T>(uid: string, name: "state" | "muscles", empty: T, pick: (data: unknown) => T): Live<T> {
+function useGameDoc<T>(uid: string, name: "state" | "muscles" | "schedule", empty: T, pick: (data: unknown) => T): Live<T> {
   return useLive(`${uid}/game/${name}`, empty, (settle, fail) =>
     onSnapshot(
       doc(firebase().db, "users", uid, "game", name),
@@ -108,4 +109,9 @@ export function useSnapshots(uid: string): Live<Snapshot[]> {
       },
     ),
   );
+}
+
+/** game/schedule: the weekly schedule and which days were filled. data is null once the server confirms none was saved yet. */
+export function useSchedule(uid: string): Live<ScheduleDoc | null> {
+  return useGameDoc<ScheduleDoc | null>(uid, "schedule", null, (d) => d as ScheduleDoc);
 }
