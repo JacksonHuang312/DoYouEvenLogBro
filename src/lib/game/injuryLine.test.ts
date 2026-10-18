@@ -75,4 +75,13 @@ describe("ownInjuryTag (your Hero)", () => {
   test("drops flags once they lapse", () => {
     expect(ownInjuryTag(flagged(["arms"]), T0 + 9 * WEEK_MS)).toBeNull();
   });
+
+  test("still shows with 'show to followers' off, when publicStats has nothing", () => {
+    const hidden = { ...flagged(["arms", "2026-11-20"]), showInjuries: false };
+    // What publicStats gets is empty, so a tag read from there would vanish...
+    expect(publicInjuries(hidden, T0)).toEqual([]);
+    expect(injuryLine(publicInjuries(hidden, T0), T0, UTC)).toBeNull();
+    // ...but your own Hero reads game/state, so it stays, and says followers can't see it.
+    expect(ownInjuryTag(hidden, T0)).toBe("Injured: Arms · hidden from followers");
+  });
 });

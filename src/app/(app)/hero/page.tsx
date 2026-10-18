@@ -23,6 +23,7 @@ import {
   type LoadStatus,
 } from "@/lib/game/view";
 import { useGameState, useMuscleFacts, useSnapshots } from "@/lib/useGame";
+import { useNow } from "@/lib/useNow";
 
 const TABS = ["Stats", "Gear", "Shop", "Titles"] as const;
 type Tab = (typeof TABS)[number];
@@ -50,7 +51,7 @@ export default function HeroPage() {
   const state = useGameState(profile.uid);
   const muscles = useMuscleFacts(profile.uid);
   const snapshots = useSnapshots(profile.uid);
-  const [now] = useState(() => Date.now());
+  const now = useNow(state.data?.updatedAt);
   const [tab, setTab] = useState<Tab>("Stats");
   // From game/state, so it shows as soon as that answers. Flags that have lapsed aren't listed.
   const injuryTag = ownInjuryTag(state.data, now);
