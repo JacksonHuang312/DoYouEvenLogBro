@@ -14,7 +14,7 @@ import {
 import { CALIBRATION, COINS, MAX_FUTURE_MS, XP } from "./config";
 import type { MusclesFacts } from "./facts";
 import { NO_FREEZE } from "./freeze";
-import { benchDay, CRUNCH, DAY, lookup, set, SQUAT, T0, workout } from "./test-helpers";
+import { BENCH, benchDay, CRUNCH, DAY, lookup, set, SQUAT, T0, workout } from "./test-helpers";
 
 const UTC = "UTC";
 const noProfile = { bodyweightKg: null, age: null, sex: null };
@@ -317,5 +317,36 @@ describe("backfillHistory", () => {
     expect(state).toMatchObject({ coins: COINS.welcomeBonus, xp: 0, level: 1, createdAt: now });
     expect(claims).toEqual([]);
     expect(snapshots).toEqual([]);
+  });
+});
+
+describe("claim result details (Rewards screen)", () => {
+  test("reports how much of the daily cap is used", () => {
+    const first = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+    if (!first.counted) throw new Error();
+    expect(first.result.coins).toMatchObject({ usedToday: COINS.base, dailyCap: COINS.dailyCap });
+    const second = applyClaim({ state: first.state, muscles: first.muscles, workout: benchDay(T0 + 1000), lookup, now: T0 + 1000, timeZone: UTC, freeze: NO_FREEZE, daysOff: 0 });
+    if (!second.counted) throw new Error();
+    expect(second.result.coins.usedToday).toBe(COINS.base * 2 + COINS.scheduledBonus);
+  });
+
+  test("a lift that beats the calculated 1RM shows up as a 1RM line once calibrated", () => {
+    const { state, muscles } = calibrated();
+    const at = T0 + 7 * DAY;
+    const w = workout(at, [[BENCH, [set(80, 5), set(80, 5), set(80, 5), set(100, 1)]]]);
+    const outcome = applyClaim({ state, muscles, workout: w, lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
+    if (!outcome.counted) throw new Error();
+    expect(outcome.result.oneRm).toHaveLength(1);
+    expect(outcome.result.oneRm![0]).toMatchObject({ stat: "chest", exerciseId: BENCH, weightKg: 100, reps: 1 });
+    expect(outcome.result.oneRm![0].bonusDelta).toBeGreaterThan(0);
+    // An ordinary day has none.
+    const plain = applyClaim({ state, muscles, workout: benchDay(at), lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
+    expect(plain.counted && plain.result.oneRm).toEqual([]);
+  });
+
+  test("no 1RM lines while calibrating", () => {
+    const w = workout(T0, [[BENCH, [set(80, 5), set(80, 5), set(80, 5), set(100, 1)]]]);
+    const outcome = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: w, lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+    expect(outcome.counted && outcome.result.oneRm).toEqual([]);
   });
 });

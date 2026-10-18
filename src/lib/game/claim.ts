@@ -1,12 +1,13 @@
 import type { Workout } from "../types";
 import type { Injury, Pause } from "./breaks";
 import { advanceCalibration, calibrationDone, displayStats, NEW_CALIBRATION, type Calibration } from "./calibration";
-import { COINS, DEFAULT_BODYWEIGHT_KG, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type Sex } from "./config";
+import { COINS, DEFAULT_BODYWEIGHT_KG, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type Sex, type Stat } from "./config";
 import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./economy";
 import { mergeFacts, workoutFacts, type MusclesFacts } from "./facts";
 import { NO_FREEZE, type Freeze } from "./freeze";
+import { statOf } from "./muscles";
 import { computeStats, power, type BodyProfile, type StatLine } from "./score";
-import { workingSets, type ExerciseLookup } from "./sets";
+import { setLoadKg, workingSets, type ExerciseLookup } from "./sets";
 import { dayId, weekId } from "./time";
 
 /** users/{uid}/game/state. Written only by the server. */
@@ -52,17 +53,41 @@ export interface Snapshot {
   takenAt: number;
 }
 
-/** What a claim paid, stored in users/{uid}/claims/{workoutId} and returned for the Rewards screen. */
+/** A stat whose 1RM bonus grew because a lift beat the calculated 1RM (section 2.3). */
+export interface OneRmLine {
+  stat: Stat;
+  /** The heaviest working set of that stat in the workout. */
+  exerciseId: string;
+  weightKg: number;
+  reps: number;
+  /** How much the stat's bonus grew. */
+  bonusDelta: number;
+}
+
+/**
+ * What a claim paid, stored in users/{uid}/claims/{workoutId} and returned for the Rewards
+ * screen. Fields marked optional are missing on claims from before Phase 3.
+ */
 export interface ClaimResult {
   workoutId: string;
   claimedAt: number;
-  coins: CoinPayout & { balance: number };
+  coins: CoinPayout & {
+    /** Balance after this claim, quest rewards included. */
+    balance: number;
+    /** Coins counted toward the daily cap on the claim day, this claim included. */
+    usedToday?: number;
+    dailyCap?: number;
+  };
   xp: { workout: number; stats: number; total: number; balance: number };
   level: { before: number; after: number };
   /** As shown: population averages while calibrating. */
   stats: { before: StatLine; after: StatLine };
   power: { before: number; after: number };
   calibrating: boolean;
+  /** Stats whose 1RM bonus grew. Empty while calibrating. */
+  oneRm?: OneRmLine[];
+  /** The scheduled day this workout filled, or null if none (written by the claim route). */
+  schedule?: { day: string; daysOff: number } | null;
   /** Set on claims written by the backfill script (which pays no coins). */
   backfilled?: boolean;
 }
@@ -106,6 +131,27 @@ export function roundStats(stats: StatLine): StatLine {
   return Object.fromEntries(
     STATS.map((s) => [s, { value: round1(stats[s].value), bonus: round1(stats[s].bonus) }]),
   ) as StatLine;
+}
+
+/** For each stat whose bonus grew, the heaviest working set of that stat in the workout. */
+function oneRmLines(
+  workout: ClaimableWorkout,
+  lookup: ExerciseLookup,
+  bodyweightKg: number,
+  before: StatLine,
+  after: StatLine,
+): OneRmLine[] {
+  const heaviest = new Map<Stat, Omit<OneRmLine, "bonusDelta">>();
+  for (const { exerciseId, info, set } of workingSets(workout, lookup)) {
+    const stat = statOf(info.muscle);
+    const weightKg = setLoadKg(set, exerciseId, info, bodyweightKg);
+    if (weightKg > (heaviest.get(stat)?.weightKg ?? -1)) heaviest.set(stat, { stat, exerciseId, weightKg, reps: set.reps });
+  }
+  return STATS.flatMap((stat) => {
+    const bonusDelta = round1(after[stat].bonus - before[stat].bonus);
+    const lift = heaviest.get(stat);
+    return bonusDelta > 0 && lift ? [{ ...lift, bonusDelta }] : [];
+  });
 }
 
 function snapshotOf(stats: StatLine, at: number, timeZone: string): Snapshot {
@@ -191,17 +237,20 @@ export function applyClaim({
     updatedAt: now,
   };
 
+  const bodyweightKg = state.bodyweightKg ?? DEFAULT_BODYWEIGHT_KG;
+  const calibrating = !calibrationDone(calibration, now);
   const shownBefore = displayStats(realBefore, state.calibration, now);
   const shownAfter = displayStats(realAfter, calibration, now);
   const result: ClaimResult = {
     workoutId: workout.id,
     claimedAt: now,
-    coins: { ...coins, balance: nextState.coins },
+    coins: { ...coins, balance: nextState.coins, usedToday: nextState.coinDay === today ? nextState.coinsToday : 0, dailyCap: COINS.dailyCap },
     xp: { workout: completionXp, stats: gainXp, total: xpGained, balance: nextState.xp },
     level: { before: state.level, after: nextState.level },
     stats: { before: roundStats(shownBefore), after: roundStats(shownAfter) },
     power: { before: round1(power(shownBefore)), after: round1(power(shownAfter)) },
-    calibrating: !calibrationDone(calibration, now),
+    calibrating,
+    oneRm: calibrating ? [] : oneRmLines(workout, lookup, bodyweightKg, realBefore, realAfter),
   };
 
   return {

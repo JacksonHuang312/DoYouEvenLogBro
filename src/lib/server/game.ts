@@ -1,4 +1,3 @@
-import type { DocumentSnapshot, Firestore } from "firebase-admin/firestore";
 import { freezeFor } from "../game/breaks";
 import { calibrationDone, displayStats } from "../game/calibration";
 import {
@@ -16,11 +15,14 @@ import {
   type Snapshot,
 } from "../game/claim";
 import { DEFAULT_TIME_ZONE, MIN_WORKING_SETS } from "../game/config";
+import { emptySchedule, matchWorkout, withMatch, type ScheduleDoc } from "../game/schedule";
 import { computeStats, power, type StatLine } from "../game/score";
 import { buildExerciseLookup } from "../game/sets";
+import { dayId } from "../game/time";
 import type { Workout } from "../types";
 import { adminDb } from "./admin";
 import { HttpError } from "./api";
+import { customExercise, gameRefs } from "./refs";
 
 /** POST /api/claim response. */
 export type ClaimResponse =
@@ -35,38 +37,22 @@ export interface RecomputeResponse {
   calibrating: boolean;
 }
 
-function refs(db: Firestore, uid: string) {
-  const user = db.collection("users").doc(uid);
-  return {
-    state: user.collection("game").doc("state"),
-    muscles: user.collection("game").doc("muscles"),
-    claims: user.collection("claims"),
-    snapshots: user.collection("snapshots"),
-    workouts: user.collection("workouts"),
-    customExercises: user.collection("customExercises"),
-  };
-}
-
-const customExercise = (d: DocumentSnapshot) => ({
-  id: d.id,
-  ...(d.data() as { muscle: string; category: string; equipment: string }),
-});
-
 /**
  * Claims a saved workout's rewards (GAME_DESIGN.md 8.2) in one transaction. Idempotent per
  * workout: once claimed, later calls return the original result and pay nothing.
  */
 export async function claimWorkout(uid: string, workoutId: string, timeZone?: string): Promise<ClaimResponse> {
   const db = adminDb();
-  const r = refs(db, uid);
+  const r = gameRefs(db, uid);
   const claimRef = r.claims.doc(workoutId);
 
   return db.runTransaction(async (tx) => {
-    const [claim, workoutSnap, stateSnap, musclesSnap] = await tx.getAll(
+    const [claim, workoutSnap, stateSnap, musclesSnap, scheduleSnap] = await tx.getAll(
       claimRef,
       r.workouts.doc(workoutId),
       r.state,
       r.muscles,
+      r.schedule,
     );
     if (claim.exists) return { status: "already-claimed", result: claim.data() as ClaimResult };
     // Saved offline-first, so the workout may not have reached the server yet; the client retries.
@@ -80,25 +66,37 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
     const now = Date.now();
     const state = stateSnap.exists ? (stateSnap.data() as GameState) : newGameState(now, timeZone ?? DEFAULT_TIME_ZONE);
     const muscles = musclesSnap.exists ? (musclesSnap.data() as MusclesDoc).muscles : {};
+    const zone = timeZone ?? state.timeZone;
+
+    // Which scheduled day (if any) this workout fills; the bonus follows the off-day curve.
+    const schedule = scheduleSnap.exists ? (scheduleSnap.data() as ScheduleDoc) : emptySchedule(now);
+    const workoutDay = dayId(workout.startedAt, zone);
+    const claimDay = dayId(now, zone);
+    const match = matchWorkout({ doc: schedule, state, workoutDay, claimDay });
+
     const outcome = applyClaim({
       state,
       muscles,
       workout,
       lookup,
       now,
-      timeZone: timeZone ?? state.timeZone,
+      timeZone: zone,
       freeze: freezeFor(state),
+      daysOff: match?.daysOff ?? null,
     });
     if (!outcome.counted) {
       // No claim record, so the workout can still be claimed if it's edited to count.
       return { status: "not-counted", reason: outcome.reason, workingSets: outcome.workingSets, required: MIN_WORKING_SETS };
     }
 
+    const result: ClaimResult = { ...outcome.result, schedule: match ? { day: match.day, daysOff: match.daysOff } : null };
+
     tx.set(r.state, outcome.state);
     tx.set(r.muscles, { muscles: outcome.muscles, updatedAt: now } satisfies MusclesDoc);
-    tx.set(claimRef, outcome.result);
+    tx.set(claimRef, result);
     tx.set(r.snapshots.doc(outcome.snapshot.weekId), outcome.snapshot);
-    return { status: "claimed", result: outcome.result };
+    if (match) tx.set(r.schedule, withMatch(schedule, match, { id: workoutId, day: workoutDay }, claimDay, now));
+    return { status: "claimed", result };
   });
 }
 
@@ -109,7 +107,7 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
  */
 export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> {
   const db = adminDb();
-  const r = refs(db, uid);
+  const r = gameRefs(db, uid);
 
   return db.runTransaction(async (tx) => {
     const stateSnap = await tx.get(r.state);
