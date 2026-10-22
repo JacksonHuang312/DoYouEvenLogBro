@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gear cards by rarity</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101113}
+a{color:#7fb0ff}a:hover{color:#b3d0ff}
+</style>
+</helmet>
+<div style="width: 1180px; height: 640px; box-sizing: border-box; padding: 40px; background: #101113; color: #ece8df; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; gap: 28px">
+  <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #26282c; padding-bottom: 14px">
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 700; text-transform: uppercase; line-height: 1">Gear</div>
+    <div style="font-size: 12px; color: #8d8a83">Unnamed gear caps at Epic. Named gear climbs Epic → Legendary → Mythic.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px">
+    <sc-for list="{{cards}}" as="c" hint-placeholder-count="6">
+      <div style="{{c.cardStyle}}">
+        <div style="display: flex; justify-content: space-between; font-size: 11px">
+          <span style="{{c.colorStyle}}">{{c.rarity}}</span>
+          <span>{{c.plus}}</span>
+        </div>
+        <div style="height: 92px; display: flex; align-items: center; justify-content: center">
+          <svg width="60" height="60" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#ece8df" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="{{c.icon}}"></path></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 3px">
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 600; line-height: 1.05">{{c.name}}</div>
+          <div style="font-size: 11px; color: #8d8a83">{{c.slot}}</div>
+        </div>
+        <div style="border-top: 1px solid #26282c; padding-top: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 11px">
+          <span>{{c.stat1}}</span>
+          <span style="color: #8d8a83">{{c.stat2}}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; border-top: 1px solid #26282c; padding-top: 18px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 600; text-transform: uppercase">Upgrading</div>
+      <div style="font-size: 13px; color: #b9b5ac">Rare +0 → Rare +1 → Rare +2 → <span style="color: #a98bf0">Epic +0</span></div>
+      <div style="font-size: 12px; color: #8d8a83">Costs coins and salvage. Upgrades never fail. Mythic needs boss-only materials.</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 600; text-transform: uppercase">Titan's Vow set · 2/5</div>
+      <div style="font-size: 12px; color: #8d8a83">3 pieces: +5% HP<br>5 pieces: +10% ATK</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const icons = {
+      gloves: 'M7 21v-6l-2-4V6.5a1.5 1.5 0 0 1 3 0V10M8 10V4.5a1.5 1.5 0 0 1 3 0V10M11 10V4a1.5 1.5 0 0 1 3 0v6M14 10V5.5a1.5 1.5 0 0 1 3 0V14l-2 3v4',
+      boots: 'M8 3h5v9l6 3a2 2 0 0 1 1 1.8V19H5v-3l3-2zM5 19v2h15v-2',
+      chest: 'M8 3l4 2 4-2 4 3-2 5v10H6V11L4 6zM12 5v16M8 11h8',
+      legs: 'M7 3h10l1 7-2 11h-3l-1-9-1 9H8L6 10zM7 7h10',
+      cape: 'M6 3h12l2 18-8-3-8 3zM9 3v4M15 3v4',
+      helm: 'M5 13a7 7 0 0 1 14 0v5H5zM12 6v12M5 14h5M14 14h5M8 4l4-2 4 2'
+    };
+    const tiers = [
+      { rarity: 'Common', color: '#9a978f', name: 'Iron Gloves', slot: 'Gloves · unnamed', icon: icons.gloves, plus: '+2', stat1: '+6 Arms', stat2: 'Ready to promote' },
+      { rarity: 'Uncommon', color: '#6fbf8c', name: 'Leather Treads', slot: 'Boots · unnamed', icon: icons.boots, plus: '+1', stat1: '+9 Legs', stat2: '+1% HP' },
+      { rarity: 'Rare', color: '#5b9bff', name: 'Steel Cuirass', slot: 'Chestplate · unnamed', icon: icons.chest, plus: '+0', stat1: '+14 Chest', stat2: '+8 Back' },
+      { rarity: 'Epic', color: '#a98bf0', name: 'Warden Greaves', slot: 'Leggings · unnamed', icon: icons.legs, plus: '+2', stat1: '+22 Legs', stat2: 'Rarity cap' },
+      { rarity: 'Legendary', color: '#d9a441', name: "Titan's Mantle", slot: 'Chestplate · named', icon: icons.cape, plus: '+1', stat1: '+31 Chest', stat2: "Titan's Vow set" },
+      { rarity: 'Mythic', color: '#e0605f', name: 'Crown of the Unbroken', slot: 'Helmet · named', icon: icons.helm, plus: '+0', stat1: '+8% all stats', stat2: 'Boss materials only' }
+    ];
+    const cards = tiers.map(t => ({ ...t,
+      colorStyle: 'color:' + t.color + ';font-weight:600',
+      cardStyle: 'box-sizing:border-box;min-height:320px;padding:14px;display:flex;flex-direction:column;gap:12px;background:#17181b;border:1px solid ' + t.color
+    }));
+    return { cards };
+  }
+}
+</script>
+</body>
+</html>
