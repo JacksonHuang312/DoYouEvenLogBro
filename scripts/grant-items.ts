@@ -1,10 +1,10 @@
-// Grants gear, materials and coins to one account, so every rarity can be seen before boss drops exist
+// Grants gear (armor and accessories), materials and coins to one account, so every rarity can be seen before boss drops exist
 // (Phase 5). A developer tool: there is deliberately no API route for this. Granted items are
 // marked source "admin".
 //
 //   npm run grant-items -- --uid <uid> --all --dry-run          # one of every catalog item, at its own rarity
 //   npm run grant-items -- --uid <uid> --base warden-chestplate --rarity legendary --plus 2
-//   npm run grant-items -- --uid <uid> --base titans-vow-helmet --base unbroken-boots
+//   npm run grant-items -- --uid <uid> --base titans-vow-helmet --base unbroken-boots --base sunforged-ring
 //   npm run grant-items -- --uid <uid> --materials scrap=300,mythicCore=1
 //   npm run grant-items -- --uid <uid> --coins 5000
 //
@@ -91,7 +91,8 @@ async function main() {
 
   console.log(`${dryRun ? "DRY RUN: " : ""}granting to ${uid} in ${emulator ? "the emulator" : projectId}`);
   for (const { id, item } of items) {
-    console.log(`  ${id}  ${item.baseId}  ${item.rarity} +${item.plus}${item.named ? " (named)" : ""}  power ${piecePower(item).toFixed(1)}`);
+    const focus = Object.entries(baseItem(item.baseId)?.focus ?? {}).map(([k, v]) => `${k.toUpperCase()} ${v}`).join(" / ");
+    console.log(`  ${id}  ${item.baseId}  ${item.slot}  ${item.rarity} +${item.plus}${item.named ? " (named)" : ""}  power ${piecePower(item).toFixed(1)}  ${focus}`);
   }
   for (const [name, n] of Object.entries(materials)) console.log(`  +${n} ${name}`);
   if (coins > 0) console.log(`  +${coins} coins`);

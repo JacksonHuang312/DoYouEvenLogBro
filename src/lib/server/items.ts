@@ -1,13 +1,15 @@
 import type { DocumentSnapshot } from "firebase-admin/firestore";
 import { newGameState, type GameState } from "../game/claim";
-import { DEFAULT_TIME_ZONE, type Rarity, type Slot } from "../game/config";
+import { DEFAULT_TIME_ZONE, type Position, type Rarity } from "../game/config";
 import {
   applyUpgrade,
+  defaultPosition,
   equipItem,
   equippedOf,
+  equippedPosition,
   materialsOf,
   removeItem,
-  unequipSlot,
+  unequipPosition,
   upgradeStep,
   type Equipped,
   type GameResult,
@@ -98,8 +100,8 @@ export async function shopAction(uid: string, input: ShopAction, timeZone?: stri
 // ---- Items ----
 
 export type ItemAction =
-  | { action: "equip"; itemId: string }
-  | { action: "unequip"; slot: Slot }
+  | { action: "equip"; itemId: string; position?: Position }
+  | { action: "unequip"; position: Position }
   | { action: "upgrade"; itemId: string; expectedRarity: Rarity; expectedPlus: number }
   | { action: "sell"; itemId: string }
   | { action: "salvage"; itemId: string };
@@ -115,7 +117,7 @@ export interface ItemResponse {
 
 const REMOVAL: Record<"sell" | "salvage", Removal["reason"]> = { sell: "sold", salvage: "salvaged" };
 
-/** Equips, unequips, upgrades, sells or salvages one item. Every action is safe to retry. */
+/** Equips (at a position), unequips, upgrades, sells or salvages one item. Every action is safe to retry. */
 export async function itemAction(uid: string, input: ItemAction): Promise<ItemResponse> {
   const db = adminDb();
   const r = gameRefs(db, uid);
@@ -132,8 +134,8 @@ export async function itemAction(uid: string, input: ItemAction): Promise<ItemRe
 
     if (input.action === "unequip") {
       const state = stateOf(await tx.get(r.state), now, DEFAULT_TIME_ZONE);
-      if (!equippedOf(state)[input.slot]) return answer("already-done", state);
-      const next = unequipSlot(state, input.slot, now);
+      if (!equippedOf(state)[input.position]) return answer("already-done", state);
+      const next = unequipPosition(state, input.position, now);
       tx.set(r.state, next);
       return answer("done", next);
     }
@@ -145,8 +147,10 @@ export async function itemAction(uid: string, input: ItemAction): Promise<ItemRe
 
     switch (input.action) {
       case "equip": {
-        if (!item.removed && equippedOf(state)[item.slot] === item.id) return answer("already-done", state, item);
-        const next = unwrap(equipItem(state, item, now));
+        // A retry finds the item already where it was sent.
+        const target = input.position ?? equippedPosition(state, item.id) ?? defaultPosition(state, item.slot);
+        if (!item.removed && equippedOf(state)[target] === item.id) return answer("already-done", state, item);
+        const next = unwrap(equipItem(state, item, now, target));
         tx.set(r.state, next);
         return answer("done", next, item);
       }

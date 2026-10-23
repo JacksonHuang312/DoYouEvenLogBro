@@ -5,15 +5,18 @@ import { ARMOR_SLOTS, EQUIP_LEVEL, GEAR, SALVAGE, type Rarity } from "./config";
 import {
   applyUpgrade,
   dropOutcome,
+  defaultPosition,
+  effectValue,
   equipItem,
   equippedItems,
+  equippedPosition,
   isAscended,
   newItem,
   piecePower,
   removeItem,
   sellPrice,
   setBonusPct,
-  unequipSlot,
+  unequipPosition,
   upgradeStep,
   type OwnedItem,
 } from "./items";
@@ -181,8 +184,8 @@ describe("equipping", () => {
 
   test("unequip clears a slot (and an empty slot stays empty)", () => {
     const state = rich({ equipped: { boots: "a", gloves: "b" } });
-    expect(unequipSlot(state, "boots", T0).equipped).toEqual({ gloves: "b" });
-    expect(unequipSlot(state, "helmet", T0).equipped).toEqual({ boots: "a", gloves: "b" });
+    expect(unequipPosition(state, "boots", T0).equipped).toEqual({ gloves: "b" });
+    expect(unequipPosition(state, "helmet", T0).equipped).toEqual({ boots: "a", gloves: "b" });
   });
 
   test("equippedItems skips removed items and ids that don't fit the slot", () => {
@@ -190,6 +193,85 @@ describe("equipping", () => {
     const gloves = owned("ironbound-gloves", { removed: { reason: "sold", at: T0, coins: 40, scrap: 0 } }, "b");
     const state = rich({ equipped: { boots: "a", gloves: "b", helmet: "a" } });
     expect(equippedItems(state, [boots, gloves]).map((i) => i.id)).toEqual(["a"]);
+  });
+});
+
+describe("accessories", () => {
+  test("they have their own, lower base power: Common 1, Uncommon 2.5, Rare 4, Epic 6, Legendary 9, Mythic 12", () => {
+    const power = (rarity: Rarity) => piecePower({ rarity, plus: 0, originRarity: rarity, slot: "ring" });
+    expect(["common", "uncommon", "rare", "epic", "legendary", "mythic"].map((r) => power(r as Rarity))).toEqual([1, 2.5, 4, 6, 9, 12]);
+    expect(piecePower({ rarity: "rare", plus: 2, originRarity: "rare", slot: "belt" })).toBeCloseTo(4.32);
+    expect(piecePower({ rarity: "rare", plus: 0, originRarity: "rare" })).toBe(10);
+  });
+
+  test("an accessory item records its slot and follows the same rarity rules as armor", () => {
+    const ring = newItem(baseItem("sunforged-ring")!, "admin", T0);
+    expect(ring).toMatchObject({ ok: true, value: { slot: "ring", rarity: "legendary", named: true } });
+    expect(newItem(baseItem("copper-band")!, "admin", T0, { rarity: "mythic" })).toMatchObject({ ok: false });
+    expect(newItem(baseItem("copper-band")!, "admin", T0, { rarity: "legendary", plus: 2 })).toMatchObject({ ok: true });
+  });
+
+  test("a ring goes in a ring position only, and one ring is never in two positions", () => {
+    const ring = owned("copper-band", {}, "r1");
+    const other = owned("bronze-signet", {}, "r2");
+    const first = equipItem(rich(), ring, T0, "ring1");
+    expect(first).toMatchObject({ ok: true, value: { equipped: { ring1: "r1" } } });
+    expect(equipItem(rich(), ring, T0, "charm1")).toMatchObject({ ok: false });
+    expect(equipItem(rich(), ring, T0, "helmet")).toMatchObject({ ok: false });
+    expect(equipItem(rich(), owned("ironbound-helmet"), T0, "ring1")).toMatchObject({ ok: false });
+    const state = first.ok ? first.value : rich();
+    expect(equipItem(state, ring, T0, "ring2")).toMatchObject({ ok: false, error: expect.stringContaining("another position") });
+    // A second ring fills the other position; the same ring again changes nothing.
+    const both = equipItem(state, other, T0, "ring2");
+    expect(both).toMatchObject({ ok: true, value: { equipped: { ring1: "r1", ring2: "r2" } } });
+    expect(equipItem(state, ring, T0, "ring1")).toMatchObject({ ok: true, value: { equipped: { ring1: "r1" } } });
+  });
+
+  test("without a position an item stays where it is, else takes the first empty position of its slot", () => {
+    const a = owned("copper-band", {}, "a");
+    const b = owned("bronze-signet", {}, "b");
+    const state = rich({ equipped: { ring1: "a" } });
+    expect(defaultPosition(rich(), "ring")).toBe("ring1");
+    expect(defaultPosition(state, "ring")).toBe("ring2");
+    expect(defaultPosition(rich({ equipped: { ring1: "a", ring2: "b" } }), "ring")).toBe("ring1");
+    expect(equipItem(state, b, T0)).toMatchObject({ ok: true, value: { equipped: { ring1: "a", ring2: "b" } } });
+    expect(equipItem(state, a, T0)).toMatchObject({ ok: true, value: { equipped: { ring1: "a" } } });
+    expect(equippedPosition(state, "a")).toBe("ring1");
+    expect(equippedPosition(state, "zzz")).toBeNull();
+  });
+
+  test("they need the same levels, and an equipped one can not be upgraded past the user's level", () => {
+    const epic = owned("gold-seal", {}, "e");
+    expect(equipItem(rich({ level: 7 }), epic, T0, "ring1")).toMatchObject({ ok: false });
+    expect(equipItem(rich({ level: 8 }), epic, T0, "ring1")).toMatchObject({ ok: true });
+    const wornEpic = owned("gold-seal", { plus: 2 }, "e2");
+    const state = rich({ level: 14, equipped: { ring2: "e2" } });
+    expect(applyUpgrade({ state, item: wornEpic, expected: { rarity: "epic", plus: 2 }, now: T0 })).toMatchObject({ ok: false });
+    const rare = owned("silver-loop", { plus: 1 }, "r");
+    const rareState = rich({ level: 5, equipped: { ring1: "r" } });
+    expect(applyUpgrade({ state: rareState, item: rare, expected: { rarity: "rare", plus: 1 }, now: T0 })).toMatchObject({ ok: true });
+  });
+
+  test("an equipped accessory can not be sold or salvaged; free ones sell by origin rarity and salvage by rarity", () => {
+    const ring = owned("silver-loop", {}, "r");
+    expect(removeItem(rich({ equipped: { ring2: "r" } }), ring, "sold", T0)).toMatchObject({ ok: false, error: "Unequip it first" });
+    expect(removeItem(rich({ equipped: { ring2: "r" } }), ring, "salvaged", T0)).toMatchObject({ ok: false });
+    expect(sellPrice(ring)).toBe(250);
+    expect(removeItem(rich({ materials: {} }), ring, "salvaged", T0)).toMatchObject({ ok: true, value: { removal: { scrap: SALVAGE.rare } } });
+    expect(sellPrice(owned("sunforged-ring"))).toBeNull();
+  });
+
+  test("equippedItems finds accessories in their positions, once each, and ignores misplaced ids", () => {
+    const ring = owned("copper-band", {}, "r");
+    const charm = owned("lucky-pebble", {}, "c");
+    const state = rich({ equipped: { ring1: "r", ring2: "r", charm1: "c", necklace: "c" } });
+    expect(equippedItems(state, [ring, charm]).map((i) => i.id)).toEqual(["r", "c"]);
+  });
+
+  test("effects scale with rarity and are small", () => {
+    expect(effectValue("crit", "legendary")).toBeCloseTo(0.05);
+    expect(effectValue("crit", "common")).toBeCloseTo(0.01);
+    expect(effectValue("crit", "mythic")).toBeLessThan(0.1);
   });
 });
 

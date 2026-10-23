@@ -1,6 +1,6 @@
 import type { GameState } from "./claim";
 import { BASE_ITEMS, type BaseItem } from "./catalog";
-import { ITEM_VALUE, SHOP, SHOP_RARITIES, type ShopRarity } from "./config";
+import { isAccessory, ITEM_VALUE, SHOP, SHOP_RARITIES, type ShopRarity } from "./config";
 import { fail, newItem, ok, roundCoins, type GameResult, type Item } from "./items";
 import { seeded } from "./random";
 
@@ -48,11 +48,12 @@ export const shopItemId = (weekId: string, rerolls: number, index: number) => `s
 /** Coins for the next reroll, or null when none are left this week. */
 export const rerollCost = (doc: Pick<ShopDoc, "rerolls">): number | null => SHOP.rerollCosts[doc.rerolls] ?? null;
 
-const bases = (rarity: ShopRarity) => BASE_ITEMS.filter((b) => b.rarity === rarity);
+const bases = (rarity: ShopRarity, accessory: boolean) => BASE_ITEMS.filter((b) => b.rarity === rarity && isAccessory(b.slot) === accessory);
 
 /**
- * A week's stock: SHOP.offers items, Common to Epic, rarities rolled by SHOP.rarityWeights with
- * at most SHOP.maxEpic Epics, and no base item twice.
+ * A week's stock: SHOP.offers items, Common to Epic. Each offer is an accessory with chance
+ * SHOP.accessoryShare, otherwise armor; rarities are rolled by SHOP.rarityWeights with at most
+ * SHOP.maxEpic Epics, and no base item twice.
  */
 export function shopStock(uid: string, weekId: string, rerolls: number): ShopOffer[] {
   const rand = seeded(`shop:${uid}:${weekId}:${rerolls}`);
@@ -60,12 +61,15 @@ export function shopStock(uid: string, weekId: string, rerolls: number): ShopOff
   const offers: ShopOffer[] = [];
   for (let index = 0; index < SHOP.offers; index++) {
     const epics = offers.filter((o) => o.rarity === "epic").length;
-    const rarities = SHOP_RARITIES.filter(
-      (r) => (r !== "epic" || epics < SHOP.maxEpic) && bases(r).some((b) => !used.has(b.id)),
-    );
-    if (rarities.length === 0) break;
-    const rarity = weighted(rarities, rand);
-    const choices = bases(rarity).filter((b) => !used.has(b.id));
+    const rarities = (accessory: boolean) =>
+      SHOP_RARITIES.filter((r) => (r !== "epic" || epics < SHOP.maxEpic) && bases(r, accessory).some((b) => !used.has(b.id)));
+    // If a kind has nothing left to offer, the other kind fills the slot.
+    let accessory = rand() < SHOP.accessoryShare;
+    if (rarities(accessory).length === 0) accessory = !accessory;
+    const open = rarities(accessory);
+    if (open.length === 0) break;
+    const rarity = weighted(open, rand);
+    const choices = bases(rarity, accessory).filter((b) => !used.has(b.id));
     const base: BaseItem = choices[Math.floor(rand() * choices.length)];
     used.add(base.id);
     offers.push({ index, key: offerKey(rerolls, index), baseId: base.id, rarity, price: shopPrice(rarity) });

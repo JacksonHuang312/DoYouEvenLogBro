@@ -1,4 +1,4 @@
-import type { Rarity, Slot, Stat } from "./game/config";
+import type { Position, Rarity, Stat } from "./game/config";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc, WeekdayRoutines } from "./game/schedule";
 import { firebase } from "./firebase";
@@ -82,8 +82,8 @@ export const buyOffer = (weekId: string, index: number, expectedRerolls: number)
 export const rerollShop = (weekId: string, expectedRerolls: number) =>
   post<ShopResponse>("/api/shop", { action: "reroll", weekId, expectedRerolls, timeZone: timeZone() });
 
-export const equipItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "equip", itemId });
-export const unequipSlot = (slot: Slot) => post<ItemResponse>("/api/items", { action: "unequip", slot });
+export const equipItem = (itemId: string, position?: Position) => post<ItemResponse>("/api/items", { action: "equip", itemId, position });
+export const unequipPosition = (position: Position) => post<ItemResponse>("/api/items", { action: "unequip", position });
 /** `rarity` and `plus` are what is on screen, so a retry can't upgrade twice. */
 export const upgradeItem = (itemId: string, rarity: Rarity, plus: number) =>
   post<ItemResponse>("/api/items", { action: "upgrade", itemId, expectedRarity: rarity, expectedPlus: plus });

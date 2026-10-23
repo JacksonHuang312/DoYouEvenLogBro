@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { SHOP } from "./config";
+import { isAccessory, SHOP } from "./config";
 import { buyOffer, emptyShop, rerollCost, rerollShop, shopItemId, shopPrice, shopStock, type ShopDoc } from "./shop";
 import { T0 } from "./test-helpers";
 
@@ -99,5 +99,32 @@ describe("rerollShop", () => {
 
   test("not enough coins is a 402", () => {
     expect(rerollShop(shop(), state(99), 0, T0)).toMatchObject({ ok: false, status: 402 });
+  });
+});
+
+describe("accessories in the shop", () => {
+  test("about 30% of offers are accessories, and each kind is Common to Epic only", () => {
+    let accessories = 0;
+    let total = 0;
+    for (let w = 0; w < 400; w++) {
+      for (const o of shopStock(`u${w}`, WEEK, w % 3)) {
+        total++;
+        if (isAccessory(baseItem(o.baseId)!.slot)) accessories++;
+      }
+    }
+    expect(accessories / total).toBeGreaterThan(SHOP.accessoryShare - 0.06);
+    expect(accessories / total).toBeLessThan(SHOP.accessoryShare + 0.06);
+  });
+
+  test("an accessory offer buys an accessory item that records its slot", () => {
+    for (let w = 0; w < 100; w++) {
+      const stock = shopStock(`u${w}`, WEEK, 0);
+      const index = stock.findIndex((o) => isAccessory(baseItem(o.baseId)!.slot));
+      if (index < 0) continue;
+      const r = buyOffer({ uid: `u${w}`, doc: shop(), state: state(5000), index, expectedRerolls: 0, now: T0 });
+      expect(r).toMatchObject({ ok: true, value: { item: { slot: baseItem(stock[index].baseId)!.slot, named: false } } });
+      return;
+    }
+    throw new Error("no accessory offer found");
   });
 });

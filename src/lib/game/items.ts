@@ -1,11 +1,14 @@
 import type { GameState } from "./claim";
 import { baseItem, type BaseItem } from "./catalog";
 import {
+  ACCESSORY_EFFECTS,
+  EFFECT_SCALE,
   EQUIP_LEVEL,
   GEAR,
   type Focus,
   ITEM_VALUE,
   NAMED_RARITIES,
+  POSITIONS,
   RARITIES,
   SALVAGE,
   SELL_SHARE,
@@ -13,7 +16,12 @@ import {
   SHOP,
   UNNAMED_MAX_RARITY,
   UPGRADE_COSTS,
+  isAccessory,
+  positionsOf,
+  slotOfPosition,
+  type AccessoryEffect,
   type Material,
+  type Position,
   type Rarity,
   type ShopRarity,
   type Slot,
@@ -58,7 +66,8 @@ export interface Item {
 export type OwnedItem = Item & { id: string };
 
 export type Materials = Partial<Record<Material, number>>;
-export type Equipped = Partial<Record<Slot, string>>;
+/** Position -> inventory id: helmet … boots, ring1, ring2, necklace, belt, charm1, charm2. */
+export type Equipped = Partial<Record<Position, string>>;
 
 /** A Result whose failure carries the HTTP status the route should answer with. */
 export type GameResult<T> = { ok: true; value: T } | { ok: false; error: string; status: 402 | 404 | 409 };
@@ -72,11 +81,18 @@ export const isNamedRarity = (r: Rarity) => NAMED_RARITIES.includes(r);
 export const isAscended = (item: Pick<Item, "rarity" | "originRarity">) =>
   isNamedRarity(item.rarity) && rarityIndex(item.rarity) > rarityIndex(item.originRarity);
 
-/** One piece's power: its rarity's base, +4% of it per + step, less the ascended penalty. */
-export function piecePower(item: Pick<Item, "rarity" | "plus" | "originRarity">): number {
-  const native = GEAR.basePower[item.rarity] * (1 + GEAR.plusStep * item.plus);
+/**
+ * One piece's power: its rarity's base, +4% of it per + step, less the ascended penalty. Accessories
+ * (when `slot` says so) use their own, lower base; without a slot it is armor.
+ */
+export function piecePower(item: Pick<Item, "rarity" | "plus" | "originRarity"> & Partial<Pick<Item, "slot">>): number {
+  const base = item.slot && isAccessory(item.slot) ? GEAR.accessoryPower : GEAR.basePower;
+  const native = base[item.rarity] * (1 + GEAR.plusStep * item.plus);
   return isAscended(item) ? native * GEAR.ascendedFactor[item.plus] : native;
 }
+
+/** An accessory effect's strength at a rarity (a Phase 5 hook: nothing in combat reads it yet). */
+export const effectValue = (effect: AccessoryEffect, rarity: Rarity): number => ACCESSORY_EFFECTS[effect].value * EFFECT_SCALE[rarity];
 
 export const materialsOf = (s: Pick<GameState, "materials">): Materials => s.materials ?? {};
 export const equippedOf = (s: Pick<GameState, "equipped">): Equipped => s.equipped ?? {};
@@ -172,7 +188,7 @@ export function applyUpgrade({
   const step = upgradeStep(item);
   if (!step.ok) return step;
   const { to, cost } = step.value;
-  if (equippedOf(state)[item.slot] === item.id && state.level < EQUIP_LEVEL[to.rarity]) {
+  if (equippedPosition(state, item.id) && state.level < EQUIP_LEVEL[to.rarity]) {
     return fail(`${label(to.rarity)} needs level ${EQUIP_LEVEL[to.rarity]} to equip. Unequip it first to upgrade it`);
   }
   const missing = shortfall(state, cost);
@@ -195,22 +211,47 @@ const label = (r: Rarity) => r[0].toUpperCase() + r.slice(1);
 /** Whether the user's level allows equipping the item at its current rarity. */
 export const canEquip = (item: Pick<Item, "rarity">, level: number) => level >= EQUIP_LEVEL[item.rarity];
 
-export function equipItem(state: GameState, item: OwnedItem, now: number): GameResult<GameState> {
-  if (item.removed) return fail("That item is gone", 404);
-  if (!canEquip(item, state.level)) return fail(`${label(item.rarity)} gear needs level ${EQUIP_LEVEL[item.rarity]}`);
-  return ok({ ...state, equipped: { ...equippedOf(state), [item.slot]: item.id }, updatedAt: now });
+/** Where an item is equipped, or null. */
+export function equippedPosition(state: Pick<GameState, "equipped">, itemId: string): Position | null {
+  return POSITIONS.find((p) => equippedOf(state)[p] === itemId) ?? null;
 }
 
-export function unequipSlot(state: GameState, slot: Slot, now: number): GameState {
+/** Where an item of a slot goes when the player doesn't choose: the first empty position, else the first. */
+export function defaultPosition(state: Pick<GameState, "equipped">, slot: Slot): Position {
+  const positions = positionsOf(slot);
+  return positions.find((p) => !equippedOf(state)[p]) ?? positions[0];
+}
+
+/**
+ * Equips an item at `position` (default: where it already is, else the first empty position of its
+ * slot), replacing what is there. An item fits only positions of its own slot, and only one at a time.
+ */
+export function equipItem(state: GameState, item: OwnedItem, now: number, position?: Position): GameResult<GameState> {
+  if (item.removed) return fail("That item is gone", 404);
+  if (!canEquip(item, state.level)) return fail(`${label(item.rarity)} gear needs level ${EQUIP_LEVEL[item.rarity]}`);
+  const at = equippedPosition(state, item.id);
+  const target = position ?? at ?? defaultPosition(state, item.slot);
+  if (slotOfPosition(target) !== item.slot) return fail(`A ${item.slot} can't be worn in the ${target} position`);
+  if (at && at !== target) return fail("Already equipped in another position. Unequip it first");
+  return ok({ ...state, equipped: { ...equippedOf(state), [target]: item.id }, updatedAt: now });
+}
+
+export function unequipPosition(state: GameState, position: Position, now: number): GameState {
   const equipped = { ...equippedOf(state) };
-  delete equipped[slot];
+  delete equipped[position];
   return { ...state, equipped, updatedAt: now };
 }
 
-/** The equipped items that still exist and fit their slot. */
+/** The equipped items that still exist and fit where they are worn, each once. */
 export function equippedItems(state: Pick<GameState, "equipped">, inventory: OwnedItem[]): OwnedItem[] {
   const equipped = equippedOf(state);
-  return inventory.filter((i) => !i.removed && equipped[i.slot] === i.id);
+  const live = new Map(inventory.filter((i) => !i.removed).map((i) => [i.id, i]));
+  const worn = new Set<OwnedItem>();
+  for (const position of POSITIONS) {
+    const item = live.get(equipped[position] ?? "");
+    if (item && slotOfPosition(position) === item.slot) worn.add(item);
+  }
+  return [...worn];
 }
 
 // ---- Selling and salvage ----
@@ -232,7 +273,7 @@ export function removeItem(
   now: number,
 ): GameResult<{ state: GameState; item: Item; removal: Removal }> {
   if (item.removed) return fail("That item is gone", 404);
-  if (equippedOf(state)[item.slot] === item.id) return fail("Unequip it first");
+  if (equippedPosition(state, item.id)) return fail("Unequip it first");
   const price = reason === "sold" ? sellPrice(item) : 0;
   if (price == null) return fail("Named gear can't be sold. Salvage it for scrap instead");
   const scrap = reason === "salvaged" ? salvageYield(item) : 0;
