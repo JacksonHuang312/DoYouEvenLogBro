@@ -1,12 +1,14 @@
 "use client";
 
-import { collection, doc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import type { PublicInjury } from "./game/breaks";
 import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
+import type { OwnedItem } from "./game/items";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc } from "./game/schedule";
+import type { ShopDoc } from "./game/shop";
 import { weekId as weekIdOf } from "./game/time";
 import type { LoadStatus } from "./game/view";
 import { firebase } from "./firebase";
@@ -109,6 +111,45 @@ export function useSnapshots(uid: string): Live<Snapshot[]> {
       },
       (err) => {
         report("snapshots", err);
+        fail();
+      },
+    ),
+  );
+}
+
+const NO_ITEMS: OwnedItem[] = [];
+
+/** The items the user owns (sold and salvaged ones keep their doc but are left out). Empty once the server confirms there are none. */
+export function useInventory(uid: string): Live<OwnedItem[]> {
+  return useLive(`${uid}/inventory`, NO_ITEMS, (settle, fail) =>
+    onSnapshot(
+      query(collection(firebase().db, "users", uid, "inventory"), where("removed", "==", null)),
+      { includeMetadataChanges: true },
+      (snap) => {
+        // An empty answer from the cache says nothing about the server.
+        if (snap.empty && snap.metadata.fromCache) return;
+        settle(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as OwnedItem));
+      },
+      (err) => {
+        report("inventory", err);
+        fail();
+      },
+    ),
+  );
+}
+
+/** shop/{weekId}: the week's reroll count and what was bought. data is null once the server confirms the week has none yet. */
+export function useShop(uid: string, weekId: string): Live<ShopDoc | null> {
+  return useLive<ShopDoc | null>(`${uid}/shop/${weekId}`, null, (settle, fail) =>
+    onSnapshot(
+      doc(firebase().db, "users", uid, "shop", weekId),
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.exists()) settle(snap.data() as ShopDoc);
+        else if (!snap.metadata.fromCache) settle(null);
+      },
+      (err) => {
+        report("shop", err);
         fail();
       },
     ),

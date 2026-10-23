@@ -65,6 +65,13 @@
   --color-rpg-good: #7cc49a;
   --color-rpg-warn: #d9a441;
   --color-rpg-bad: #e08a7a;
+  /* Rarity (section 7.1): meaning only, never decoration. */
+  --color-rpg-common: #9a978f;
+  --color-rpg-uncommon: #6fbf8c;
+  --color-rpg-rare: #5b9bff;
+  --color-rpg-epic: #a98bf0;
+  --color-rpg-legendary: #d9a441;
+  --color-rpg-mythic: #e0605f;
 }
 
 @theme inline {

@@ -1,9 +1,12 @@
-import type { Stat } from "./game/config";
+import type { Rarity, Slot, Stat } from "./game/config";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc, WeekdayRoutines } from "./game/schedule";
 import { firebase } from "./firebase";
 import type { BreaksResponse } from "./server/breaks";
+import type { ItemResponse, ShopResponse } from "./server/items";
 import type { ClaimQuestResponse, RerollResponse } from "./server/quests";
+import type { TitlesResponse } from "./server/titles";
+import type { TitleId } from "./game/titles";
 
 /*
  * Client calls to the game routes behind the Quests screen. Unlike the claim queue these are
@@ -71,3 +74,25 @@ export const renewInjury = (stat: Stat) => post<BreaksResponse>("/api/injuries",
 export const clearInjury = (stat: Stat) => post<BreaksResponse>("/api/injuries", { action: "clear", stat, timeZone: timeZone() });
 export const setInjuryVisibility = (show: boolean) =>
   post<BreaksResponse>("/api/injuries", { action: "visibility", show, timeZone: timeZone() });
+
+// ---- Shop, items and titles ----
+
+export const buyOffer = (weekId: string, index: number, expectedRerolls: number) =>
+  post<ShopResponse>("/api/shop", { action: "buy", weekId, index, expectedRerolls, timeZone: timeZone() });
+export const rerollShop = (weekId: string, expectedRerolls: number) =>
+  post<ShopResponse>("/api/shop", { action: "reroll", weekId, expectedRerolls, timeZone: timeZone() });
+
+export const equipItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "equip", itemId });
+export const unequipSlot = (slot: Slot) => post<ItemResponse>("/api/items", { action: "unequip", slot });
+/** `rarity` and `plus` are what is on screen, so a retry can't upgrade twice. */
+export const upgradeItem = (itemId: string, rarity: Rarity, plus: number) =>
+  post<ItemResponse>("/api/items", { action: "upgrade", itemId, expectedRarity: rarity, expectedPlus: plus });
+export const sellItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "sell", itemId });
+export const salvageItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "salvage", itemId });
+
+/** Checks the achievements (the server records newly earned titles) and returns progress on all eight. */
+export const checkTitles = () => post<TitlesResponse>("/api/titles", { action: "check", timeZone: timeZone() });
+export const equipTitles = (titles: TitleId[]) => post<TitlesResponse>("/api/titles", { action: "equip", titles, timeZone: timeZone() });
+/** `expectedSlots` is the slot count on screen, so a retry can't buy two. */
+export const buyTitleSlot = (expectedSlots: number) =>
+  post<TitlesResponse>("/api/titles", { action: "buy-slot", expectedSlots, timeZone: timeZone() });
