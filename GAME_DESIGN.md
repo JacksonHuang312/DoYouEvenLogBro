@@ -228,7 +228,8 @@ Bottom nav: **Train · Quests · [ + ] · Battle · Hero**
 | `users/{uid}/claims/{workoutId}` | claim result (coins, XP, timestamp) — idempotency record |
 | `users/{uid}/snapshots/{weekId}` | weekly stat snapshot for comparisons |
 | `users/{uid}/quests/{weekId}` | that week's generated quests and progress |
-| `users/{uid}/inventory/{itemId}` | owned items: base item id, origin rarity (tier it started at), current rarity, upgrade level, named flag (true if origin is Legendary/Mythic) |
+| `users/{uid}/inventory/{itemId}` | owned items: base item id, slot, origin rarity (tier it started at), current rarity, upgrade level, named flag (true if origin is Legendary/Mythic), source (shop/admin/boss), and `removed` once sold or salvaged |
+| `users/{uid}/shop/{weekId}` | that week's reroll count and which offers were bought (the stock itself is computed) |
 | `users/{uid}/battles/{id}` | battle results, cooldowns, per-player damage/heal/absorb |
 | `publicStats/{uid}` | leaderboard numbers; readable under the same privacy rule as workouts |
 
@@ -249,7 +250,7 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 1. **Foundation (DONE)** — this design doc; `src/lib/game/` config + pure functions + Vitest tests; firebase-admin setup; server-owned docs + rules + rule tests; `POST /api/claim` end to end; backfill script; custom-exercise muscle dropdown.
 2. **Stats UI (DONE)** — Hero · Stats screen with radar on real data, sub-muscle breakdown, new bottom nav, Train home screen.
 3. **Rewards + scheduling + quests (DONE)** — Rewards screen, scheduled workouts, weekly quests, pause mode.
-4. **Items** — inventory, shop, upgrades, sets, titles.
+4. **Items** — inventory, shop, upgrades, sets, titles. (Part A, backend and tests: DONE. Part B, UI: next.)
 5. **Combat** — classes, weekly bosses, tower, auto-battle, cooldowns.
 6. **Social** — friend leaderboards, party raids.
 7. **Later** — trading.
@@ -341,6 +342,18 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - Shop prices: Common 150, Uncommon 450, Rare 1,000, Epic 2,500. Weekly stock of about 6 items, each marked up about 25%.
 - Legendary and Mythic are not sold (boss drops only).
 
+**Items (Phase 4, Part A)**
+- Catalog (`catalog.ts`): six sets of five pieces, one per rarity. Ironbound (Common), Wayfarer (Uncommon), Steelguard (Rare) and Warden (Epic) are unnamed and sold in the shop. Titan's Vow (Legendary) and Unbroken (Mythic) are named, boss-only, and their unique effects come with combat in Phase 5. Base items hold names only; power comes from rarity and plus.
+- Piece power = base × (1 + 4% × plus). A piece promoted into a named rarity it didn't start at (Epic → Legendary, and named Legendary → Mythic) gets 85% / 88.5% / 92% of a native piece at +0 / +1 / +2.
+- Upgrades: +0 → +1 → +2 → next rarity at +0, for coins and scrap (table in `config.ts`). Unnamed gear stops at Legendary +2. Named Legendary → Mythic also needs a Mythic Core, a boss-only material (Phase 5 hook; nobody can get one yet except through the admin script). An equipped item can't be upgraded into a rarity your level can't equip.
+- Level to equip goes by **current** rarity: Epic 8, Legendary 15, Mythic 25. Battle power ignores pieces above your level as well.
+- Shop: six offers a week per user, seeded by uid, week and reroll count, so nothing about the stock is stored. Rarity weights 35/35/20/10, at most one Epic, no base twice. Prices are the values (150/450/1,000/2,500) plus 25%, rounded to 5: 190/565/1,250/3,125. Rerolls cost 100 then 200, two a week. A buy names the week and reroll count it saw, so a reroll or week rollover in between returns 409 instead of charging, and a retried buy returns the item it already bought (the item id is derived from the offer).
+- Selling pays 25% of the origin rarity's value (not the shop price), rounded to 5: 40/115/250/625, whatever the item was upgraded to, so upgrading and selling never profits. Named items can't be sold, only salvaged. Equipped items must be unequipped first.
+- Salvage pays scrap by current rarity (5/15/35/80/150/250); upgrade spending isn't refunded. Sold and salvaged items keep their doc with a `removed` record, so a retry returns what it paid. Each claimed weekly quest also pays 5 scrap. A boss drop of a base you already own becomes its salvage value in scrap (`dropOutcome`, for Phase 5).
+- Titles: eight achievements, all computed from stored facts. Calibrated 2%, Regular (3+ workouts a week for 4 weeks in a row) 3%, Unbroken (no skipped scheduled workout for 28 days, 8+ scheduled; a slot still inside its make-up window isn't a skip yet) 5%, Record Breaker (a 1RM bonus on 3 stats at once) 3%, Questmaster (all quests of one week claimed) 3%, Well Rounded (every stat 50+) 4%, Iron Habit (trained in 12 of the last 16 weeks) 4%, Centurion (100 counted workouts) 3%. Earning is stored (`titles.earned`) and never taken away, because some of the facts behind it (recent schedule matches, decaying stats) don't last. Claims check achievements in their own transaction (a failure there is logged and never fails the claim), and so does `POST /api/titles` when the Titles tab opens. A newly earned title fills an empty slot by itself. One slot to start; slots 2 and 3 cost 500 and 1,500 coins.
+- Routes: `POST /api/shop` (buy, reroll), `POST /api/items` (equip, unequip, upgrade, sell, salvage), `POST /api/titles` (check, equip, buy-slot). Each is one transaction and safe to retry.
+- `npm run grant-items -- --uid <uid> ...` grants items (source "admin") and materials for testing. Against a real project it needs `--confirm <projectId>`.
+
 **Rollout order (not yet done; do it once, after Phase 3)**
 1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
 2. Deploy the Firestore rules (`npx firebase-tools deploy --only firestore:rules`). Must come after the backfill, or exercises with old free-text muscles can't be edited.
@@ -365,8 +378,9 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 
 **Power stacking**
 - Gear and titles affect battle power only. The radar shows raw stats.
-- All percentage bonuses (titles, sets, class) share one additive bucket capped at **+25%**.
+- Title and class percentage bonuses share one additive bucket capped at **+25%**. Set bonuses are **not** in the bucket: they multiply gear power before the gear cap.
 - Gear's share of total power is capped at 30% **in the formula**: `gear ≤ 0.3 / 0.7 × body power`.
+- Battle power = `(body + min(gear × (1 + set bonus), 0.3 / 0.7 × body)) × (1 + min(25%, titles + class))`.
 
 **Economy**
 - Sell price is 25% of buy price. Duplicate boss drops convert to salvage materials, not coins.
@@ -376,8 +390,8 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 
 **Gear stats (recommended starting values, tunable)**
 - Power per piece: Common 3, Uncommon 6, Rare 10, Epic 15, Legendary 22, Mythic 32. Each +step adds 4% of the piece's base.
-- Full-set totals: Epic 75, Legendary 110, Mythic 160. A full Mythic set only counts fully at an average stat of roughly 70+, so gear can't carry a weak lifter.
-- Set bonus: 3 pieces +8% gear power, 5 pieces +20%. Named sets also get a unique effect.
+- Full-set totals: Epic 75, Legendary 110, Mythic 160. 160 gear power only counts fully at an average stat of roughly 70+, and a full Mythic set with its 5-piece bonus (192) at roughly 82+, so gear can't carry a weak lifter.
+- Set bonus: 3 pieces +8% gear power, 5 pieces +20% (the highest tier reached, not both). It multiplies gear power before the 30% cap. Named sets also get a unique effect.
 - Slots feed combat attributes (70% primary / 30% secondary): Helmet HP/DEF, Chestplate DEF/HP, Gloves ATK/HP, Leggings HP/ATK, Boots ATK/DEF.
 
 **Classes must matter in fights.** Bosses need a mechanic that rewards a tank and a healer (e.g. a damage type only DEF counters, a damage-over-time only healing offsets). Otherwise everyone picks Striker.
