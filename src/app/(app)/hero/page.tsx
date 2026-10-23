@@ -6,7 +6,8 @@ import { useProfile } from "@/components/AuthProvider";
 import { GearPanel } from "@/components/rpg/GearPanel";
 import { RadarChart } from "@/components/rpg/RadarChart";
 import { ShopPanel } from "@/components/rpg/ShopPanel";
-import { ComingSoon, RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
+import { TitlesPanel } from "@/components/rpg/TitlesPanel";
+import { RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
 import type { Snapshot } from "@/lib/game/claim";
 import { ownInjuryTag } from "@/lib/game/injuryLine";
@@ -32,16 +33,9 @@ import { useOnline } from "@/lib/useOnline";
 const TABS = ["Stats", "Gear", "Shop", "Titles"] as const;
 type Tab = (typeof TABS)[number];
 
-const COMING: Record<"Titles", { title: string; text: string }> = {
-  Titles: {
-    title: "Titles",
-    text: "Earn titles through achievements, like a month without skipping a scheduled workout. Each one gives a small bonus. Coming in Phase 4.",
-  },
-};
-
 const number = (n: number) => n.toLocaleString("en-US");
 
-/** Hero: level and XP up top, then Stats (radar + table), with Gear, Shop and Titles still to come. */
+/** Hero: level and XP up top, then Stats (radar + table), Gear, Shop and Titles. */
 export default function HeroPage() {
   const profile = useProfile();
   const state = useGameState(profile.uid);
@@ -114,7 +108,7 @@ export default function HeroPage() {
         ) : tab === "Shop" ? (
           <ShopPanel uid={profile.uid} state={state.data} now={now} timeZone={timeZone} online={online} />
         ) : (
-          <ComingSoon title={COMING.Titles.title}>{COMING.Titles.text}</ComingSoon>
+          <TitlesPanel state={state.data} online={online} />
         )}
       </div>
     </RpgScreen>
