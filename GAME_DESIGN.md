@@ -394,6 +394,20 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 - Exact strength-standard tables for normalizing 1RM to 0–100 (current ratios are placeholders).
 - Exact decay rate after day 7.
 - Final shop prices and coin numbers (starting values are in section 10).
+- Shop offline: show the computed stock with buttons off when there is no shop doc yet, instead of "Can't load the shop"? (Found by the e2e suite.)
+
+**Phase 5 (combat): answer these, or the "building default" is used. Every default is a number in `config.ts`, so changing it later is cheap.**
+1. Classes: classless at the start, or pick at a level? Switch price? Does a class still add a % to the +25% bucket? *Building default:* everyone picks a class at level 1 for free the first time; switching costs 300 coins, once a week; class adds +3% to the bucket.
+2. Cleric healing needs "consistency". Scheduled-workout streak? What do people with no schedule get? *Building default:* healing comes from Core plus the "days without a skipped scheduled workout" count (the Unbroken progress), capped; with no schedule that count falls back to weeks trained in a row.
+3. After the first clear, may you re-fight the boss (no rewards, only leaderboard stats) or is it locked until next week? *Building default:* re-fights allowed, pay nothing, same 4h cooldown after a loss.
+4. Boss tier: from level and power at week start; thresholds; opt for a lower tier? *Building default:* highest tier your level and power allow, no opting down.
+5. Tower: same 4h loss cooldown as the boss? *Building default:* separate cooldown. "Auto-battle" = server auto-resolve, plus auto-climb of up to 5 floors per request that stops at the first loss.
+6. Rewards: coins and scrap per tier and floor. *Building default:* boss 50-150 coins and 10-60 scrap by tier; tower 5-30 coins a floor (more every 10th floor). Check against the 450-500 coins/week income budget in section 10.
+7. Mythic pity length and Mythic Core drops. *Building default:* Mythic guaranteed after 30 first-clear boss kills without one; Core drops from Legendary-tier-and-up boss clears at 15%, guaranteed at Mythic pity.
+8. The five Mythic effects. *Building default:* Crown survives one lethal hit per fight at 1 HP; Heart reflects 15% of damage taken; Hands makes every 4th hit a crit; Pillars regenerates 3% of max HP a round under half HP; Path adds 2 rounds to the enrage timer.
+9. Fighting while paused (frozen stats)? Injury renewal limit? *Building default:* allowed with the frozen stats; injury flags may be renewed twice, then must stay cleared 7 days.
+10. Duplicate accessory effects? *Building default:* they add up, each effect capped (crit 25%, healing 20%, damage reduction 20%, cooldown reduction 40%, salvage yield +50%, reroll discount 50%).
+11. Level gates. *Building default:* boss tiers 1-5 need level 1, 8, 15, 25, 35; tower floor 1 needs level 5, no other gate.
 
 ---
 
