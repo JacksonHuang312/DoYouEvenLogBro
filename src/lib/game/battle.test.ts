@@ -1,15 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { battlePower } from "./battle";
-import { SLOTS, type Rarity } from "./config";
+import { ARMOR_SLOTS, type Focus, type Rarity } from "./config";
 
-const piece = (setId: string, slot: (typeof SLOTS)[number], rarity: Rarity, plus = 0, originRarity: Rarity = rarity) => ({
+const piece = (setId: string, slot: (typeof ARMOR_SLOTS)[number], rarity: Rarity, plus = 0, originRarity: Rarity = rarity) => ({
   baseId: `${setId}-${slot}`,
   slot,
   rarity,
   plus,
   originRarity,
 });
-const fullSet = (setId: string, rarity: Rarity, plus = 0) => SLOTS.map((s) => piece(setId, s, rarity, plus));
+const fullSet = (setId: string, rarity: Rarity, plus = 0) => ARMOR_SLOTS.map((s) => piece(setId, s, rarity, plus));
 
 describe("battlePower", () => {
   test("no gear and no titles: battle power is body power", () => {
@@ -31,13 +31,13 @@ describe("battlePower", () => {
     expect(p.gear.counted / p.total).toBeCloseTo(0.3);
   });
 
-  test("160 Mythic gear power counts fully from an average stat of about 70; a full set (192 with its bonus) from about 82", () => {
+  test("five Mythics are 150 gear power with no set bonus, and count in full from an average stat of about 64", () => {
     const body = (avg: number) => avg * 5.5; // Five stats at 1×, Core at 0.5×.
-    const noSet = SLOTS.map((s, i) => ({ ...piece("unbroken", s, "mythic"), baseId: `other-${i}` }));
-    expect(battlePower({ body: body(70), equipped: noSet, level: 30 }).gear.capped).toBe(false);
-    expect(battlePower({ body: body(60), equipped: noSet, level: 30 }).gear.capped).toBe(true);
-    expect(battlePower({ body: body(81), equipped: fullSet("unbroken", "mythic"), level: 30 }).gear.capped).toBe(true);
-    expect(battlePower({ body: body(82), equipped: fullSet("unbroken", "mythic"), level: 30 }).gear.capped).toBe(false);
+    const mythics = fullSet("unbroken", "mythic");
+    const p = battlePower({ body: body(70), equipped: mythics, level: 30 });
+    expect(p.gear).toMatchObject({ raw: 150, setPct: 0, capped: false });
+    expect(battlePower({ body: body(64), equipped: mythics, level: 30 }).gear.capped).toBe(false);
+    expect(battlePower({ body: body(63), equipped: mythics, level: 30 }).gear.capped).toBe(true);
   });
 
   test("set bonuses multiply gear power before the cap", () => {
@@ -67,10 +67,11 @@ describe("battlePower", () => {
     expect(p.total).toBeCloseTo(310 * 1.1);
   });
 
-  test("counted gear splits into HP, ATK and DEF by slot, scaled down with the cap", () => {
-    const one = battlePower({ body: 300, equipped: [piece("steelguard", "helmet", "rare")], level: 1 });
-    expect(one.gear.attributes.hp).toBeCloseTo(7);
-    expect(one.gear.attributes.def).toBeCloseTo(3);
+  test("counted gear splits into HP, ATK and DEF by each piece's focus, scaled down with the cap", () => {
+    // Steelguard is a 60% DEF / 40% HP set; Ironbound has no focus and uses its slot's 70/30.
+    const one = battlePower({ body: 300, equipped: [piece("steelguard", "helmet", "rare"), piece("ironbound", "helmet", "common")], level: 1 });
+    expect(one.gear.attributes.hp).toBeCloseTo(4 + 2.1);
+    expect(one.gear.attributes.def).toBeCloseTo(6 + 0.9);
     expect(one.gear.attributes.atk).toBe(0);
     const capped = battlePower({ body: 100, equipped: fullSet("unbroken", "mythic"), level: 30 });
     const { hp, atk, def } = capped.gear.attributes;
@@ -79,5 +80,67 @@ describe("battlePower", () => {
 
   test("no body power means gear adds nothing", () => {
     expect(battlePower({ body: 0, equipped: fullSet("warden", "epic"), level: 10 }).total).toBe(0);
+  });
+});
+
+/*
+ * The intended balance of sets against Mythics (GAME_DESIGN.md 12). Pieces carry their own set and
+ * focus here, so these numbers don't change when real catalog items do.
+ */
+describe("sets against Mythics", () => {
+  type Worn = Parameters<typeof battlePower>[0]["equipped"][number];
+  const set = (setId: string, rarity: Rarity, focus: Focus): Worn[] =>
+    ARMOR_SLOTS.map((slot) => ({ baseId: `${setId}-${slot}`, slot, rarity, plus: 0, originRarity: rarity, setId, focus }));
+  const mythic = (slot: (typeof ARMOR_SLOTS)[number], focus: Focus): Worn => ({
+    baseId: `mythic-${slot}`,
+    slot,
+    rarity: "mythic",
+    plus: 0,
+    originRarity: "mythic",
+    setId: null,
+    focus,
+  });
+  const power = (equipped: Worn[]) => battlePower({ body: 5000, equipped, level: 30 }).gear.attributes;
+
+  test("Epic HP set: 5 × 15 with +20% is 90 HP; swapping one piece for a Mythic HP (30) gives 94.8, so the Mythic is better", () => {
+    const epic = set("epic-hp", "epic", { hp: 100 });
+    expect(power(epic).hp).toBeCloseTo(90);
+    const swapped = [...epic.slice(0, 4), mythic("boots", { hp: 100 })];
+    expect(power(swapped).hp).toBeCloseTo(4 * 15 * 1.08 + 30);
+    expect(power(swapped).hp).toBeCloseTo(94.8);
+    expect(power(swapped).hp).toBeGreaterThan(power(epic).hp);
+  });
+
+  test("Legendary HP set: 5 × 22 with +20% is 132 HP; the same swap gives about 125, so the set is better", () => {
+    const legendary = set("legendary-hp", "legendary", { hp: 100 });
+    expect(power(legendary).hp).toBeCloseTo(132);
+    const swapped = [...legendary.slice(0, 4), mythic("boots", { hp: 100 })];
+    expect(power(swapped).hp).toBeCloseTo(4 * 22 * 1.08 + 30);
+    expect(power(swapped).hp).toBeCloseTo(125.04);
+    expect(power(swapped).hp).toBeLessThan(power(legendary).hp);
+  });
+
+  test("Epic ATK set with a Mythic HP piece replacing one: ATK drops by about 25 and HP rises by 30", () => {
+    const epic = set("epic-atk", "epic", { atk: 100 });
+    const before = power(epic);
+    const after = power([...epic.slice(0, 4), mythic("boots", { hp: 100 })]);
+    expect(before.atk - after.atk).toBeCloseTo(25.2);
+    expect(after.hp - before.hp).toBeCloseTo(30);
+  });
+
+  test("the set bonus applies only to the set's own pieces, not to other gear, and only the best set counts", () => {
+    const epic = set("epic-hp", "epic", { hp: 100 });
+    const withLoose = battlePower({
+      body: 5000,
+      equipped: [...epic.slice(0, 3), mythic("leggings", { atk: 100 }), mythic("boots", { def: 100 })],
+      level: 30,
+    });
+    expect(withLoose.gear.setPct).toBe(0.08);
+    expect(withLoose.gear.boosted).toBeCloseTo(3 * 15 * 1.08 + 60);
+    expect(withLoose.gear.attributes.atk).toBeCloseTo(30);
+    // Two sets: only the one that reached a tier gets its bonus.
+    const other = set("rare-atk", "rare", { atk: 100 });
+    const two = battlePower({ body: 5000, equipped: [...epic.slice(0, 3), ...other.slice(3)], level: 30 });
+    expect(two.gear.boosted).toBeCloseTo(3 * 15 * 1.08 + 2 * 10);
   });
 });

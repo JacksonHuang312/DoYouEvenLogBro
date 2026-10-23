@@ -6,7 +6,7 @@ import {
   BONUS_BUCKET_CAP,
   EQUIP_LEVEL,
   SET_BONUS,
-  SLOTS,
+  ARMOR_SLOTS,
   TITLES,
   type Rarity,
   type Slot,
@@ -56,6 +56,10 @@ export const SLOT_LABEL: Record<Slot, string> = {
   gloves: "Gloves",
   leggings: "Leggings",
   boots: "Boots",
+  ring: "Ring",
+  necklace: "Necklace",
+  belt: "Belt",
+  charm: "Charm",
 };
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -138,7 +142,7 @@ function itemView(state: GameState, item: OwnedItem, now: number): ItemView {
     id: item.id,
     baseId: item.baseId,
     name: base?.name ?? "Unknown item",
-    setName: base ? (setDef(base.setId)?.name ?? null) : null,
+    setName: base?.setId ? (setDef(base.setId)?.name ?? null) : null,
     slot: item.slot,
     rarity: item.rarity,
     plus: item.plus,
@@ -169,7 +173,7 @@ export interface SlotView {
 export function slotViews(state: GameState | null, inventory: OwnedItem[], now: number): SlotView[] {
   const game = state ?? NO_STATE(now);
   const live = inventory.filter((i) => !i.removed);
-  return SLOTS.map((slot) => {
+  return ARMOR_SLOTS.map((slot) => {
     const items = live
       .filter((i) => i.slot === slot)
       .map((i) => itemView(game, i, now))
@@ -288,7 +292,7 @@ export function shopView(uid: string, doc: ShopDoc | null, state: GameState | nu
       key: o.key,
       baseId: o.baseId,
       name: base?.name ?? "Unknown item",
-      setName: base ? (setDef(base.setId)?.name ?? null) : null,
+      setName: base?.setId ? (setDef(base.setId)?.name ?? null) : null,
       slot: base?.slot ?? "helmet",
       rarity: o.rarity,
       price: o.price,

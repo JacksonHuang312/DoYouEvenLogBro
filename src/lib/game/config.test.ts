@@ -12,12 +12,15 @@ import {
   ACHIEVEMENTS,
   EQUIP_LEVEL,
   GEAR,
+  POSITIONS,
   RARITIES,
   SCHEDULE,
   SHOP,
   SLOTS,
   TITLES,
   UPGRADE_COSTS,
+  positionsOf,
+  slotOfPosition,
 } from "./config";
 
 describe("config", () => {
@@ -60,9 +63,26 @@ describe("config", () => {
     expect(GEAR.ascendedFactor).toHaveLength(GEAR.maxPlus + 1);
     for (const r of RARITIES) expect(UPGRADE_COSTS[r], r).toHaveLength(GEAR.maxPlus + 1);
     for (const slot of SLOTS) {
-      const sum = Object.values(GEAR.slotAttributes[slot]).reduce((a, b) => a + b, 0);
-      expect(sum, slot).toBeCloseTo(1, 10);
+      const sum = Object.values(GEAR.slotFocus[slot]).reduce((a, b) => a + b, 0);
+      expect(sum, slot).toBe(100);
     }
+  });
+
+  test("a Mythic armor piece is 30 base power; an accessory is about 40% of an armor piece", () => {
+    expect(GEAR.basePower.mythic).toBe(30);
+    for (const r of RARITIES) {
+      const share = GEAR.accessoryPower[r] / GEAR.basePower[r];
+      expect(share, r).toBeGreaterThan(0.3);
+      expect(share, r).toBeLessThan(0.45);
+    }
+  });
+
+  test("every position belongs to one slot, and rings and charms have two", () => {
+    for (const p of POSITIONS) expect(SLOTS).toContain(slotOfPosition(p));
+    expect(positionsOf("ring")).toEqual(["ring1", "ring2"]);
+    expect(positionsOf("charm")).toEqual(["charm1", "charm2"]);
+    expect(positionsOf("helmet")).toEqual(["helmet"]);
+    for (const slot of SLOTS) expect(positionsOf(slot).length, slot).toBeGreaterThan(0);
   });
 
   test("shop rerolls and title slots line up with their limits", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { BASE_ITEMS, baseItem, SETS } from "./catalog";
+import { BASE_ITEMS, baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { EQUIP_LEVEL, GEAR, RARITIES, SALVAGE, SLOTS, type Rarity } from "./config";
+import { ARMOR_SLOTS, EQUIP_LEVEL, GEAR, SALVAGE, type Rarity } from "./config";
 import {
   applyUpgrade,
   dropOutcome,
@@ -36,21 +36,6 @@ const rich = (patch: Partial<GameState> = {}): GameState => ({
   ...patch,
 });
 
-describe("catalog", () => {
-  test("every set has one piece per slot, and named sets start at Legendary or Mythic", () => {
-    for (const set of SETS) {
-      const pieces = BASE_ITEMS.filter((b) => b.setId === set.id);
-      expect(pieces.map((p) => p.slot).sort(), set.id).toEqual([...SLOTS].sort());
-      expect(set.named, set.id).toBe(set.rarity === "legendary" || set.rarity === "mythic");
-    }
-    expect(new Set(BASE_ITEMS.map((b) => b.id)).size).toBe(BASE_ITEMS.length);
-  });
-
-  test("there is a set at every rarity", () => {
-    expect(SETS.map((s) => s.rarity).sort()).toEqual([...RARITIES].sort());
-  });
-});
-
 describe("piecePower", () => {
   const at = (rarity: Rarity, plus: number, originRarity: Rarity = rarity) => piecePower({ rarity, plus, originRarity });
 
@@ -58,13 +43,13 @@ describe("piecePower", () => {
     expect(at("common", 0)).toBe(3);
     expect(at("rare", 1)).toBeCloseTo(10.4);
     expect(at("epic", 2)).toBeCloseTo(16.2);
-    expect(at("mythic", 0)).toBe(32);
+    expect(at("mythic", 0)).toBe(30);
   });
 
-  test("full sets: Epic 75, Legendary 110, Mythic 160", () => {
+  test("full sets: Epic 75, Legendary 110; a Mythic is one piece of 30", () => {
     expect(5 * at("epic", 0)).toBe(75);
     expect(5 * at("legendary", 0)).toBe(110);
-    expect(5 * at("mythic", 0)).toBe(160);
+    expect(at("mythic", 0)).toBe(30);
   });
 
   test("an ascended Legendary is 85% of native at +0 and 92% at +2, so a maxed one loses to a fresh native", () => {
@@ -264,7 +249,7 @@ describe("dropOutcome (Phase 5 boss drops)", () => {
 });
 
 describe("sets", () => {
-  const pieces = (setId: string, n: number) => SLOTS.slice(0, n).map((slot) => ({ baseId: `${setId}-${slot}` }));
+  const pieces = (setId: string, n: number) => ARMOR_SLOTS.slice(0, n).map((slot) => ({ baseId: `${setId}-${slot}` }));
 
   test("+8% at 3 pieces, +20% at 5 (not both)", () => {
     expect(setBonusPct(pieces("warden", 2))).toBe(0);
@@ -274,7 +259,10 @@ describe("sets", () => {
   });
 
   test("pieces of different sets don't add up, and unknown bases belong to no set", () => {
-    expect(setBonusPct([...pieces("warden", 2), { baseId: "ironbound-leggings" }, { baseId: "ironbound-boots" }])).toBe(0);
+    expect(setBonusPct([...pieces("warden", 2), { baseId: "steelguard-leggings" }, { baseId: "steelguard-boots" }])).toBe(0);
+    // Loose items (Common, Uncommon, Mythic) are in no set however many are worn.
+    expect(setBonusPct(ARMOR_SLOTS.map((s) => ({ baseId: `ironbound-${s}` })))).toBe(0);
+    expect(setBonusPct(ARMOR_SLOTS.map((s) => ({ baseId: `unbroken-${s}` })))).toBe(0);
     expect(setBonusPct([{ baseId: "gone-1" }, { baseId: "gone-2" }, { baseId: "gone-3" }])).toBe(0);
   });
 });

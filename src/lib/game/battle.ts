@@ -1,11 +1,11 @@
-import { BONUS_BUCKET_CAP, GEAR } from "./config";
-import { canEquip, piecePower, setBonusPct, type Item } from "./items";
+import { ATTRIBUTES, BONUS_BUCKET_CAP, GEAR } from "./config";
+import { activeSet, canEquip, pieceFocus, pieceSetId, piecePower, type Item, type PieceRef } from "./items";
 
 /*
  * Battle power (GAME_DESIGN.md 2.5, 4 and 12). Gear and titles count only here: the radar,
  * stats, stat XP and snapshots all use body power.
  *
- *   gear    = Σ piece power × (1 + set bonus), capped at maxShare / (1 − maxShare) × body
+ *   gear    = Σ piece power (a set's pieces × (1 + its set bonus)), capped at maxShare / (1 − maxShare) × body
  *   bucket  = min(BONUS_BUCKET_CAP, titles + class)
  *   battle  = (body + gear) × (1 + bucket)
  */
@@ -30,7 +30,7 @@ export interface BattlePower {
     /** What counts: min(boosted, cap). */
     counted: number;
     capped: boolean;
-    /** The counted gear power split into combat attributes by slot. */
+    /** The counted gear power split into combat attributes by each piece's focus. */
     attributes: Attributes;
   };
   bonus: {
@@ -43,7 +43,7 @@ export interface BattlePower {
   total: number;
 }
 
-type GearPiece = Pick<Item, "slot" | "rarity" | "plus" | "originRarity" | "baseId">;
+type GearPiece = Pick<Item, "slot" | "rarity" | "plus" | "originRarity" | "baseId"> & PieceRef;
 
 /**
  * Battle power from body power, the equipped items, and the title and class bonuses (shares,
@@ -63,19 +63,21 @@ export function battlePower({
   classPct?: number;
 }): BattlePower {
   const pieces = equipped.filter((p) => canEquip(p, level));
+  const set = activeSet(pieces);
+  // The set bonus multiplies only the power of the active set's own pieces.
+  const worth = (p: GearPiece) => piecePower(p) * (set && pieceSetId(p) === set.setId ? 1 + set.pct : 1);
   const raw = pieces.reduce((sum, p) => sum + piecePower(p), 0);
-  const setPct = setBonusPct(pieces);
-  const boosted = raw * (1 + setPct);
+  const boosted = pieces.reduce((sum, p) => sum + worth(p), 0);
+  const setPct = set?.pct ?? 0;
   const cap = (GEAR.maxShare / (1 - GEAR.maxShare)) * Math.max(0, body);
   const counted = Math.min(boosted, cap);
   const scale = boosted > 0 ? counted / boosted : 0;
 
   const attributes: Attributes = { hp: 0, atk: 0, def: 0 };
   for (const p of pieces) {
-    const power = piecePower(p) * (1 + setPct) * scale;
-    for (const [attr, share] of Object.entries(GEAR.slotAttributes[p.slot]) as [keyof Attributes, number][]) {
-      attributes[attr] += power * share;
-    }
+    const power = worth(p) * scale;
+    const focus = pieceFocus(p);
+    for (const attr of ATTRIBUTES) attributes[attr] += (power * (focus[attr] ?? 0)) / 100;
   }
 
   const bucket = titlePct + classPct;

@@ -242,8 +242,32 @@ export const INJURY = {
 
 // ---- Items (sections 5 and 12) ----
 
-export const SLOTS = ["helmet", "chestplate", "gloves", "leggings", "boots"] as const;
+export const ARMOR_SLOTS = ["helmet", "chestplate", "gloves", "leggings", "boots"] as const;
+export type ArmorSlot = (typeof ARMOR_SLOTS)[number];
+
+/** Accessories are never part of a set. */
+export const ACCESSORY_SLOTS = ["ring", "necklace", "belt", "charm"] as const;
+export type AccessorySlot = (typeof ACCESSORY_SLOTS)[number];
+
+/** What an item is for (item.slot). */
+export const SLOTS = [...ARMOR_SLOTS, ...ACCESSORY_SLOTS] as const;
 export type Slot = (typeof SLOTS)[number];
+export const isAccessory = (slot: Slot): slot is AccessorySlot => (ACCESSORY_SLOTS as readonly string[]).includes(slot);
+
+/** Where an item is worn (the keys of the equipped map). Rings and charms have two positions each. */
+export const POSITIONS = ["helmet", "chestplate", "gloves", "leggings", "boots", "ring1", "ring2", "necklace", "belt", "charm1", "charm2"] as const;
+export type Position = (typeof POSITIONS)[number];
+
+/** The slot a position takes: "ring2" → "ring". */
+export const slotOfPosition = (position: Position): Slot => position.replace(/\d$/, "") as Slot;
+/** The positions an item of a slot can be worn in. */
+export const positionsOf = (slot: Slot): Position[] => POSITIONS.filter((p) => slotOfPosition(p) === slot);
+
+/** The combat attributes gear power splits into. */
+export const ATTRIBUTES = ["hp", "atk", "def"] as const;
+export type Attribute = (typeof ATTRIBUTES)[number];
+/** A split of an item's power across attributes, in whole percents that add up to 100: { hp: 70, def: 30 }. */
+export type Focus = Partial<Record<Attribute, number>>;
 
 /** The rarity ladder, lowest first. */
 export const RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"] as const;
@@ -260,8 +284,10 @@ export type ShopRarity = (typeof SHOP_RARITIES)[number];
 export const UNNAMED_MAX_RARITY: Rarity = "legendary";
 
 export const GEAR = {
-  /** Power of one piece at +0. Full sets: Epic 75, Legendary 110, Mythic 160. */
-  basePower: { common: 3, uncommon: 6, rare: 10, epic: 15, legendary: 22, mythic: 32 } as Record<Rarity, number>,
+  /** Power of one armor piece at +0. Full sets: Epic 75, Legendary 110. A Mythic is a single piece. */
+  basePower: { common: 3, uncommon: 6, rare: 10, epic: 15, legendary: 22, mythic: 30 } as Record<Rarity, number>,
+  /** Power of one accessory at +0: about 40% of an armor piece. */
+  accessoryPower: { common: 1, uncommon: 2.5, rare: 4, epic: 6, legendary: 9, mythic: 12 } as Record<Rarity, number>,
   /** Each + step adds this fraction of the piece's base power. */
   plusStep: 0.04,
   maxPlus: 2,
@@ -272,22 +298,45 @@ export const GEAR = {
   ascendedFactor: [0.85, 0.885, 0.92],
   /** Gear's share of battle power is at most this: gear ≤ maxShare / (1 − maxShare) × body power. */
   maxShare: 0.3,
-  /** How each slot's power splits into combat attributes (70% primary / 30% secondary). */
-  slotAttributes: {
-    helmet: { hp: 0.7, def: 0.3 },
-    chestplate: { def: 0.7, hp: 0.3 },
-    gloves: { atk: 0.7, hp: 0.3 },
-    leggings: { hp: 0.7, atk: 0.3 },
-    boots: { atk: 0.7, def: 0.3 },
-  } as Record<Slot, Partial<Record<"hp" | "atk" | "def", number>>>,
+  /** The focus of an item that has none (older items, or a base that left the catalog): the slot's own split. */
+  slotFocus: {
+    helmet: { hp: 70, def: 30 },
+    chestplate: { def: 70, hp: 30 },
+    gloves: { atk: 70, hp: 30 },
+    leggings: { hp: 70, atk: 30 },
+    boots: { atk: 70, def: 30 },
+    ring: { atk: 70, hp: 30 },
+    necklace: { hp: 60, def: 40 },
+    belt: { def: 70, hp: 30 },
+    charm: { hp: 34, atk: 33, def: 33 },
+  } as Record<Slot, Focus>,
 };
+
+/**
+ * What an accessory's effect does (Phase 5 hook: nothing reads these in combat yet). `value` is
+ * the effect at Legendary strength, scaled down below it by EFFECT_SCALE. No effect may change the
+ * coins or XP earned (section 12).
+ */
+export const ACCESSORY_EFFECTS = {
+  crit: { label: "Crit chance", value: 0.05 },
+  healing: { label: "Healing", value: 0.06 },
+  damageReduction: { label: "Damage reduction", value: 0.04 },
+  bossCooldown: { label: "Boss cooldown reduction", value: 0.1 },
+  salvageYield: { label: "Salvage yield", value: 0.1 },
+  rerollDiscount: { label: "Shop reroll discount", value: 0.15 },
+} as const;
+export type AccessoryEffect = keyof typeof ACCESSORY_EFFECTS;
+
+/** An effect's strength by the item's current rarity, as a share of its Legendary value. */
+export const EFFECT_SCALE: Record<Rarity, number> = { common: 0.2, uncommon: 0.4, rare: 0.6, epic: 0.8, legendary: 1, mythic: 1.25 };
 
 /** Level needed to equip an item of each (current) rarity. */
 export const EQUIP_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, epic: 8, legendary: 15, mythic: 25 };
 
 /**
  * Set bonuses: equipping this many pieces of one set multiplies gear power before the gear cap.
- * The highest reached applies (5 pieces is +20% in all, not +28%). Not part of the bonus bucket.
+ * The highest reached applies (5 pieces is +20% in all, not +28%). The bonus multiplies only the power
+ * of that set's own equipped pieces, and only the best equipped set counts. Not part of the bonus bucket.
  */
 export const SET_BONUS = [
   { pieces: 3, gearPct: 0.08 },
@@ -313,6 +362,8 @@ export const SHOP = {
   rarityWeights: { common: 35, uncommon: 35, rare: 20, epic: 10 } as Record<ShopRarity, number>,
   /** At most this many Epic offers in one stock. */
   maxEpic: 1,
+  /** Each offer is an accessory with this chance, otherwise armor. */
+  accessoryShare: 0.3,
   /** Coins for the first and second reroll of a week. */
   rerollCosts: [100, 200],
 };

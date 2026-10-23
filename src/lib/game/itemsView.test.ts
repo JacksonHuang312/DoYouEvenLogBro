@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { SLOTS } from "./config";
+import { ARMOR_SLOTS } from "./config";
 import { newItem, type OwnedItem } from "./items";
 import {
   powerView,
@@ -40,7 +40,7 @@ describe("slotViews", () => {
     const boots = slotOf(game({ equipped: { boots: "i-wayfarer-boots" } }), inv, "boots");
     expect(boots.items.map((i) => i.baseId)).toEqual(["warden-boots", "wayfarer-boots", "ironbound-boots"]);
     expect(boots.equipped?.baseId).toBe("wayfarer-boots");
-    expect(slotViews(game(), inv, T0).map((s) => s.slot)).toEqual([...SLOTS]);
+    expect(slotViews(game(), inv, T0).map((s) => s.slot)).toEqual([...ARMOR_SLOTS]);
     expect(slotOf(game(), inv, "helmet").items).toEqual([]);
   });
 
@@ -107,11 +107,11 @@ describe("slotViews", () => {
 
 describe("setProgress", () => {
   test("counts equipped pieces per set, best first, with the tiers reached", () => {
-    const pieces = (set: string, n: number) => SLOTS.slice(0, n).map((s) => ({ baseId: `${set}-${s}` }));
-    const sets = setProgress([...pieces("warden", 3), ...pieces("ironbound", 2)]);
+    const pieces = (set: string, n: number) => ARMOR_SLOTS.slice(0, n).map((s) => ({ baseId: `${set}-${s}` }));
+    const sets = setProgress([...pieces("warden", 3), ...pieces("steelguard", 2)]);
     expect(sets.map((s) => [s.name, s.count, s.active])).toEqual([
       ["Warden", 3, true],
-      ["Ironbound", 2, false],
+      ["Steelguard", 2, false],
     ]);
     expect(sets[0].tiers.map((t) => t.reached)).toEqual([true, false]);
     expect(sets[0].tiers[0].label).toBe("3 pieces: +8% gear power");
@@ -136,7 +136,7 @@ describe("powerView", () => {
 
   test("no gear: battle is body power; a weak body caps the gear", () => {
     expect(powerView(150, game(), []).battle).toBe(150);
-    const full = SLOTS.map((s) => owned(`unbroken-${s}`));
+    const full = ARMOR_SLOTS.map((s) => owned(`unbroken-${s}`));
     const state = game({ equipped: Object.fromEntries(full.map((i) => [i.slot, i.id])) });
     expect(powerView(100, state, full).gear).toMatchObject({ capped: true, counted: 42.9 });
   });

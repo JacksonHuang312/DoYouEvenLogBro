@@ -3,6 +3,7 @@ import { baseItem, type BaseItem } from "./catalog";
 import {
   EQUIP_LEVEL,
   GEAR,
+  type Focus,
   ITEM_VALUE,
   NAMED_RARITIES,
   RARITIES,
@@ -256,20 +257,45 @@ export function dropOutcome(
   return duplicate ? { kind: "salvage", scrap: SALVAGE[drop.rarity] } : { kind: "item" };
 }
 
-// ---- Sets ----
+// ---- Sets and focus ----
 
-/** Pieces per set among `items`. Items whose base left the catalog belong to no set. */
-export function setCounts(items: Pick<Item, "baseId">[]): Record<string, number> {
+/**
+ * What the set and focus rules need to know about a worn piece. `setId` and `focus` default to the
+ * catalog's for the base; passing them overrides it (tests do, so they don't depend on catalog data).
+ */
+export type PieceRef = Pick<Item, "baseId"> & Partial<Pick<Item, "slot">> & { setId?: string | null; focus?: Focus };
+
+/** The set a piece belongs to. Items whose base left the catalog, and loose items, belong to none. */
+export const pieceSetId = (p: PieceRef): string | null => (p.setId !== undefined ? p.setId : (baseItem(p.baseId)?.setId ?? null));
+
+/** How a piece's power splits over HP, ATK and DEF (whole percents): its own focus, else its slot's usual split. */
+export function pieceFocus(p: PieceRef & Pick<Item, "slot">): Focus {
+  return p.focus ?? baseItem(p.baseId)?.focus ?? GEAR.slotFocus[p.slot];
+}
+
+/** Pieces per set among `items`. */
+export function setCounts(items: PieceRef[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const i of items) {
-    const setId = baseItem(i.baseId)?.setId;
+    const setId = pieceSetId(i);
     if (setId) counts[setId] = (counts[setId] ?? 0) + 1;
   }
   return counts;
 }
 
-/** The gear-power bonus from the best set among `items`: the highest SET_BONUS tier reached. */
-export function setBonusPct(items: Pick<Item, "baseId">[]): number {
-  const most = Math.max(0, ...Object.values(setCounts(items)));
-  return SET_BONUS.reduce((pct, tier) => (most >= tier.pieces ? Math.max(pct, tier.gearPct) : pct), 0);
+/**
+ * The set whose bonus applies: only the best equipped set counts, and it applies to that set's own
+ * pieces only. With 5 armor slots two sets can't both reach the first tier, so the best set is the
+ * one with the most pieces. Null when no set reaches a tier.
+ */
+export function activeSet(items: PieceRef[]): { setId: string; pieces: number; pct: number } | null {
+  let best: { setId: string; pieces: number; pct: number } | null = null;
+  for (const [setId, pieces] of Object.entries(setCounts(items))) {
+    const pct = SET_BONUS.reduce((p, tier) => (pieces >= tier.pieces ? Math.max(p, tier.gearPct) : p), 0);
+    if (pct > 0 && (!best || pieces > best.pieces)) best = { setId, pieces, pct };
+  }
+  return best;
 }
+
+/** The gear-power bonus (a share) that the best set gives its own pieces: the highest SET_BONUS tier reached. */
+export const setBonusPct = (items: PieceRef[]): number => activeSet(items)?.pct ?? 0;
