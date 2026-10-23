@@ -12,7 +12,8 @@
     "test:rules:ci": "firebase emulators:exec --only firestore --project demo-dyelb \"npm run test:rules\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "backfill": "tsx scripts/backfill-game.ts"
+    "backfill": "tsx scripts/backfill-game.ts",
+    "grant-items": "tsx scripts/grant-items.ts"
   },
   "dependencies": {
     "firebase": "^13.0.0",
