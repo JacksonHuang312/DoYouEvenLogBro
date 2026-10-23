@@ -13,6 +13,7 @@ import type { Snapshot } from "@/lib/game/claim";
 import { ownInjuryTag } from "@/lib/game/injuryLine";
 import { STAT_MUSCLES, type Stat } from "@/lib/game/config";
 import type { MusclesFacts } from "@/lib/game/facts";
+import { powerView } from "@/lib/game/itemsView";
 import { RADAR_ORDER } from "@/lib/game/radar";
 import {
   COMPARE_PERIODS,
@@ -34,6 +35,15 @@ const TABS = ["Stats", "Gear", "Shop", "Titles"] as const;
 type Tab = (typeof TABS)[number];
 
 const number = (n: number) => n.toLocaleString("en-US");
+
+/** "1,240 coins · Power 312 · Battle 391". Power and battle are left out while calibrating. */
+function headerLine(view: HeroView | null, battle: number | null): React.ReactNode {
+  if (!view) return <Skeleton className="h-3 w-32" />;
+  const parts = [`${number(view.coins)} coins`];
+  if (view.power != null) parts.push(`Power ${number(Math.round(view.power))}`);
+  if (battle != null) parts.push(`Battle ${number(Math.round(battle))}`);
+  return parts.join(" · ");
+}
 
 /** Hero: level and XP up top, then Stats (radar + table), Gear, Shop and Titles. */
 export default function HeroPage() {
@@ -59,10 +69,13 @@ export default function HeroPage() {
     [status, state.data, muscles.data, now],
   );
 
+  // Battle power needs the equipped items; until they've loaded only body power is shown.
+  const battle = view && inventory.status === "ready" ? powerView(view.power, state.data, inventory.data).battle : null;
+
   return (
     <RpgScreen>
       <TabHeader
-        kicker={view ? `${number(view.coins)} coins${view.power != null ? ` · Power ${number(Math.round(view.power))}` : ""}` : <Skeleton className="h-3 w-32" />}
+        kicker={headerLine(view, battle)}
         title={profile.username}
       />
       <LevelStrip view={view} />

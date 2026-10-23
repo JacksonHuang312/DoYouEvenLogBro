@@ -5,6 +5,7 @@ import { COINS, STATS, XP } from "./config";
 import { levelProgress } from "./economy";
 import { isWorkingSet } from "./sets";
 import { dayId, daysBetween } from "./time";
+import { TITLE_INFO, titleBonus } from "./titles";
 import { STAT_LABELS } from "./view";
 
 /*
@@ -83,6 +84,10 @@ export interface RewardsView {
   stats: { name: string; from: string; to: string; delta: string }[];
   oneRm: string[];
   quests: QuestBar[];
+  /** "Title earned: Regular (+3% battle power)", one per title this claim earned. */
+  titles: string[];
+  /** "+10 scrap" when finished quests paid scrap. */
+  scrap: string | null;
 }
 
 export interface RewardsInput {
@@ -175,6 +180,8 @@ export function rewardsView(input: RewardsInput): RewardsView {
       stats: [],
       oneRm: [],
       quests: [],
+      titles: [],
+      scrap: null,
     };
   }
 
@@ -231,6 +238,8 @@ export function rewardsView(input: RewardsInput): RewardsView {
     calibrating: r.calibrating,
     stats: r.calibrating ? [] : statsChanged,
     oneRm: r.calibrating ? [] : oneRm,
+    titles: (r.titles ?? []).map((id) => `Title earned: ${TITLE_INFO[id].name} (+${Math.round(titleBonus(id) * 100)}% battle power)`),
+    scrap: r.scrap && r.scrap.earned > 0 ? `+${r.scrap.earned} scrap` : null,
     quests: quests.map((q) => ({
       id: q.id,
       title: q.title,

@@ -239,6 +239,26 @@ describe("quests", () => {
   });
 });
 
+describe("titles and scrap", () => {
+  test("a title this claim earned gets a line with its bonus", () => {
+    expect(view(claimed({ titles: ["regular", "unbroken"] })).titles).toEqual([
+      "Title earned: Regular (+3% battle power)",
+      "Title earned: Unbroken (+5% battle power)",
+    ]);
+  });
+
+  test("none earned, or a claim from before titles, shows nothing", () => {
+    expect(view(claimed({ titles: [] })).titles).toEqual([]);
+    expect(view(claimed()).titles).toEqual([]);
+  });
+
+  test("scrap paid by finished quests", () => {
+    expect(view(claimed({ scrap: { earned: 10, balance: 40 } })).scrap).toBe("+10 scrap");
+    expect(view(claimed({ scrap: { earned: 0, balance: 40 } })).scrap).toBeNull();
+    expect(view(claimed()).scrap).toBeNull();
+  });
+});
+
 describe("not counted", () => {
   test("shows how close it was", () => {
     const v = view({ status: "not-counted", reason: "too-few-sets", workingSets: 3, required: 4 });

@@ -130,6 +130,17 @@ export function RewardsScreen({ view, onDone }: { view: RewardsView; onDone: () 
           </section>
         )}
 
+        {(view.titles.length > 0 || view.scrap) && (
+          <section className="flex flex-col px-5 pt-4">
+            {view.titles.map((t) => (
+              <p key={t} className="border-t border-rpg-line-soft py-2.5 text-[13px] text-rpg-good">
+                {t}
+              </p>
+            ))}
+            {view.scrap && <p className="border-t border-rpg-line-soft py-2.5 text-xs text-rpg-text-2">{view.scrap} from quests</p>}
+          </section>
+        )}
+
         <div className="mt-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6">
           <button ref={done} onClick={onDone} className="min-h-[50px] w-full bg-rpg-text text-sm font-semibold text-rpg-bg">
             Done
