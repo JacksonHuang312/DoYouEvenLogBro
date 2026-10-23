@@ -9,6 +9,15 @@ import {
   FREQUENCY_WEEKS,
   WEEKS_KEPT,
   COINS,
+  ACHIEVEMENTS,
+  EQUIP_LEVEL,
+  GEAR,
+  RARITIES,
+  SCHEDULE,
+  SHOP,
+  SLOTS,
+  TITLES,
+  UPGRADE_COSTS,
 } from "./config";
 
 describe("config", () => {
@@ -41,5 +50,28 @@ describe("config", () => {
 
   test("a single workout fits under the daily cap", () => {
     expect(COINS.base + COINS.scheduledBonus).toBeLessThanOrEqual(COINS.dailyCap);
+  });
+
+  test("level gates to equip: Epic 8, Legendary 15, Mythic 25", () => {
+    expect([EQUIP_LEVEL.epic, EQUIP_LEVEL.legendary, EQUIP_LEVEL.mythic]).toEqual([8, 15, 25]);
+  });
+
+  test("gear tables cover every rarity, plus level and slot", () => {
+    expect(GEAR.ascendedFactor).toHaveLength(GEAR.maxPlus + 1);
+    for (const r of RARITIES) expect(UPGRADE_COSTS[r], r).toHaveLength(GEAR.maxPlus + 1);
+    for (const slot of SLOTS) {
+      const sum = Object.values(GEAR.slotAttributes[slot]).reduce((a, b) => a + b, 0);
+      expect(sum, slot).toBeCloseTo(1, 10);
+    }
+  });
+
+  test("shop rerolls and title slots line up with their limits", () => {
+    expect(TITLES.slotCosts).toHaveLength(TITLES.maxSlots - TITLES.defaultSlots);
+    expect(SHOP.rerollCosts.length).toBeGreaterThan(0);
+  });
+
+  test("achievements only look as far back as the facts are kept", () => {
+    expect(ACHIEVEMENTS.ironHabit.outOf).toBeLessThanOrEqual(WEEKS_KEPT);
+    expect(ACHIEVEMENTS.unbroken.days).toBeLessThanOrEqual(SCHEDULE.matchedWeeksKept * 7);
   });
 });

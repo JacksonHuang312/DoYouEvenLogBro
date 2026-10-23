@@ -238,6 +238,141 @@ export const INJURY = {
   historyDays: 365,
 };
 
+// ---- Items (sections 5 and 12) ----
+
+export const SLOTS = ["helmet", "chestplate", "gloves", "leggings", "boots"] as const;
+export type Slot = (typeof SLOTS)[number];
+
+/** The rarity ladder, lowest first. */
+export const RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"] as const;
+export type Rarity = (typeof RARITIES)[number];
+
+/** Items that start at one of these are named. Everything that starts below is unnamed. */
+export const NAMED_RARITIES: readonly Rarity[] = ["legendary", "mythic"];
+
+/** The rarities the shop sells. Legendary and Mythic only drop from bosses. */
+export const SHOP_RARITIES = ["common", "uncommon", "rare", "epic"] as const;
+export type ShopRarity = (typeof SHOP_RARITIES)[number];
+
+/** Unnamed gear can be upgraded up to this rarity, never past it. */
+export const UNNAMED_MAX_RARITY: Rarity = "legendary";
+
+export const GEAR = {
+  /** Power of one piece at +0. Full sets: Epic 75, Legendary 110, Mythic 160. */
+  basePower: { common: 3, uncommon: 6, rare: 10, epic: 15, legendary: 22, mythic: 32 } as Record<Rarity, number>,
+  /** Each + step adds this fraction of the piece's base power. */
+  plusStep: 0.04,
+  maxPlus: 2,
+  /**
+   * A piece promoted into a named rarity (Epic → Legendary, Legendary → Mythic) has this share of
+   * a native piece's power at the same plus, by plus (+0, +1, +2). A maxed one still loses to a fresh native.
+   */
+  ascendedFactor: [0.85, 0.885, 0.92],
+  /** Gear's share of battle power is at most this: gear ≤ maxShare / (1 − maxShare) × body power. */
+  maxShare: 0.3,
+  /** How each slot's power splits into combat attributes (70% primary / 30% secondary). */
+  slotAttributes: {
+    helmet: { hp: 0.7, def: 0.3 },
+    chestplate: { def: 0.7, hp: 0.3 },
+    gloves: { atk: 0.7, hp: 0.3 },
+    leggings: { hp: 0.7, atk: 0.3 },
+    boots: { atk: 0.7, def: 0.3 },
+  } as Record<Slot, Partial<Record<"hp" | "atk" | "def", number>>>,
+};
+
+/** Level needed to equip an item of each (current) rarity. */
+export const EQUIP_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, epic: 8, legendary: 15, mythic: 25 };
+
+/**
+ * Set bonuses: equipping this many pieces of one set multiplies gear power before the gear cap.
+ * The highest reached applies (5 pieces is +20% in all, not +28%). Not part of the bonus bucket.
+ */
+export const SET_BONUS = [
+  { pieces: 3, gearPct: 0.08 },
+  { pieces: 5, gearPct: 0.2 },
+];
+
+/** Titles and class bonuses add up in one bucket, capped here, that multiplies battle power. */
+export const BONUS_BUCKET_CAP = 0.25;
+
+// ---- Shop, selling and salvage (sections 5, 10 and 12) ----
+
+/** What an item of each rarity is worth before the shop's markup. */
+export const ITEM_VALUE: Record<ShopRarity, number> = { common: 150, uncommon: 450, rare: 1000, epic: 2500 };
+
+export const SHOP = {
+  /** The shop charges the value plus this (150 → 190, 450 → 565, 1000 → 1250, 2500 → 3125). */
+  markup: 0.25,
+  /** Shop and sell prices are rounded to this many coins. */
+  roundTo: 5,
+  /** Offers in a week's stock. */
+  offers: 6,
+  /** Relative chance of each rarity per offer. */
+  rarityWeights: { common: 35, uncommon: 35, rare: 20, epic: 10 } as Record<ShopRarity, number>,
+  /** At most this many Epic offers in one stock. */
+  maxEpic: 1,
+  /** Coins for the first and second reroll of a week. */
+  rerollCosts: [100, 200],
+};
+
+/** Unnamed items sell for this share of their origin rarity's value (pre-markup). Named items can't be sold. */
+export const SELL_SHARE = 0.25;
+
+/** Upgrade and salvage materials. Mythic Cores only come from bosses (Phase 5). */
+export const MATERIALS = ["scrap", "mythicCore"] as const;
+export type Material = (typeof MATERIALS)[number];
+
+/** Scrap from salvaging an item, by its current rarity. Coins and scrap spent upgrading it aren't refunded. */
+export const SALVAGE: Record<Rarity, number> = { common: 5, uncommon: 15, rare: 35, epic: 80, legendary: 150, mythic: 250 };
+
+export interface UpgradeCost {
+  coins: number;
+  scrap: number;
+  mythicCore?: number;
+}
+
+/**
+ * Cost of the next upgrade by current rarity: +0 → +1, +1 → +2, then +2 → the next rarity at +0.
+ * Null: that rarity can't be promoted. Legendary → Mythic is for named gear only.
+ */
+export const UPGRADE_COSTS: Record<Rarity, [UpgradeCost, UpgradeCost, UpgradeCost | null]> = {
+  common: [{ coins: 40, scrap: 2 }, { coins: 60, scrap: 3 }, { coins: 150, scrap: 5 }],
+  uncommon: [{ coins: 100, scrap: 4 }, { coins: 150, scrap: 6 }, { coins: 400, scrap: 10 }],
+  rare: [{ coins: 250, scrap: 8 }, { coins: 350, scrap: 12 }, { coins: 900, scrap: 20 }],
+  epic: [{ coins: 600, scrap: 15 }, { coins: 800, scrap: 20 }, { coins: 2000, scrap: 40 }],
+  legendary: [{ coins: 1200, scrap: 30 }, { coins: 1600, scrap: 40 }, { coins: 4000, scrap: 80, mythicCore: 1 }],
+  mythic: [{ coins: 2500, scrap: 50 }, { coins: 3500, scrap: 70 }, null],
+};
+
+// ---- Titles (section 5.1) ----
+
+export const TITLES = {
+  defaultSlots: 1,
+  maxSlots: 3,
+  /** Coins for the second and third title slot. */
+  slotCosts: [500, 1500],
+};
+
+/** What each achievement asks for, and its title's bonus (a share of battle power, in the bonus bucket). */
+export const ACHIEVEMENTS = {
+  /** Finish calibration. */
+  calibrated: { bonus: 0.02 },
+  /** This many counted workouts in each of `weeks` weeks in a row. */
+  regular: { weeks: 4, workoutsPerWeek: 3, bonus: 0.03 },
+  /** No skipped scheduled workout for `days` days, with at least `minSlots` scheduled in that time. */
+  unbroken: { days: 28, minSlots: 8, bonus: 0.05 },
+  /** A 1RM bonus (section 2.3) on this many stats at once. */
+  recordBreaker: { stats: 3, bonus: 0.03 },
+  /** Claim every quest of one week. */
+  questmaster: { bonus: 0.03 },
+  /** Every stat at this or more at the same time. */
+  wellRounded: { minStat: 50, bonus: 0.04 },
+  /** Trained in `weeks` of the last `outOf` weeks. `outOf` must fit in WEEKS_KEPT. */
+  ironHabit: { weeks: 12, outOf: 16, bonus: 0.04 },
+  /** This many counted workouts in all. */
+  centurion: { workouts: 100, bonus: 0.03 },
+};
+
 /** Weeks start Sunday 00:00 in the user's time zone (section 3.5). */
 export const WEEK_START_DAY = 0;
 

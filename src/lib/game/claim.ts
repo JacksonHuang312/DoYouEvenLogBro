@@ -6,10 +6,12 @@ import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./ec
 import { mergeFacts, workoutFacts, type MusclesFacts } from "./facts";
 import { NO_FREEZE, type Freeze } from "./freeze";
 import { statOf } from "./muscles";
+import type { Equipped, Materials } from "./items";
 import type { QuestUpdate } from "./quests";
 import { computeStats, power, type BodyProfile, type StatLine } from "./score";
 import { setLoadKg, workingSets, type ExerciseLookup } from "./sets";
 import { dayId, weekId } from "./time";
+import type { TitleId, TitlesState } from "./titles";
 
 /** users/{uid}/game/state. Written only by the server. */
 export interface GameState {
@@ -36,6 +38,12 @@ export interface GameState {
   injuries?: Injury[];
   /** Whether followers see the injury flags (publicStats). Missing counts as shown. */
   showInjuries?: boolean;
+  /** Slot -> inventory id of the equipped item. Missing on docs from before Phase 4. */
+  equipped?: Equipped;
+  /** Upgrade materials (scrap, Mythic Cores). Missing on docs from before Phase 4. */
+  materials?: Materials;
+  /** Earned and equipped titles, and title slots. Missing on docs from before Phase 4 (see titlesOf). */
+  titles?: TitlesState;
   createdAt: number;
   updatedAt: number;
 }
@@ -91,6 +99,10 @@ export interface ClaimResult {
   schedule?: { day: string; daysOff: number } | null;
   /** Quests this workout moved forward or finished (written by the claim route). Paid quests are in coins/xp.balance. */
   quests?: QuestUpdate[];
+  /** Scrap paid with the quests this claim finished, and the balance after (written by the claim route). */
+  scrap?: { earned: number; balance: number };
+  /** Titles this claim earned (written by the claim route). */
+  titles?: TitleId[];
   /** Set on claims written by the backfill script (which pays no coins). */
   backfilled?: boolean;
 }
