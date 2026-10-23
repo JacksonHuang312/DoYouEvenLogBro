@@ -1,4 +1,4 @@
-// Grants gear and materials to one account, so every rarity can be seen before boss drops exist
+// Grants gear, materials and coins to one account, so every rarity can be seen before boss drops exist
 // (Phase 5). A developer tool: there is deliberately no API route for this. Granted items are
 // marked source "admin".
 //
@@ -6,6 +6,7 @@
 //   npm run grant-items -- --uid <uid> --base warden-chestplate --rarity legendary --plus 2
 //   npm run grant-items -- --uid <uid> --base titans-vow-helmet --base unbroken-boots
 //   npm run grant-items -- --uid <uid> --materials scrap=300,mythicCore=1
+//   npm run grant-items -- --uid <uid> --coins 5000
 //
 // Credentials: the FIREBASE_ADMIN_* vars from .env.local (or the environment). Against anything
 // but the emulators it also needs --confirm <projectId>, naming the project it will write to.
@@ -31,6 +32,7 @@ const { values: args } = parseArgs({
     rarity: { type: "string" },
     plus: { type: "string", default: "0" },
     materials: { type: "string" },
+    coins: { type: "string" },
     confirm: { type: "string" },
     "dry-run": { type: "boolean", default: false },
   },
@@ -68,6 +70,9 @@ function parseMaterials(text: string | undefined): Partial<Record<Material, numb
 }
 const materials = parseMaterials(args.materials);
 
+const coins = args.coins === undefined ? 0 : Number(args.coins);
+if (args.coins !== undefined && (!Number.isSafeInteger(coins) || coins <= 0)) fail("--coins must be a positive whole number.");
+
 const now = Date.now();
 const baseIds = args.all ? BASE_ITEMS.map((b) => b.id) : args.base;
 const items: { id: string; item: Item }[] = baseIds.map((id) => {
@@ -77,7 +82,7 @@ const items: { id: string; item: Item }[] = baseIds.map((id) => {
   if (!made.ok) fail(`${id}: ${made.error}`);
   return { id: `admin-${randomUUID()}`, item: made.value };
 });
-if (items.length === 0 && Object.keys(materials).length === 0) fail("Nothing to grant: pass --all, --base or --materials.");
+if (items.length === 0 && Object.keys(materials).length === 0 && coins === 0) fail("Nothing to grant: pass --all, --base, --materials or --coins.");
 
 async function main() {
   const db = adminDb();
@@ -89,20 +94,21 @@ async function main() {
     console.log(`  ${id}  ${item.baseId}  ${item.rarity} +${item.plus}${item.named ? " (named)" : ""}  power ${piecePower(item).toFixed(1)}`);
   }
   for (const [name, n] of Object.entries(materials)) console.log(`  +${n} ${name}`);
+  if (coins > 0) console.log(`  +${coins} coins`);
   if (dryRun) return console.log("DRY RUN, nothing written.");
 
   const stateRef = user.collection("game").doc("state");
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(stateRef);
-    if (Object.keys(materials).length > 0) {
+    if (coins > 0 || Object.keys(materials).length > 0) {
       const state = snap.exists ? (snap.data() as GameState) : newGameState(now, DEFAULT_TIME_ZONE);
       const next = { ...(state.materials ?? {}) };
       for (const [name, n] of Object.entries(materials) as [Material, number][]) next[name] = (next[name] ?? 0) + n;
-      tx.set(stateRef, { ...state, materials: next, updatedAt: now });
+      tx.set(stateRef, { ...state, coins: state.coins + coins, materials: next, updatedAt: now });
     }
     for (const { id, item } of items) tx.create(user.collection("inventory").doc(id), item);
   });
-  console.log(`Done: ${items.length} item(s)${Object.keys(materials).length ? " and materials" : ""} granted.`);
+  console.log(`Done: ${items.length} item(s)${Object.keys(materials).length ? ", materials" : ""}${coins > 0 ? `, ${coins} coins` : ""} granted.`);
 }
 
 main().catch((err) => {
