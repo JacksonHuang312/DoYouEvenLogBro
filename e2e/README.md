@@ -58,3 +58,20 @@ To click around by hand as the test user: `npm run emulators`, then `npm run e2e
 
 Start the test with `await hero.start({ coins: 0, gear: ["loopA"] }, "Shop")`. Add items to `GEAR`
 in `seed.ts` if you need another base item. Prefer role and text locators over CSS classes.
+
+## 390px checklist (Hero: Gear, Shop, Titles)
+
+Last checked after the e2e suite was built: automated checks on every screen, plus a look at the screenshots in `e2e/.output/screens/`.
+
+- [x] No sideways scrolling and nothing past the right edge (checked by the tests on Gear, ring sheet, sell confirm, Shop, buy confirm, Titles and all offline views)
+- [x] Buttons and tabs are at least 44px tall (checked by the tests on Gear, ring sheet, Shop and Titles)
+- [x] Sheets and confirm dialogs fit the width, with Cancel and the action side by side
+- [x] Long names wrap instead of clipping (Steelguard Tassets, Scrapper Brigandine, the Legendary upgrade line)
+- [x] Offline notes show in orange on all three tabs and every action button is greyed out and still readable
+- [x] Rarity colors, flat line-art icons, no glow or gradients (7.1)
+- [x] Level locks, "Named gear can't be sold", and the stack "×2" text show on the cards
+- [ ] Not checked: widths below 390px (for example 360px), a real phone, the iOS safe-area inset, the on-screen keyboard, landscape
+- [ ] Not checked: how the fixed bottom nav looks while scrolling a long page (the full-page screenshots draw it mid-page, which is only how they are captured)
+- Dev only: the round "N" badge at the bottom left is Next's dev indicator, not part of the app
+
+Known quirk: offline, a user with no shop document sees "Can't load the shop" instead of disabled buttons (GAME_DESIGN.md section 11).
