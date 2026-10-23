@@ -20,11 +20,13 @@ import { emptySchedule, matchWorkout, withMatch, type ScheduleDoc } from "../gam
 import { computeStats, power, type StatLine } from "../game/score";
 import { buildExerciseLookup } from "../game/sets";
 import { dayId, weekId as weekIdOf } from "../game/time";
+import { achievementProgress, withEarnedTitles, type TitleId } from "../game/titles";
 import type { Workout } from "../types";
 import { adminDb } from "./admin";
 import { HttpError } from "./api";
 import { questWeek, readLookup, readWeekWorkouts } from "./quests";
 import { customExercise, gameRefs } from "./refs";
+import { readTitleFacts } from "./titles";
 
 /** POST /api/claim response. */
 export type ClaimResponse =
@@ -120,6 +122,24 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
       if (!savedQuests || quest.paid.length > 0) questsToWrite = quest.doc;
     }
 
+    // Achievements this claim completes earn their titles. Never worth failing a claim over.
+    let titles: TitleId[] = [];
+    try {
+      const facts = await readTitleFacts(
+        tx,
+        r,
+        { state: nextState, muscles: outcome.muscles, schedule: scheduleAfter, now, timeZone: zone },
+        { claimedAt: now, quests: questsToWrite },
+      );
+      const earned = withEarnedTitles(nextState, achievementProgress(facts), now);
+      nextState = earned.state;
+      titles = earned.earned;
+    } catch (err) {
+      console.error("Couldn't check achievements for a claim", err);
+    }
+
+    const scrapBefore = state.materials?.scrap ?? 0;
+    const scrapAfter = nextState.materials?.scrap ?? 0;
     const result: ClaimResult = {
       ...outcome.result,
       coins: { ...outcome.result.coins, balance: nextState.coins },
@@ -127,6 +147,8 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
       level: { ...outcome.result.level, after: nextState.level },
       schedule: match ? { day: match.day, daysOff: match.daysOff } : null,
       quests,
+      scrap: { earned: scrapAfter - scrapBefore, balance: scrapAfter },
+      titles,
     };
 
     tx.set(r.state, nextState);

@@ -10,6 +10,8 @@ export function gameRefs(db: Firestore, uid: string) {
     claims: user.collection("claims"),
     snapshots: user.collection("snapshots"),
     quests: user.collection("quests"),
+    inventory: user.collection("inventory"),
+    shop: user.collection("shop"),
     workouts: user.collection("workouts"),
     routines: user.collection("routines"),
     customExercises: user.collection("customExercises"),
