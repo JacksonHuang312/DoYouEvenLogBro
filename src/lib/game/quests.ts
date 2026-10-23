@@ -360,9 +360,11 @@ export function questsAfterWorkout(
   return { doc: next, paid, updates };
 }
 
-/** Adds quest rewards to coins and XP. Not counted toward the daily coin cap. */
+/** Adds quest rewards to coins and XP, plus QUESTS.scrapPerQuest scrap each. Not counted toward the daily coin cap. */
 export function withQuestRewards(state: GameState, quests: Pick<Quest, "reward">[], now: number): GameState {
+  if (quests.length === 0) return state;
   const coins = quests.reduce((n, q) => n + q.reward.coins, 0);
   const xp = quests.reduce((n, q) => n + q.reward.xp, 0);
-  return { ...state, coins: state.coins + coins, xp: state.xp + xp, level: levelForXp(state.xp + xp), updatedAt: now };
+  const materials = { ...state.materials, scrap: (state.materials?.scrap ?? 0) + quests.length * QUESTS.scrapPerQuest };
+  return { ...state, coins: state.coins + coins, xp: state.xp + xp, level: levelForXp(state.xp + xp), materials, updatedAt: now };
 }

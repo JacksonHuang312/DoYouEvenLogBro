@@ -331,6 +331,12 @@ describe("paying quests", () => {
     const next = withQuestRewards(state, make().quests.slice(0, 2), T0 + 1);
     expect(next).toMatchObject({ coins: 70, xp: 540, level: 2, coinDay: "2026-10-14", coinsToday: 120, updatedAt: T0 + 1 });
   });
+
+  test("each paid quest also pays scrap", () => {
+    const state = { ...newGameState(T0, "UTC"), materials: { scrap: 3, mythicCore: 1 } };
+    expect(withQuestRewards(state, make().quests, T0).materials).toEqual({ scrap: 3 + 3 * QUESTS.scrapPerQuest, mythicCore: 1 });
+    expect(withQuestRewards(newGameState(T0, "UTC"), make().quests.slice(0, 1), T0).materials).toEqual({ scrap: QUESTS.scrapPerQuest });
+  });
 });
 
 

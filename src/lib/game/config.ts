@@ -218,6 +218,8 @@ export const QUESTS = {
   rerollCosts: [25, 50],
   /** A finished quest can still be claimed this many days after its week ends. */
   claimGraceDays: 3,
+  /** Scrap paid with every claimed quest, on top of its coins and XP (a small salvage faucet). */
+  scrapPerQuest: 5,
 };
 
 // ---- Pause mode and injury flags (section 3.6) ----

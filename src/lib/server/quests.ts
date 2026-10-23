@@ -129,7 +129,7 @@ export interface ClaimQuestResponse {
   status: "claimed" | "already-claimed";
   quests: QuestsDoc;
   quest: Quest;
-  balance: { coins: number; xp: number; level: number };
+  balance: { coins: number; xp: number; level: number; scrap: number };
 }
 
 /** Pays a finished quest (the Claim button, for quests finished by an edit). Idempotent. */
@@ -143,7 +143,7 @@ export async function claimQuestFor(uid: string, weekId: string, questId: string
     if (!questsSnap.exists) throw new HttpError(404, "No quests for that week");
     const doc = questsSnap.data() as QuestsDoc;
     const state = stateSnap.exists ? (stateSnap.data() as GameState) : newGameState(now, doc.timeZone);
-    const balance = (s: GameState) => ({ coins: s.coins, xp: s.xp, level: s.level });
+    const balance = (s: GameState) => ({ coins: s.coins, xp: s.xp, level: s.level, scrap: s.materials?.scrap ?? 0 });
 
     const existing = doc.quests.find((q) => q.id === questId);
     if (existing?.claimedAt != null) return { status: "already-claimed", quests: doc, quest: existing, balance: balance(state) };
