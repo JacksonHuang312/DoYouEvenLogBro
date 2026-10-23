@@ -298,6 +298,18 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Owned items: written only by the item and shop routes (GAME_DESIGN.md 5).
+      match /inventory/{itemId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
+      // A week's shop: reroll count and what was bought. The stock itself is computed.
+      match /shop/{weekId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
       match /customExercises/{exerciseId} {
         // The 17 sub-muscles. Must match SUB_MUSCLES in src/lib/game/config.ts.
         function validMuscle(muscle) {

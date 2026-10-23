@@ -755,6 +755,8 @@ describe("game data", () => {
     ["snapshots", "2026-10-11"],
     ["game", "schedule"],
     ["quests", "2026-10-11"],
+    ["inventory", "shop-2026-10-11-0-2"],
+    ["shop", "2026-10-11"],
   ];
   const ref = (db, uid, [col, id]) => doc(db, "users", uid, col, id);
 
@@ -772,6 +774,8 @@ describe("game data", () => {
     await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "claims")));
     await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "snapshots")));
     await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "quests")));
+    await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "inventory")));
+    await assertSucceeds(getDocs(collection(dbAs("alice"), "users", "alice", "shop")));
   });
 
   test("the owner can't create, change or delete any of it", async () => {
@@ -786,6 +790,9 @@ describe("game data", () => {
     await assertFails(setDoc(doc(db, "users", "alice", "claims", "w2"), { coins: 50 }));
     await assertFails(setDoc(doc(db, "users", "alice", "game", "other"), { coins: 50 }));
     await assertFails(setDoc(doc(db, "users", "alice", "quests", "2026-10-18"), { quests: [] }));
+    // No granting yourself gear or a fresh shop.
+    await assertFails(setDoc(doc(db, "users", "alice", "inventory", "free"), { baseId: "unbroken-helmet", rarity: "mythic" }));
+    await assertFails(setDoc(doc(db, "users", "alice", "shop", "2026-10-18"), { rerolls: 0, bought: {} }));
   });
 
   test("other users and signed-out visitors can't read or write it", async () => {
@@ -798,6 +805,8 @@ describe("game data", () => {
       }
       await assertFails(getDocs(collection(db, "users", "alice", "claims")));
       await assertFails(getDocs(collection(db, "users", "alice", "quests")));
+      await assertFails(getDocs(collection(db, "users", "alice", "inventory")));
+      await assertFails(getDocs(collection(db, "users", "alice", "shop")));
     }
   });
 });
