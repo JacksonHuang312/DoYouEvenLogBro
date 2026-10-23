@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
+import { GearPanel } from "@/components/rpg/GearPanel";
 import { RadarChart } from "@/components/rpg/RadarChart";
 import { ComingSoon, RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
@@ -22,17 +23,14 @@ import {
   type HeroView,
   type LoadStatus,
 } from "@/lib/game/view";
-import { useGameState, useMuscleFacts, useSnapshots } from "@/lib/useGame";
+import { useGameState, useInventory, useMuscleFacts, useSnapshots } from "@/lib/useGame";
 import { useNow } from "@/lib/useNow";
+import { useOnline } from "@/lib/useOnline";
 
 const TABS = ["Stats", "Gear", "Shop", "Titles"] as const;
 type Tab = (typeof TABS)[number];
 
-const COMING: Record<Exclude<Tab, "Stats">, { title: string; text: string }> = {
-  Gear: {
-    title: "Gear",
-    text: "Equip a helmet, chestplate, gloves, leggings and boots from boss drops and the shop. Gear adds power, capped at about 30% of your total. Coming in Phase 4.",
-  },
+const COMING: Record<Exclude<Tab, "Stats" | "Gear">, { title: string; text: string }> = {
   Shop: {
     title: "Shop",
     text: "Spend coins on a weekly rotating stock of gear. The stock refreshes every Sunday at 00:00. Coming in Phase 4.",
@@ -51,6 +49,8 @@ export default function HeroPage() {
   const state = useGameState(profile.uid);
   const muscles = useMuscleFacts(profile.uid);
   const snapshots = useSnapshots(profile.uid);
+  const inventory = useInventory(profile.uid);
+  const online = useOnline();
   const now = useNow(state.data?.updatedAt);
   const [tab, setTab] = useState<Tab>("Stats");
   // From game/state, so it shows as soon as that answers. Flags that have lapsed aren't listed.
@@ -102,6 +102,15 @@ export default function HeroPage() {
             snapshots={snapshots.data}
             snapshotsStatus={snapshots.status}
             now={now}
+          />
+        ) : tab === "Gear" ? (
+          <GearPanel
+            state={state.data}
+            items={inventory.data}
+            itemsStatus={combineStatus(inventory.status, status)}
+            bodyPower={view?.power ?? null}
+            now={now}
+            online={online}
           />
         ) : (
           <ComingSoon title={COMING[tab].title}>{COMING[tab].text}</ComingSoon>
