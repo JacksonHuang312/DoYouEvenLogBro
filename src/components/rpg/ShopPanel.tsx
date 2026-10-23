@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
+import { isAccessory } from "@/lib/game/config";
 import { RARITY_LABEL, shopView, SLOT_LABEL, type OfferView } from "@/lib/game/itemsView";
 import { buyOffer, rerollShop, ApiError } from "@/lib/gameApi";
 import { confirmRpgDialog, alertRpgDialog } from "@/lib/rpgDialog";
@@ -127,7 +128,8 @@ export function ShopPanel({
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="break-words font-rpg-head text-lg font-semibold leading-tight">{o.name}</span>
-              <span className="text-[11px] text-rpg-muted">{o.setName} set · unnamed</span>
+              <span className="text-[11px] text-rpg-muted">{o.focus}</span>
+              <span className="text-[11px] text-rpg-muted">{o.setName ? `${o.setName} set` : isAccessory(o.slot) ? "Accessory" : "Loose item"} · unnamed</span>
               {o.locked && <span className="text-[11px] text-rpg-warn">Equip at level {o.locked.level}</span>}
             </div>
             {o.bought ? (

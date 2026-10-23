@@ -1,23 +1,33 @@
-import { baseItem, setDef, SETS } from "./catalog";
+import { baseItem, setDef, SETS, type BaseItem } from "./catalog";
 import { battlePower } from "./battle";
 import { newGameState, type GameState } from "./claim";
 import {
+  ACCESSORY_EFFECTS,
   ACHIEVEMENTS,
+  ATTRIBUTES,
   BONUS_BUCKET_CAP,
   EQUIP_LEVEL,
+  POSITIONS,
   SET_BONUS,
-  ARMOR_SLOTS,
   TITLES,
+  positionsOf,
+  slotOfPosition,
+  type AccessoryEffect,
+  type Focus,
+  type Position,
   type Rarity,
   type Slot,
 } from "./config";
 import {
+  activeSet,
   applyUpgrade,
+  effectValue,
   equipItem,
   equippedItems,
-  equippedOf,
+  equippedPosition,
   isAscended,
   materialsOf,
+  pieceFocus,
   piecePower,
   removeItem,
   setCounts,
@@ -61,6 +71,36 @@ export const SLOT_LABEL: Record<Slot, string> = {
   belt: "Belt",
   charm: "Charm",
 };
+/** A worn position's name: Ring 1 and Ring 2 are told apart, the rest are their slot. */
+export const POSITION_LABEL: Record<Position, string> = {
+  helmet: "Helmet",
+  chestplate: "Chestplate",
+  gloves: "Gloves",
+  leggings: "Leggings",
+  boots: "Boots",
+  ring1: "Ring 1",
+  ring2: "Ring 2",
+  necklace: "Necklace",
+  belt: "Belt",
+  charm1: "Charm 1",
+  charm2: "Charm 2",
+};
+
+/** "HP 70 / DEF 30": where an item's power goes, biggest share first. */
+export function focusLabel(focus: Focus): string {
+  return ATTRIBUTES.filter((a) => (focus[a] ?? 0) > 0)
+    .sort((a, b) => (focus[b] ?? 0) - (focus[a] ?? 0))
+    .map((a) => `${a.toUpperCase()} ${focus[a]}`)
+    .join(" / ");
+}
+
+/** An accessory's effect at the item's rarity, or a Mythic's unique effect. Combat doesn't use either until Phase 5. */
+function effectLabel(base: BaseItem | undefined, rarity: Rarity): string | null {
+  if (!base?.effect) return null;
+  const known = base.effect in ACCESSORY_EFFECTS ? (base.effect as AccessoryEffect) : null;
+  const text = known ? `${ACCESSORY_EFFECTS[known].label} +${Math.round(effectValue(known, rarity) * 1000) / 10}%` : "Unique effect";
+  return `${text} (not active yet)`;
+}
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -90,13 +130,20 @@ export interface ItemView {
   /** "Epic +1" */
   title: string;
   power: number;
+  /** "HP 70 / DEF 30" */
+  focus: string;
+  /** An accessory's effect or a Mythic's unique effect, with its strength. */
+  effect: string | null;
   equipped: boolean;
+  /** Where it is worn, when it is. */
+  position: Position | null;
   named: boolean;
   ascended: boolean;
   /** Small text labels: Equipped, Named, Ascended. */
   tags: string[];
   /** The level needed when the user's level is below it. */
   locked: { level: number } | null;
+  /** Equip into the position the sheet was opened for. */
   equip: { enabled: boolean; reason: string | null };
   /** Null when the item is at the top of what it can reach. */
   upgrade: UpgradeView | null;
@@ -107,12 +154,14 @@ export interface ItemView {
 
 const NO_STATE = (now: number) => newGameState(now, "UTC");
 
-function itemView(state: GameState, item: OwnedItem, now: number): ItemView {
+/** One owned copy as shown for `target`, the position being equipped into. */
+function itemView(state: GameState, item: OwnedItem, now: number, target: Position): ItemView {
   const base = baseItem(item.baseId);
-  const equipped = equippedOf(state)[item.slot] === item.id;
+  const position = equippedPosition(state, item.id);
+  const equipped = position != null;
   const ascended = isAscended(item);
   const needed = EQUIP_LEVEL[item.rarity];
-  const equipTry = equipItem(state, item, now);
+  const equipTry = equipItem(state, item, now, target);
 
   const step = upgradeStep(item);
   let upgrade: UpgradeView | null = null;
@@ -126,7 +175,7 @@ function itemView(state: GameState, item: OwnedItem, now: number): ItemView {
       coins: cost.coins,
       scrap: cost.scrap,
       mythicCore: cost.mythicCore ?? 0,
-      powerAfter: round1(piecePower({ rarity: to.rarity, plus: to.plus, originRarity: item.originRarity })),
+      powerAfter: round1(piecePower({ rarity: to.rarity, plus: to.plus, originRarity: item.originRarity, slot: item.slot })),
       costLabel: parts.join(" + "),
       enabled: attempt.ok,
       reason: attempt.ok ? null : attempt.error,
@@ -137,6 +186,7 @@ function itemView(state: GameState, item: OwnedItem, now: number): ItemView {
   const sellTry = removeItem(state, item, "sold", now);
   const salvageTry = removeItem(state, item, "salvaged", now);
   const sellPrice = sellTry.ok ? sellTry.value.removal.coins : null;
+  const where = position && positionsOf(item.slot).length > 1 ? ` · ${POSITION_LABEL[position]}` : "";
 
   return {
     id: item.id,
@@ -148,10 +198,13 @@ function itemView(state: GameState, item: OwnedItem, now: number): ItemView {
     plus: item.plus,
     title: `${RARITY_LABEL(item.rarity)} +${item.plus}`,
     power: round1(piecePower(item)),
+    focus: focusLabel(pieceFocus(item)),
+    effect: effectLabel(base, item.rarity),
     equipped,
+    position,
     named: item.named,
     ascended,
-    tags: [...(equipped ? ["Equipped"] : []), ...(item.named ? ["Named"] : []), ...(ascended ? ["Ascended"] : [])],
+    tags: [...(equipped ? [`Equipped${where}`] : []), ...(item.named ? ["Named"] : []), ...(ascended ? ["Ascended"] : [])],
     locked: state.level < needed ? { level: needed } : null,
     equip: { enabled: !equipped && equipTry.ok, reason: equipped ? null : equipTry.ok ? null : equipTry.error },
     upgrade,
@@ -161,24 +214,61 @@ function itemView(state: GameState, item: OwnedItem, now: number): ItemView {
   };
 }
 
-export interface SlotView {
-  slot: Slot;
-  label: string;
-  equipped: ItemView | null;
-  /** Everything owned for the slot, strongest first. */
-  items: ItemView[];
+/**
+ * Copies of one item shown as one card with "×N". Unequipped copies with the same base, rarity,
+ * plus and named flag (and origin, which sets the ascended penalty) stack; an equipped copy is its
+ * own card. Equip, upgrade, sell and salvage act on `item`, one copy of the stack.
+ */
+export interface StackView {
+  key: string;
+  count: number;
+  /** The copy the card's actions act on. */
+  item: ItemView;
 }
 
-/** Each slot with what is equipped and what else is owned for it, strongest first. */
-export function slotViews(state: GameState | null, inventory: OwnedItem[], now: number): SlotView[] {
+export interface PositionView {
+  position: Position;
+  slot: Slot;
+  label: string;
+  /** What is worn here. */
+  equipped: ItemView | null;
+  /** Copies owned for the slot (not stacks), worn ones included. */
+  owned: number;
+  /** Worn copies of the slot first, then stacks of the rest, strongest first. */
+  cards: StackView[];
+}
+
+const stackKey = (i: OwnedItem) => `${i.baseId}|${i.rarity}|${i.plus}|${i.named}|${i.originRarity}`;
+const strongestFirst = (a: ItemView, b: ItemView) => b.power - a.power || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+
+/** Every worn position with what is worn there and what else is owned for its slot. */
+export function positionViews(state: GameState | null, inventory: OwnedItem[], now: number): PositionView[] {
   const game = state ?? NO_STATE(now);
   const live = inventory.filter((i) => !i.removed);
-  return ARMOR_SLOTS.map((slot) => {
-    const items = live
-      .filter((i) => i.slot === slot)
-      .map((i) => itemView(game, i, now))
-      .sort((a, b) => b.power - a.power || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-    return { slot, label: SLOT_LABEL[slot], equipped: items.find((i) => i.equipped) ?? null, items };
+  return POSITIONS.map((position) => {
+    const slot = slotOfPosition(position);
+    const copies = live.filter((i) => i.slot === slot);
+    const views = copies.map((i) => ({ owned: i, view: itemView(game, i, now, position) }));
+    const worn = views.filter((v) => v.view.equipped).map((v) => ({ key: v.owned.id, count: 1, item: v.view }));
+    worn.sort((a, b) => Number(b.item.position === position) - Number(a.item.position === position) || strongestFirst(a.item, b.item));
+
+    const stacks = new Map<string, StackView>();
+    for (const { owned, view } of [...views].sort((a, b) => a.owned.id.localeCompare(b.owned.id))) {
+      if (view.equipped) continue;
+      const key = stackKey(owned);
+      const stack = stacks.get(key);
+      if (stack) stack.count++;
+      else stacks.set(key, { key, count: 1, item: view });
+    }
+    const rest = [...stacks.values()].sort((a, b) => strongestFirst(a.item, b.item));
+    return {
+      position,
+      slot,
+      label: POSITION_LABEL[position],
+      equipped: views.find((v) => v.view.position === position)?.view ?? null,
+      owned: copies.length,
+      cards: [...worn, ...rest],
+    };
   });
 }
 
@@ -193,12 +283,13 @@ export interface SetProgress {
 /** Equipped pieces per set, best set first, with the 3 and 5 piece bonuses. */
 export function setProgress(equipped: Pick<OwnedItem, "baseId">[]): SetProgress[] {
   const counts = setCounts(equipped);
+  const active = activeSet(equipped);
   return SETS.filter((s) => (counts[s.id] ?? 0) > 0)
     .sort((a, b) => counts[b.id] - counts[a.id] || SETS.indexOf(b) - SETS.indexOf(a))
-    .map((s, i) => ({
+    .map((s) => ({
       name: s.name,
       count: counts[s.id],
-      active: i === 0,
+      active: active?.setId === s.id,
       tiers: SET_BONUS.map((t) => ({
         pieces: t.pieces,
         label: `${t.pieces} pieces: +${pct(t.gearPct)} gear power`,
@@ -247,6 +338,8 @@ export interface OfferView {
   setName: string | null;
   slot: Slot;
   rarity: Rarity;
+  /** "HP 70 / DEF 30" */
+  focus: string;
   price: number;
   /** "Bought" once this offer was taken; the item is the user's. */
   bought: boolean;
@@ -295,6 +388,7 @@ export function shopView(uid: string, doc: ShopDoc | null, state: GameState | nu
       setName: base?.setId ? (setDef(base.setId)?.name ?? null) : null,
       slot: base?.slot ?? "helmet",
       rarity: o.rarity,
+      focus: base ? focusLabel(base.focus) : "",
       price: o.price,
       bought,
       canAfford: game.coins >= o.price,

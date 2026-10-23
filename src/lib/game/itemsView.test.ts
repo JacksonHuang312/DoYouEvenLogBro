@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { ARMOR_SLOTS } from "./config";
+import { ARMOR_SLOTS, POSITIONS } from "./config";
 import { newItem, type OwnedItem } from "./items";
 import {
   powerView,
@@ -9,7 +9,8 @@ import {
   scrapOf,
   setProgress,
   shopView,
-  slotViews,
+  focusLabel,
+  positionViews,
   titlesView,
   toggledTitles,
 } from "./itemsView";
@@ -32,21 +33,26 @@ const game = (patch: Partial<GameState> = {}): GameState => ({
   materials: { scrap: 500 },
   ...patch,
 });
-const slotOf = (state: GameState | null, inv: OwnedItem[], slot: string) => slotViews(state, inv, T0).find((s) => s.slot === slot)!;
+/** A position's cards as plain items (armor positions are named like their slot). */
+const slotOf = (state: GameState | null, inv: OwnedItem[], position: string) => {
+  const view = positionViews(state, inv, T0).find((s) => s.position === position)!;
+  return { ...view, items: view.cards.map((c) => c.item) };
+};
 
-describe("slotViews", () => {
-  test("one entry per slot, strongest first, with the equipped one found", () => {
+describe("positionViews", () => {
+  test("one entry per position; the worn item first, then the rest strongest first", () => {
     const inv = [owned("ironbound-boots"), owned("warden-boots"), owned("wayfarer-boots")];
     const boots = slotOf(game({ equipped: { boots: "i-wayfarer-boots" } }), inv, "boots");
-    expect(boots.items.map((i) => i.baseId)).toEqual(["warden-boots", "wayfarer-boots", "ironbound-boots"]);
+    expect(boots.items.map((i) => i.baseId)).toEqual(["wayfarer-boots", "warden-boots", "ironbound-boots"]);
     expect(boots.equipped?.baseId).toBe("wayfarer-boots");
-    expect(slotViews(game(), inv, T0).map((s) => s.slot)).toEqual([...ARMOR_SLOTS]);
+    expect(boots.owned).toBe(3);
+    expect(positionViews(game(), inv, T0).map((s) => s.position)).toEqual([...POSITIONS]);
     expect(slotOf(game(), inv, "helmet").items).toEqual([]);
   });
 
   test("ignores removed items, and works with no game state yet", () => {
     const gone = owned("ironbound-boots", { removed: { reason: "sold", at: T0, coins: 40, scrap: 0 } });
-    expect(slotViews(null, [gone], T0).every((s) => s.items.length === 0)).toBe(true);
+    expect(positionViews(null, [gone], T0).every((s) => s.cards.length === 0 && s.owned === 0)).toBe(true);
   });
 
   test("labels: Equipped, Named, Ascended; and the level lock on gated items", () => {
@@ -232,5 +238,76 @@ describe("titlesView", () => {
     expect(toggledTitles(state, "centurion")).toEqual({ ok: true, titles: ["calibrated", "centurion"] });
     expect(toggledTitles(state, "calibrated")).toEqual({ ok: true, titles: [] });
     expect(toggledTitles(state, "regular")).toEqual({ ok: false, reason: "Not earned yet" });
+  });
+});
+
+describe("stacks and accessories", () => {
+  const copies = (baseId: string, n: number, patch: Partial<OwnedItem> = {}) =>
+    Array.from({ length: n }, (_, i) => owned(baseId, patch, `c${i}-${baseId}`));
+
+  test("unequipped copies with the same base, rarity, plus and named flag are one card with a count", () => {
+    const inv = [...copies("ironbound-boots", 3), owned("ironbound-boots", { plus: 1 }, "plus1"), owned("wayfarer-boots")];
+    const boots = positionViews(game(), inv, T0).find((p) => p.position === "boots")!;
+    expect(boots.owned).toBe(5);
+    expect(boots.cards.map((c) => [c.item.baseId, c.item.plus, c.count])).toEqual([
+      ["wayfarer-boots", 0, 1],
+      ["ironbound-boots", 1, 1],
+      ["ironbound-boots", 0, 3],
+    ]);
+  });
+
+  test("an equipped copy is its own card and the rest of the stack stays; actions act on one copy", () => {
+    const inv = copies("ironbound-boots", 3);
+    const boots = positionViews(game({ equipped: { boots: "c1-ironbound-boots" } }), inv, T0).find((p) => p.position === "boots")!;
+    expect(boots.owned).toBe(3);
+    expect(boots.cards.map((c) => [c.item.id, c.count, c.item.equipped])).toEqual([
+      ["c1-ironbound-boots", 1, true],
+      ["c0-ironbound-boots", 2, false],
+    ]);
+    expect(boots.cards[0].item.tags).toContain("Equipped");
+    // The stack's copy can be sold even though another copy is worn.
+    expect(boots.cards[1].item.sell.enabled).toBe(true);
+  });
+
+  test("each item shows its focus, from its set, itself or the slot", () => {
+    const inv = [owned("warden-helmet"), owned("patchwork-helmet"), owned("ironbound-helmet")];
+    const helmets = slotOf(game(), inv, "helmet").items;
+    expect(helmets.find((i) => i.baseId === "warden-helmet")!.focus).toBe("HP 100");
+    expect(helmets.find((i) => i.baseId === "patchwork-helmet")!.focus).toBe("HP 100");
+    expect(helmets.find((i) => i.baseId === "ironbound-helmet")!.focus).toBe("HP 70 / DEF 30");
+    expect(focusLabel({ def: 30, hp: 70 })).toBe("HP 70 / DEF 30");
+  });
+
+  test("rings and charms get two positions that share one owned count", () => {
+    const rings = [owned("copper-band", {}, "a"), owned("bronze-signet", {}, "b"), owned("silver-loop", {}, "c")];
+    const state = game({ equipped: { ring2: "b" } });
+    const views = positionViews(state, rings, T0);
+    const ring1 = views.find((p) => p.position === "ring1")!;
+    const ring2 = views.find((p) => p.position === "ring2")!;
+    expect([ring1.owned, ring2.owned]).toEqual([3, 3]);
+    expect(ring1.equipped).toBeNull();
+    expect(ring2.equipped?.id).toBe("b");
+    // The sheet for ring 1 lists the ring worn in ring 2 first, labelled with its position, and cannot equip it again.
+    expect(ring1.cards[0].item).toMatchObject({ id: "b", position: "ring2", equip: { enabled: false } });
+    expect(ring1.cards[0].item.tags).toContain("Equipped · Ring 2");
+    expect(ring1.cards.slice(1).every((c) => c.item.equip.enabled)).toBe(true);
+    expect(views.find((p) => p.position === "necklace")!.owned).toBe(0);
+  });
+
+  test("an accessory shows its power, focus and effect", () => {
+    const ring = slotOf(game(), [owned("sunforged-ring")], "ring1").items[0];
+    expect(ring).toMatchObject({ power: 9, focus: "ATK 80 / DEF 20", named: true, slot: "ring" });
+    expect(ring.effect).toBe("Crit chance +5% (not active yet)");
+    const charm = slotOf(game(), [owned("lucky-pebble")], "charm2").items[0];
+    expect(charm).toMatchObject({ power: 1, focus: "HP 34 / ATK 33 / DEF 33" });
+    expect(slotOf(game(), [owned("unbroken-gloves")], "gloves").items[0].effect).toBe("Unique effect (not active yet)");
+    expect(slotOf(game(), [owned("ironbound-gloves")], "gloves").items[0].effect).toBeNull();
+  });
+
+  test("accessory power counts toward battle power and the gear cap", () => {
+    const ring = owned("sunforged-ring", {}, "r");
+    const state = game({ equipped: { ring1: "r" } });
+    expect(powerView(500, state, [ring]).gear).toMatchObject({ counted: 9, capped: false });
+    expect(powerView(10, state, [ring]).gear).toMatchObject({ counted: 4.3, capped: true });
   });
 });
