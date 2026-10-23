@@ -5,6 +5,7 @@ import { QUESTS, STAT_MUSCLES, STATS, SUB_MUSCLES, type Stat, type SubMuscle } f
 import { levelForXp } from "./economy";
 import type { MusclesFacts } from "./facts";
 import { statOf } from "./muscles";
+import { seeded } from "./random";
 import { statScore, subMuscleScores, type SubMuscleScores } from "./score";
 import { slotsBetween, type MatchedSlot, type ScheduleDoc } from "./schedule";
 import { countsAsWorkout, workingSets, type ExerciseLookup } from "./sets";
@@ -96,26 +97,6 @@ export function questContext({
     scores: subMuscleScores(muscles, profileOf(state), now, timeZone, freezeFor(state)),
     injured: injuredStats(state, now),
     scheduledLeft: slotsBetween(schedule, state, today, weekEnd).filter((s) => !schedule.matched[s.day]).length,
-  };
-}
-
-// ---- Seeded randomness ----
-
-/** FNV-1a: a 32-bit hash of a string. */
-function hash(text: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
-  return h >>> 0;
-}
-
-/** mulberry32: a small seeded generator returning numbers in [0, 1). */
-function seeded(key: string): () => number {
-  let a = hash(key);
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
