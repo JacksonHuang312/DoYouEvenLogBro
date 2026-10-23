@@ -147,16 +147,18 @@ A class changes how stats convert into combat attributes, never which muscles co
 
 ## 5. Items
 
-- **Slots:** helmet, chestplate, gloves, leggings, boots.
+- **Slots:** five armor slots (helmet, chestplate, gloves, leggings, boots) and four accessory slots worn in six positions: ring ×2, necklace, belt, charm ×2. Accessories are never part of a set.
 - **Rarity ladder:** Common → Uncommon → Rare → Epic → Legendary → Mythic.
 - **Named vs unnamed:** items that *start* at Legendary or Mythic are **named**. Everything that starts below (Common–Epic) is **unnamed**.
+- **Where sets exist:** Common and Uncommon have **no sets**; they are loose items, several per slot. Sets exist only at **Rare, Epic and Legendary** (5 armor pieces each). Rare and Epic sets are unnamed, Legendary sets are named. **Mythic has no sets**: each Mythic is a standalone named item with its own unique effect (behavior in Phase 5).
+- **Focus:** every item splits its power across HP / ATK / DEF (for example 70% HP / 30% DEF). All pieces of a set share the set's focus; a Mythic is 100% one attribute.
 - **Unnamed gear** can climb all the way to Legendary (Epic → Legendary), but stops there. It never reaches Mythic.
 - **Named gear** starts at Legendary or Mythic. Native Legendary can climb to Mythic (requires boss-only materials).
 - **Ascended vs native:** an Epic upgraded to Legendary ("ascended") is always worse than a native Legendary: about **85%** of native stats at +0 and about **92%** at +2 (**tunable**), so a maxed ascended item still loses to a fresh native one. Only named gear gets unique set bonuses and abilities.
 - **Upgrades:** +0 → +1 → +2 → next rarity at +0. Costs coins + salvage. **Upgrades never fail.**
 - **Level requirement to equip** by rarity **(tunable: Epic 8, Legendary 15, Mythic 25)**.
-- **Sets:** bonuses at 3 and 5 pieces.
-- **Shop:** weekly rotating stock, deliberately pricey. Sells **Common through Epic only**. Legendary and Mythic are never sold.
+- **Sets:** bonuses at 3 and 5 pieces. The bonus applies only to the power of that set's own equipped pieces, and only your best equipped set counts.
+- **Shop:** weekly rotating stock, deliberately pricey. Sells **Common through Epic only**, armor and accessories (about 30% of offers are accessories). Legendary and Mythic are never sold.
 - **Boss loot:** the only source of Legendary and Mythic. Pity system: guaranteed Legendary after X boss kills without one.
 - **Coin sinks:** salvage/sell duplicates, upgrades, shop rerolls, class switches, title slots, cosmetics.
 
@@ -343,7 +345,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - Legendary and Mythic are not sold (boss drops only).
 
 **Items (Phase 4, Part A)**
-- Catalog (`catalog.ts`): six sets of five pieces, one per rarity. Ironbound (Common), Wayfarer (Uncommon), Steelguard (Rare) and Warden (Epic) are unnamed and sold in the shop. Titan's Vow (Legendary) and Unbroken (Mythic) are named, boss-only, and their unique effects come with combat in Phase 5. Base items hold names only; power comes from rarity and plus.
+- Catalog: see "Catalog rules, focus and accessories" below. Base items hold names and focus only; power comes from rarity and plus.
 - Piece power = base × (1 + 4% × plus). A piece promoted into a named rarity it didn't start at (Epic → Legendary, and named Legendary → Mythic) gets 85% / 88.5% / 92% of a native piece at +0 / +1 / +2.
 - Upgrades: +0 → +1 → +2 → next rarity at +0, for coins and scrap (table in `config.ts`). Unnamed gear stops at Legendary +2. Named Legendary → Mythic also needs a Mythic Core, a boss-only material (Phase 5 hook; nobody can get one yet except through the admin script). An equipped item can't be upgraded into a rarity your level can't equip.
 - Level to equip goes by **current** rarity: Epic 8, Legendary 15, Mythic 25. Battle power ignores pieces above your level as well.
@@ -356,12 +358,23 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 
 **Items (Phase 4, Part B: UI)**
 - `itemsView.ts` builds what the Gear, Shop and Titles tabs show. Whether a button is on is decided by a dry run of the server's own function on a copy of the state (`applyUpgrade`, `equipItem`, `removeItem`, `buyOffer`, `rerollShop`, `buyTitleSlot`), so the reason shown under a disabled button is always the server's.
-- Gear: a power block (Body without gear, Gear counted of what the 30% cap allows, Bonuses of the 25% pool, Battle), Scrap, set progress (only the best equipped set counts), and five slot rows. Tapping a slot opens a bottom sheet of everything owned for it, strongest first. Equip and Unequip act at once; Upgrade, Sell and Salvage confirm first with their cost or payout. Equipped, Named and Ascended are text labels; gated gear shows "Needs level N". While calibrating the block says so and shows no battle power.
+- Gear: a power block (Body without gear, Gear counted of what the 30% cap allows, Bonuses of the 25% pool, Battle), Scrap, set progress (only the best equipped set counts), and five slot rows (plus the Accessories section, below). Tapping a slot opens a bottom sheet of everything owned for it, strongest first. Equip and Unequip act at once; Upgrade, Sell and Salvage confirm first with their cost or payout. Equipped, Named and Ascended are text labels; gated gear shows "Needs level N". While calibrating the block says so and shows no battle power.
 - Shop: six cards in two columns with a restock countdown (Sunday 00:00). Buy and Reroll confirm with the price. A bought offer stays in place, dimmed and marked "Bought". A 409 "restocked" answer moves the screen to the new week; the shop listener is keyed by week id, so nothing stale is shown.
 - Titles: opening the tab calls `POST /api/titles` (check), which also records newly earned titles. Equipped titles list first, then earned, then by closeness to done. Equip is disabled with a reason when the slots are full.
 - Hero header: "N coins · Power X · Battle Y". Battle is left out while calibrating and until the inventory has loaded. The Rewards screen lists titles earned by the claim and the scrap finished quests paid.
 - Rarity colors are CSS tokens (`text-rpg-epic`, `border-rpg-legendary`, ...); icons are one flat line-art SVG per slot in the rarity color. All of it follows 7.1: no glow, gradients or rounded corners.
 - Known limit: the week the Shop shows comes from the game's time zone, while buy and reroll send the browser's. They only differ for someone whose device zone isn't the one saved on their account.
+
+**Items (Phase 4, catalog rules, focus and accessories)**
+- **One data file.** `catalogData.ts` lists every item as one line (id, name, slot, rarity, optional set, effect id and focus) with a header comment on how to add one; `catalog.ts` derives the lookups. `catalog.test.ts` enforces the rules: unique ids, valid slots, focus adds up to 100, Common/Uncommon/Mythic and accessories in no set, sets only at Rare/Epic/Legendary with exactly five pieces (one per armor slot) at the set's rarity and sharing its focus, Legendary sets named and Rare/Epic unnamed, each Mythic standalone and 100% one attribute with its own unique effect, every accessory with a known effect that never touches coins or XP.
+- **Kept ids.** Ironbound (Common) and Wayfarer (Uncommon) are now loose items with the same ids, so owned copies still work. Steelguard, Warden and Titan's Vow stay sets. Unbroken is five standalone Mythics (`unbroken-helmet` … `unbroken-boots`, effects `unbroken-crown` … `unbroken-path`). The stored `slot` field is unchanged for armor. Placeholder items are in the file so there is variety (extra loose Common and Uncommon items, a second Rare, Epic and Legendary set, and accessories at every rarity up to Legendary); the real items replace them later.
+- **Focus.** A set's focus is shared by its pieces. A loose item has its own, or falls back to the old slot split (`GEAR.slotFocus`), so Ironbound and Wayfarer behave exactly as before. Focus is looked up in the catalog by `baseId`, so nothing is stored on owned items. Shown on cards as "HP 70 / DEF 30".
+- **Set bonus.** 3 pieces +8%, 5 pieces +20% on the power of that set's own equipped pieces only, never on other gear or accessories. Only the best equipped set counts (with five armor slots two sets can't both reach three pieces, so it is the one with the most pieces). Mythic base power is 30 (was 32).
+- **Accessories.** Positions `ring1`, `ring2`, `necklace`, `belt`, `charm1`, `charm2` are keys of the `equipped` map beside the five armor keys; `item.slot` is `ring`, `necklace`, `belt` or `charm`. `POST /api/items` equip takes an optional `position` (default: where the item already is, else the first empty position of its slot); unequip takes a `position`. The server refuses a position of another slot (no ring in a charm slot) and the same item in a second position, and treats a repeat of the same equip as done. They share rarities, level gates, upgrades, sell and salvage with armor, count toward the 30% gear cap and are in no set. Base power is about 40% of an armor piece: 1 / 2.5 / 4 / 6 / 9 / 12.
+- **Accessory effects (Phase 5 hooks, no behavior yet).** Ring: crit chance. Necklace: healing. Belt: damage reduction. Charms: boss cooldown reduction, salvage yield, shop reroll discount. Values are small and in `config.ts` (`ACCESSORY_EFFECTS` at Legendary strength, `EFFECT_SCALE` by rarity: 20% Common … 100% Legendary). No effect may change the coins or XP earned.
+- **Shop.** Each offer is an accessory with chance 30% (`SHOP.accessoryShare`), otherwise armor; rarities, the one-Epic limit and "no base twice" work as before. Adding accessories changed which items a given week's stock holds (it is computed, not stored), so offers already bought this week would show a different item as "Bought".
+- **Gear tab.** Unequipped copies with the same base, rarity, plus, named flag and origin rarity show as one card with "×N"; an equipped copy is its own card, labelled Equipped (and its position for rings and charms). Equip, Upgrade, Sell and Salvage act on one copy. "N owned" on a slot row counts copies, and Ring 1 / Ring 2 (and the charms) share one count. The Accessories section sits under Equipment with the same rows and sheet and a line-art icon each for ring, necklace, belt and charm.
+- `grant-items --all` grants one of every catalog item, accessories included.
 
 **Rollout order (not yet done; do it once, after Phase 3)**
 1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
@@ -388,8 +401,8 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 **Power stacking**
 - Gear and titles affect battle power only. The radar shows raw stats.
 - Title and class percentage bonuses share one additive bucket capped at **+25%**. Set bonuses are **not** in the bucket: they multiply gear power before the gear cap.
-- Gear's share of total power is capped at 30% **in the formula**: `gear ≤ 0.3 / 0.7 × body power`.
-- Battle power = `(body + min(gear × (1 + set bonus), 0.3 / 0.7 × body)) × (1 + min(25%, titles + class))`.
+- Gear's share of total power is capped at 30% **in the formula**: `gear ≤ 0.3 / 0.7 × body power`. Accessories count toward it.
+- Battle power = `(body + min(gear, 0.3 / 0.7 × body)) × (1 + min(25%, titles + class))`, where `gear` = Σ piece power with the set bonus applied to the best equipped set's own pieces only.
 
 **Economy**
 - Sell price is 25% of buy price. Duplicate boss drops convert to salvage materials, not coins.
@@ -398,10 +411,15 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 **Stats have no cap.** They keep growing past 100; the radar axis scales to the highest stat. Verify `computeStats` and the radar don't clamp at 100.
 
 **Gear stats (recommended starting values, tunable)**
-- Power per piece: Common 3, Uncommon 6, Rare 10, Epic 15, Legendary 22, Mythic 32. Each +step adds 4% of the piece's base.
-- Full-set totals: Epic 75, Legendary 110, Mythic 160. 160 gear power only counts fully at an average stat of roughly 70+, and a full Mythic set with its 5-piece bonus (192) at roughly 82+, so gear can't carry a weak lifter.
-- Set bonus: 3 pieces +8% gear power, 5 pieces +20% (the highest tier reached, not both). It multiplies gear power before the 30% cap. Named sets also get a unique effect.
-- Slots feed combat attributes (70% primary / 30% secondary): Helmet HP/DEF, Chestplate DEF/HP, Gloves ATK/HP, Leggings HP/ATK, Boots ATK/DEF.
+- Power per armor piece: Common 3, Uncommon 6, Rare 10, Epic 15, Legendary 22, Mythic **30**. Each +step adds 4% of the piece's base.
+- Accessory power (about 40% of an armor piece): Common 1, Uncommon 2.5, Rare 4, Epic 6, Legendary 9, Mythic 12. Same +steps, rarities, level gates and 30% cap.
+- Full-set totals: Epic 75, Legendary 110 (132 with the 5-piece bonus). A Mythic is a single piece, not a set. Five Mythics are 150 gear power with no set bonus, which counts fully at an average stat of roughly 64+, so gear can't carry a weak lifter.
+- Set bonus: 3 pieces +8%, 5 pieces +20% (the highest tier reached, not both), applied **only to that set's own equipped pieces** and only for your best set; it multiplies before the 30% cap. Named (Legendary) sets also get a unique effect.
+- Focus replaces the fixed per-slot split: each item (or set) says how its power splits over HP / ATK / DEF. Items with no focus use the old slot split (70% primary / 30% secondary): Helmet HP/DEF, Chestplate DEF/HP, Gloves ATK/HP, Leggings HP/ATK, Boots ATK/DEF; accessories fall back to ring ATK/HP, necklace HP/DEF, belt DEF/HP, charm an even spread.
+- **Intended balance of sets against Mythics** (tests in `battle.test.ts`):
+  - Epic HP set (5 × 15, 100% HP) with all five equipped is 90 HP. Swapping one piece for a Mythic HP (30) gives 4 × 15 × 1.08 + 30 = **94.8** HP, so the Mythic version is better.
+  - Legendary HP set (5 × 22) is **132** HP. The same swap gives 4 × 22 × 1.08 + 30 = **125** HP, so the set is better.
+  - Epic ATK set with a Mythic HP piece replacing one piece: ATK drops by about 25 and HP rises by 30, a real trade-off.
 
 **Classes must matter in fights.** Bosses need a mechanic that rewards a tank and a healer (e.g. a damage type only DEF counters, a damage-over-time only healing offsets). Otherwise everyone picks Striker.
 
