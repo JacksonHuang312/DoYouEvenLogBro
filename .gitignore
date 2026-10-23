@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production
@@ -43,3 +44,6 @@ next-env.d.ts
 
 # firebase emulator logs
 *-debug.log
+
+# e2e run output (screenshots, traces, reports)
+/e2e/.output/

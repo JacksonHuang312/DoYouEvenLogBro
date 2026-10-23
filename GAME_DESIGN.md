@@ -376,6 +376,11 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Gear tab.** Unequipped copies with the same base, rarity, plus, named flag and origin rarity show as one card with "×N"; an equipped copy is its own card, labelled Equipped (and its position for rings and charms). Equip, Upgrade, Sell and Salvage act on one copy. "N owned" on a slot row counts copies, and Ring 1 / Ring 2 (and the charms) share one count. The Accessories section sits under Equipment with the same rows and sheet and a line-art icon each for ring, necklace, belt and charm.
 - `grant-items --all` grants one of every catalog item, accessories included.
 
+**Testing (end-to-end)**
+- `e2e/` holds Playwright tests that drive the real app in Chrome at 390px against the Firebase **emulators** (project `demo-dyelb`) with a seeded test user (`hero@test.dev`). Run `npm run e2e`. Nothing touches the real project, and no keys are used; see `e2e/README.md`. Google sign-in is skipped through a dev-only hook (`window.__emulatorSignIn`, present only when `NEXT_PUBLIC_FIREBASE_EMULATOR=1`).
+- Covered: Gear (stacking, ring1/ring2, same item in two positions refused, sell/salvage one copy, named gear, level locks), Shop (buy, double tap, reroll, no coins), Titles, and offline mode. Add a spec for each new screen in later phases.
+- Found by it: offline, the Shop shows "Can't load the shop" for a user with no `shop/{weekId}` doc (nobody who has never bought or rerolled), although the stock is computed on the device. Decide whether to render it offline (see section 11).
+
 **Rollout order (not yet done; do it once, after Phase 3)**
 1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
 2. Deploy the Firestore rules (`npx firebase-tools deploy --only firestore:rules`). Must come after the backfill, or exercises with old free-text muscles can't be edited.
