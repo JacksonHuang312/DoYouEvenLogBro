@@ -250,7 +250,7 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 1. **Foundation (DONE)** — this design doc; `src/lib/game/` config + pure functions + Vitest tests; firebase-admin setup; server-owned docs + rules + rule tests; `POST /api/claim` end to end; backfill script; custom-exercise muscle dropdown.
 2. **Stats UI (DONE)** — Hero · Stats screen with radar on real data, sub-muscle breakdown, new bottom nav, Train home screen.
 3. **Rewards + scheduling + quests (DONE)** — Rewards screen, scheduled workouts, weekly quests, pause mode.
-4. **Items** — inventory, shop, upgrades, sets, titles. (Part A, backend and tests: DONE. Part B, UI: next.)
+4. **Items** — inventory, shop, upgrades, sets, titles. (Part A, backend and tests: DONE. Part B, UI: DONE.)
 5. **Combat** — classes, weekly bosses, tower, auto-battle, cooldowns.
 6. **Social** — friend leaderboards, party raids.
 7. **Later** — trading.
@@ -353,6 +353,15 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - Titles: eight achievements, all computed from stored facts. Calibrated 2%, Regular (3+ workouts a week for 4 weeks in a row) 3%, Unbroken (no skipped scheduled workout for 28 days, 8+ scheduled; a slot still inside its make-up window isn't a skip yet) 5%, Record Breaker (a 1RM bonus on 3 stats at once) 3%, Questmaster (all quests of one week claimed) 3%, Well Rounded (every stat 50+) 4%, Iron Habit (trained in 12 of the last 16 weeks) 4%, Centurion (100 counted workouts) 3%. Earning is stored (`titles.earned`) and never taken away, because some of the facts behind it (recent schedule matches, decaying stats) don't last. Claims check achievements in their own transaction (a failure there is logged and never fails the claim), and so does `POST /api/titles` when the Titles tab opens. A newly earned title fills an empty slot by itself. One slot to start; slots 2 and 3 cost 500 and 1,500 coins.
 - Routes: `POST /api/shop` (buy, reroll), `POST /api/items` (equip, unequip, upgrade, sell, salvage), `POST /api/titles` (check, equip, buy-slot). Each is one transaction and safe to retry.
 - `npm run grant-items -- --uid <uid> ...` grants items (source "admin") and materials for testing. Against a real project it needs `--confirm <projectId>`.
+
+**Items (Phase 4, Part B: UI)**
+- `itemsView.ts` builds what the Gear, Shop and Titles tabs show. Whether a button is on is decided by a dry run of the server's own function on a copy of the state (`applyUpgrade`, `equipItem`, `removeItem`, `buyOffer`, `rerollShop`, `buyTitleSlot`), so the reason shown under a disabled button is always the server's.
+- Gear: a power block (Body without gear, Gear counted of what the 30% cap allows, Bonuses of the 25% pool, Battle), Scrap, set progress (only the best equipped set counts), and five slot rows. Tapping a slot opens a bottom sheet of everything owned for it, strongest first. Equip and Unequip act at once; Upgrade, Sell and Salvage confirm first with their cost or payout. Equipped, Named and Ascended are text labels; gated gear shows "Needs level N". While calibrating the block says so and shows no battle power.
+- Shop: six cards in two columns with a restock countdown (Sunday 00:00). Buy and Reroll confirm with the price. A bought offer stays in place, dimmed and marked "Bought". A 409 "restocked" answer moves the screen to the new week; the shop listener is keyed by week id, so nothing stale is shown.
+- Titles: opening the tab calls `POST /api/titles` (check), which also records newly earned titles. Equipped titles list first, then earned, then by closeness to done. Equip is disabled with a reason when the slots are full.
+- Hero header: "N coins · Power X · Battle Y". Battle is left out while calibrating and until the inventory has loaded. The Rewards screen lists titles earned by the claim and the scrap finished quests paid.
+- Rarity colors are CSS tokens (`text-rpg-epic`, `border-rpg-legendary`, ...); icons are one flat line-art SVG per slot in the rarity color. All of it follows 7.1: no glow, gradients or rounded corners.
+- Known limit: the week the Shop shows comes from the game's time zone, while buy and reroll send the browser's. They only differ for someone whose device zone isn't the one saved on their account.
 
 **Rollout order (not yet done; do it once, after Phase 3)**
 1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
