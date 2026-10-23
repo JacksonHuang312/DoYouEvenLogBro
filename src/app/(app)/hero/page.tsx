@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { GearPanel } from "@/components/rpg/GearPanel";
 import { RadarChart } from "@/components/rpg/RadarChart";
+import { ShopPanel } from "@/components/rpg/ShopPanel";
 import { ComingSoon, RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
 import type { Snapshot } from "@/lib/game/claim";
@@ -17,6 +18,7 @@ import {
   combineStatus,
   heroView,
   pickSnapshot,
+  resolveTimeZone,
   STAT_LABELS,
   trainedLabel,
   type ComparePeriod,
@@ -30,11 +32,7 @@ import { useOnline } from "@/lib/useOnline";
 const TABS = ["Stats", "Gear", "Shop", "Titles"] as const;
 type Tab = (typeof TABS)[number];
 
-const COMING: Record<Exclude<Tab, "Stats" | "Gear">, { title: string; text: string }> = {
-  Shop: {
-    title: "Shop",
-    text: "Spend coins on a weekly rotating stock of gear. The stock refreshes every Sunday at 00:00. Coming in Phase 4.",
-  },
+const COMING: Record<"Titles", { title: string; text: string }> = {
   Titles: {
     title: "Titles",
     text: "Earn titles through achievements, like a month without skipping a scheduled workout. Each one gives a small bonus. Coming in Phase 4.",
@@ -51,6 +49,7 @@ export default function HeroPage() {
   const snapshots = useSnapshots(profile.uid);
   const inventory = useInventory(profile.uid);
   const online = useOnline();
+  const timeZone = resolveTimeZone(state.data, Intl.DateTimeFormat().resolvedOptions().timeZone);
   const now = useNow(state.data?.updatedAt);
   const [tab, setTab] = useState<Tab>("Stats");
   // From game/state, so it shows as soon as that answers. Flags that have lapsed aren't listed.
@@ -112,8 +111,10 @@ export default function HeroPage() {
             now={now}
             online={online}
           />
+        ) : tab === "Shop" ? (
+          <ShopPanel uid={profile.uid} state={state.data} now={now} timeZone={timeZone} online={online} />
         ) : (
-          <ComingSoon title={COMING[tab].title}>{COMING[tab].text}</ComingSoon>
+          <ComingSoon title={COMING.Titles.title}>{COMING.Titles.text}</ComingSoon>
         )}
       </div>
     </RpgScreen>
