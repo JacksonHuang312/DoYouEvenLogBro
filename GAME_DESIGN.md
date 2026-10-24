@@ -379,7 +379,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 **Testing (end-to-end)**
 - `e2e/` holds Playwright tests that drive the real app in Chrome at 390px against the Firebase **emulators** (project `demo-dyelb`) with a seeded test user (`hero@test.dev`). Run `npm run e2e`. Nothing touches the real project, and no keys are used; see `e2e/README.md`. Google sign-in is skipped through a dev-only hook (`window.__emulatorSignIn`, present only when `NEXT_PUBLIC_FIREBASE_EMULATOR=1`).
 - Covered: Gear (stacking, ring1/ring2, same item in two positions refused, sell/salvage one copy, named gear, level locks), Shop (buy, double tap, reroll, no coins), Titles, and offline mode. Add a spec for each new screen in later phases.
-- Found by it: offline, the Shop shows "Can't load the shop" for a user with no `shop/{weekId}` doc (nobody who has never bought or rerolled), although the stock is computed on the device. Decide whether to render it offline (see section 11).
+- Found by it, then fixed: offline, the Shop used to say "Can't load the shop" for a user with no `shop/{weekId}` doc (anyone who has never bought or rerolled). The stock is computed from the week, so it now shows with the buttons off, a note that anything bought on another device appears once back online, and the usual offline line. If the player's own data was never loaded either (a first-ever offline open), it still can't show coins.
 
 **Phase 5 decisions (agreed, not built yet)**
 - **Content, four pieces:** the weekly boss, the endless tower, the Boss Tower and the Campaign. The weekly boss is one boss a week from a rotating list (write 8-12 bosses), at one of 5 tiers locked at week start. The endless tower is generic scaling floors, each paid once. The Boss Tower is a permanent ladder where every floor is a different named boss with its own mechanic and stat minimums, each floor paid once. The Campaign is chapters of fixed stages, cleared one by one. The campaign never drops Legendary or Mythic; Epic is very rare there because it has many stages. Boss Tower and Campaign are built after the core (classes, fight engine, weekly boss, endless tower), on the same fight engine.
@@ -407,7 +407,6 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 - Exact strength-standard tables for normalizing 1RM to 0–100 (current ratios are placeholders).
 - Exact decay rate after day 7.
 - Final shop prices and coin numbers (starting values are in section 10).
-- Shop offline: show the computed stock with buttons off when there is no shop doc yet, instead of "Can't load the shop"? (Found by the e2e suite.)
 
 **Phase 5 (combat): still open (each has a building default, all numbers in `config.ts`)**
 1. The class's share of the +25% bonus pool (titles and class add up there). *Building default:* +3%.

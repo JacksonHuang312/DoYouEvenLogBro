@@ -44,7 +44,10 @@ export function ShopPanel({
   const view = useMemo(() => shopView(uid, shop.data, state, clock, timeZone), [uid, shop.data, state, clock, timeZone]);
   const { busy, run } = useRunner();
 
-  if (shop.status === "unavailable") {
+  // Offline with no shop doc cached (a user who has never bought or rerolled has none), the stock
+  // is still known: it is computed from the week. It shows with the buttons off, and a note.
+  const stockOnly = shop.status === "unavailable" && !online;
+  if (shop.status === "unavailable" && !stockOnly) {
     return (
       <p className="px-5 py-8 text-sm text-rpg-text-2">
         Can&apos;t load the shop right now. It&apos;ll show here once you&apos;re back online.
@@ -114,6 +117,11 @@ export function ShopPanel({
         <div className="px-5 pt-2">
           <OfflineNote what="Buying and rerolling" />
         </div>
+      )}
+      {stockOnly && (
+        <p className="px-5 pt-1 text-[11px] text-rpg-muted">
+          This is this week&apos;s stock from the calendar. Anything you bought on another device shows once you&apos;re back online.
+        </p>
       )}
 
       <ul className="grid grid-cols-2 gap-3 px-5 pt-3">

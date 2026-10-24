@@ -74,4 +74,3 @@ Last checked after the e2e suite was built: automated checks on every screen, pl
 - [ ] Not checked: how the fixed bottom nav looks while scrolling a long page (the full-page screenshots draw it mid-page, which is only how they are captured)
 - Dev only: the round "N" badge at the bottom left is Next's dev indicator, not part of the app
 
-Known quirk: offline, a user with no shop document sees "Can't load the shop" instead of disabled buttons (GAME_DESIGN.md section 11).

@@ -52,14 +52,25 @@ test.describe("Offline mode", () => {
     await expect(page.getByRole("button", { name: /^Buy · / }).first()).toBeEnabled();
   });
 
-  // Found by this suite: the shop's stock is computed on the device, but the screen only trusts a
-  // shop doc the server has confirmed. A user who has never bought or rerolled has no doc, so offline
-  // they get "can't load" instead of disabled buttons. Update this test if that behaviour changes.
-  test("Shop without a shop doc says it can't load while offline", async ({ hero, page, context }) => {
+  // Found by an earlier run of this suite: a user who has never bought or rerolled has no shop doc, so
+  // offline the shop used to say "can't load". The stock is computed from the week, so it now shows
+  // with the buttons off.
+  test("Shop without a shop doc still shows the week's stock while offline", async ({ hero, page, context }, info) => {
     await hero.start(undefined, "Gear");
+    // Let the hero's own data load (and cache) first, as it has on a phone that reopens offline.
+    await expect(page.getByRole("heading", { name: "Equipment" })).toBeVisible();
     await context.setOffline(true);
     await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
     await hero.openTab("Shop");
-    await expect(page.getByText("Can't load the shop right now.", { exact: false })).toBeVisible();
+    // The shop waits 8 seconds for an answer before treating the missing doc as unavailable.
+    await expect(page.getByText("This is this week's stock", { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Buying and rerolling need a connection.", { exact: false })).toBeVisible();
+    const buy = page.getByRole("button", { name: /^Buy · / });
+    await expect(buy).toHaveCount(6);
+    for (const button of await buy.all()) await expect(button).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Reroll for/ })).toBeDisabled();
+    await expect(page.getByText("Can't load the shop")).toHaveCount(0);
+    await shot(page, "offline-shop-no-doc");
+    await expectNoOverflow(page, "Offline Shop without a doc", info);
   });
 });
