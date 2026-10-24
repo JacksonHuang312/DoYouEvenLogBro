@@ -260,6 +260,26 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 
 ---
 
+## 9.2 Rep ranges and progression (planned, not built)
+
+Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9. Hit the top of the range on your sets and it is time to add weight; the bottom is the minimum. Different ranges are different training styles (strength, size, endurance). This is "double progression", and it gives lifters a clear progress signal that does not depend on the RPG stats.
+
+**Principles it must keep:** logging stays as fast as today; the range is optional and old routines are untouched; the stat math is unchanged (Epley still caps reps at 12, so a 15-20 rep range works for logging but adds nothing past 12); nothing here pays coins or XP by itself (any reward goes through the existing server claim and quests).
+
+**Data.** `RoutineExercise` (src/lib/types.ts) gets optional `repMin`, `repMax` and optionally `stepKg` (weight to add). Older routines have none, so nothing migrates. `firestore.rules` only checks the top-level keys of a routine, so the new fields need no rules change; the routine editor validates them (1 to 30, min at most max).
+
+**Logic (pure, tested): `src/lib/game/progression.ts`.** `progressionStatus(range, sets)` returns one of: `add-weight` (every working set reached `repMax`), `in-range`, `below-range` (a working set under `repMin`) or `no-range`. `nextWeight(lastWeightKg, stepKg, unit)` suggests the next load, rounded to what the unit can load (2.5 kg / 5 lb by default). Reads the last session of that exercise from the workouts already loaded for the "previous" column; stores no new facts.
+
+**Build order (small phases, each ends with tests, the e2e suite and a 390px check):**
+1. Data and pure functions, with unit tests (boundaries, warm-ups ignored, drop sets, mixed weights).
+2. Routine editor: a range control per exercise (min, max) with style presets, off by default.
+3. Workout screen: show the target ("6-9") beside the exercise and, from the last session, a small hint ("Add weight: you hit 9 on every set"). Read-only; it never changes what is logged. This is the only change to the active-workout screen and needs your OK.
+4. Later, optional RPG tie-ins through the existing quest and title systems (for example a "Progressor" quest or title for lifts progressed in a week), after the plain feature has been used for a while.
+
+**Model:** Sonnet is enough (CRUD fields, one pure function, one editor control, one hint). No design-heavy balance work.
+
+---
+
 ## 9.1 Phase 8: Restyle existing screens
 
 **Why:** Phase 2 built the new screens (Train, Hero, nav) in the section 7.1 look but deliberately left every older screen alone, so the app currently has two visual styles. This phase makes them match.
@@ -413,6 +433,17 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 2. Boss Tower: attempts and cooldown, and what a floor pays. *Building default:* its own 4-hour cooldown after any fight; first clear of a floor pays coins and scrap, with gear drops on the same low-chance rule as the weekly boss.
 3. Campaign: number of chapters and stages, and any limit on attempts. *Building default:* no attempt limit; coins, scrap and Common to Rare gear, Epic very rare; no Legendary or Mythic.
 4. Tower floor 1 needs level 5. *Building default:* no other level gate.
+
+**Rep ranges (section 9.2): open questions, each with a building default**
+1. Range per exercise, or per set? *Building default:* per exercise.
+2. What triggers "add weight"? *Building default:* every working set reached the top of the range (6-9: all sets at 9).
+3. Below the minimum: suggest a lighter weight, or just flag it? *Building default:* a neutral "below range" hint, never a penalty.
+4. Weight step: *Building default:* 2.5 kg or 5 lb, changeable per exercise.
+5. Where is the range set? *Building default:* only in the routine editor, not mid-workout.
+6. May the workout screen show the target and the hint (read-only)? *Building default:* yes, that is the only change there.
+7. Which style presets? *Building default:* Strength 3-6, Heavy size 6-9, Size 8-12, Endurance 12-20, Custom.
+8. RPG tie-ins (quests, a "Progressor" title) now or later? *Building default:* later, after the plain feature has been used.
+9. Phase order: before Phase 5 or after? *Building default:* before, since it is small and has no dependency on combat.
 
 ---
 
