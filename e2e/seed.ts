@@ -42,7 +42,11 @@ export interface SeedOptions {
   gear?: (keyof typeof ITEM_IDS)[];
   /** Also write this week's (empty) shop doc, as if the user had already used the shop. Without it the shop doc does not exist yet. */
   shopDoc?: boolean;
+  /** Also write a saved routine (ROUTINE_ID: "Push day", one exercise, no rep range). */
+  routine?: boolean;
 }
+
+export const ROUTINE_ID = "e2e-routine";
 
 function assertEmulator() {
   if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -62,7 +66,7 @@ function muscles(now: number): MusclesFacts {
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 30, gear = Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[], shopDoc = false } = options;
+  const { coins = 5000, scrap = 300, level = 30, gear = Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[], shopDoc = false, routine = false } = options;
   const db = adminDb();
   const now = Date.now();
 
@@ -111,6 +115,13 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
   if (shopDoc) {
     const week = weekId(now, "America/Toronto");
     await user.collection("shop").doc(week).set(emptyShop(week, "America/Toronto", now));
+  }
+  if (routine) {
+    await user.collection("routines").doc(ROUTINE_ID).set({
+      name: "Push day",
+      exercises: [{ exerciseId: "Barbell_Bench_Press_-_Medium_Grip", name: "Barbell Bench Press - Medium Grip", sets: 3, restSec: 90 }],
+      updatedAt: now,
+    });
   }
   return HERO.uid;
 }

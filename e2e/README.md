@@ -53,6 +53,7 @@ To click around by hand as the test user: `npm run emulators`, then `npm run e2e
 | `shop.e2e.ts` | Offer cards, buy, double-tap protection, reroll (100 then 200), no-coins state |
 | `titles.e2e.ts` | Eight achievements, equip/unequip, buying slot 2 |
 | `offline.e2e.ts` | Gear, Shop and Titles with the network off: buttons disabled, offline notes shown, back online re-enables |
+| `routines.e2e.ts` | Routine editor rep range: empty by default, half-typed/reversed/out-of-bounds refused, step in the user's unit saved in kg, reopening, clearing removes every field |
 
 ## Adding a flow
 

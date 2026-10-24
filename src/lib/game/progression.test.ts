@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
+import type { RoutineExercise } from "../types";
 import { toKg } from "../units";
 import { PROGRESSION } from "./config";
-import { didProgress, nextWeightKg, progressionSets, progressionStatus, rangeOf, stepKgFor, validRepRange } from "./progression";
+import {
+  didProgress,
+  nextWeightKg,
+  progressionSets,
+  progressionStatus,
+  rangeOf,
+  repRangeProblem,
+  stepKgFor,
+  validRepRange,
+  withRepRange,
+} from "./progression";
 import { set } from "./test-helpers";
 
 const range = { repMin: 6, repMax: 9 };
@@ -193,5 +204,51 @@ describe("nextWeightKg", () => {
     expect(nextWeightKg({ lastWeightKg: null, stepKg: 2.5, unit: "kg", direction: "heavier" })).toBe(2.5);
     expect(nextWeightKg({ lastWeightKg: null, stepKg: 2.5, unit: "kg", direction: "lighter" })).toBeNull();
     expect(nextWeightKg({ lastWeightKg: 2.5, stepKg: 2.5, unit: "kg", direction: "lighter" })).toBeNull();
+  });
+});
+
+describe("repRangeProblem", () => {
+  it("is fine with both ends empty or a valid range", () => {
+    expect(repRangeProblem(null, null)).toBeNull();
+    expect(repRangeProblem(undefined, undefined)).toBeNull();
+    expect(repRangeProblem(6, 9)).toBeNull();
+    expect(repRangeProblem(8, 8)).toBeNull();
+  });
+
+  it("asks for both ends when only one is set", () => {
+    expect(repRangeProblem(6, null)).toMatch(/both/i);
+    expect(repRangeProblem(null, 9)).toMatch(/both/i);
+  });
+
+  it("flags a reversed range and out of bounds numbers", () => {
+    expect(repRangeProblem(10, 9)).toMatch(/higher than the maximum/i);
+    expect(repRangeProblem(0, 9)).toMatch(/1 to 30/);
+    expect(repRangeProblem(6, 31)).toMatch(/1 to 30/);
+  });
+});
+
+describe("withRepRange", () => {
+  const base: RoutineExercise = { exerciseId: "x", name: "X", sets: 3, restSec: 90 };
+
+  it("sets a range and a step", () => {
+    const e = withRepRange(withRepRange(base, { repMin: 6, repMax: 9 }), { stepKg: 1.25 });
+    expect(e).toEqual({ ...base, repMin: 6, repMax: 9, stepKg: 1.25 });
+  });
+
+  it("removes cleared values instead of leaving undefined, which Firestore rejects", () => {
+    const e = withRepRange({ ...base, repMin: 6, repMax: 9 }, { repMax: null });
+    expect(e).toEqual({ ...base, repMin: 6 });
+    expect("repMax" in e).toBe(false);
+  });
+
+  it("clears the step when the range is cleared", () => {
+    const e = withRepRange({ ...base, repMin: 6, repMax: 9, stepKg: 2 }, { repMin: null, repMax: null });
+    expect(e).toEqual(base);
+  });
+
+  it("leaves other fields alone and doesn't change the original", () => {
+    const original = { ...base, repMin: 6, repMax: 9 };
+    withRepRange(original, { repMin: 5 });
+    expect(original.repMin).toBe(6);
   });
 });

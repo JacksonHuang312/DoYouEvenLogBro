@@ -32,6 +32,37 @@ export function validRepRange(repMin: unknown, repMax: unknown): boolean {
   return whole(repMin) && whole(repMax) && repMin <= repMax;
 }
 
+/**
+ * What is wrong with a half-typed range, in words for the routine editor, or null when it is fine.
+ * Leaving both ends empty is fine: the exercise just has no range.
+ */
+export function repRangeProblem(repMin: number | null | undefined, repMax: number | null | undefined): string | null {
+  if (repMin == null && repMax == null) return null;
+  if (repMin == null || repMax == null) return "Set both a minimum and a maximum, or clear both.";
+  if (!validRepRange(repMin, repMax) && (repMin > repMax)) return "The minimum can't be higher than the maximum.";
+  if (!validRepRange(repMin, repMax)) return `Use whole numbers from ${PROGRESSION.minReps} to ${PROGRESSION.maxReps}.`;
+  return null;
+}
+
+/**
+ * The exercise with its range, step set or cleared. A cleared value is removed from the object,
+ * not set to undefined, which Firestore refuses to save. Clearing the range also clears the step.
+ */
+export function withRepRange<T extends { repMin?: number; repMax?: number; stepKg?: number }>(
+  exercise: T,
+  patch: { repMin?: number | null; repMax?: number | null; stepKg?: number | null },
+): T {
+  const next: T = { ...exercise };
+  for (const key of ["repMin", "repMax", "stepKg"] as const) {
+    if (!(key in patch)) continue;
+    const value = patch[key];
+    if (value == null) delete next[key];
+    else next[key] = value as T[typeof key];
+  }
+  if (next.repMin == null && next.repMax == null) delete next.stepKg;
+  return next;
+}
+
 /** The range an exercise carries, or null when it has none (or a broken one). */
 export function rangeOf(e: { repMin?: number; repMax?: number } | null | undefined): RepRange | null {
   if (!e || !validRepRange(e.repMin, e.repMax)) return null;
