@@ -5,10 +5,12 @@ import { PROGRESSION } from "./config";
 import {
   didProgress,
   nextWeightKg,
+  progressionHint,
   progressionSets,
   progressionStatus,
   rangeOf,
   repRangeProblem,
+  routineWithRange,
   stepKgFor,
   validRepRange,
   withRepRange,
@@ -250,5 +252,81 @@ describe("withRepRange", () => {
     const original = { ...base, repMin: 6, repMax: 9 };
     withRepRange(original, { repMin: 5 });
     expect(original.repMin).toBe(6);
+  });
+});
+
+describe("progressionHint", () => {
+  const hint = (previous: ReturnType<typeof set>[] | null, over: { unit?: "kg" | "lb"; stepKg?: number } = {}) =>
+    progressionHint({ range, previous, stepKg: over.stepKg ?? STEP, unit: over.unit ?? "kg" });
+
+  it("has nothing to say without a range or without last time's sets", () => {
+    expect(progressionHint({ range: null, previous: [set(60, 9)], stepKg: STEP, unit: "kg" })).toBeNull();
+    expect(hint(null)).toBeNull();
+    expect(hint([])).toBeNull();
+    expect(hint([set(40, 10, "warmup")])).toBeNull();
+  });
+
+  it("suggests the next weight when every set reached the top", () => {
+    expect(hint([set(60, 9), set(60, 9), set(60, 9)])).toEqual({
+      kind: "add-weight",
+      text: "Last time: 9, 9, 9 at 60 kg. Try 62.5 kg.",
+    });
+  });
+
+  it("says to aim for the top in range", () => {
+    expect(hint([set(60, 9), set(60, 8), set(60, 7)])).toEqual({
+      kind: "in-range",
+      text: "Last time: 9, 8, 7 at 60 kg. Aim for 9 on every set.",
+    });
+  });
+
+  it("suggests a lighter weight below the minimum, never as a failure", () => {
+    const h = hint([set(60, 9), set(60, 5)])!;
+    expect(h.kind).toBe("lighter");
+    expect(h.text).toBe("Last time: 9, 5 at 60 kg. Under your 6-9 range. Try 57.5 kg.");
+    expect(h.text).not.toMatch(/fail|plateau|stuck/i);
+  });
+
+  it("works in pounds", () => {
+    const h = hint([set(toKg("lb", 135), 9), set(toKg("lb", 135), 9)], { unit: "lb", stepKg: stepKgFor("lb") })!;
+    expect(h.text).toBe("Last time: 9, 9 at 135 lbs. Try 140 lbs.");
+  });
+
+  it("lists each set's weight when they differ, and ignores warm-ups and drop sets", () => {
+    const h = hint([set(40, 12, "warmup"), set(62.5, 9), set(60, 8), set(45, 12, "drop")])!;
+    expect(h.text).toBe("Last time: 9 × 62.5, 8 × 60 kg. Aim for 9 on every set.");
+  });
+
+  it("handles bodyweight: reps only, adding weight from the step, and no lighter suggestion", () => {
+    expect(hint([set(null, 9), set(null, 9)])!.text).toBe("Last time: 9, 9 reps. Try adding 2.5 kg.");
+    expect(hint([set(null, 9), set(null, 4)])!.text).toBe("Last time: 9, 4 reps. Under your 6-9 range. Try an easier variation.");
+  });
+
+  it("uses the exercise's own step", () => {
+    expect(hint([set(20, 9)], { stepKg: 1 })!.text).toBe("Last time: 9 at 20 kg. Try 21 kg.");
+  });
+});
+
+describe("routineWithRange", () => {
+  const exercises = [
+    { exerciseId: "a", name: "A", sets: 3, restSec: 60 },
+    { exerciseId: "b", name: "B", sets: 3, restSec: 60, repMin: 5, repMax: 8, stepKg: 2 },
+    { exerciseId: "a", name: "A again", sets: 2, restSec: 60 },
+  ];
+
+  it("sets the range on the first exercise with that id only", () => {
+    const next = routineWithRange(exercises, "a", { repMin: 6, repMax: 9 })!;
+    expect(next[0]).toEqual({ ...exercises[0], repMin: 6, repMax: 9 });
+    expect(next[2]).toEqual(exercises[2]);
+    expect(exercises[0]).not.toHaveProperty("repMin");
+  });
+
+  it("clears the range and step with null", () => {
+    const next = routineWithRange(exercises, "b", null)!;
+    expect(next[1]).toEqual({ exerciseId: "b", name: "B", sets: 3, restSec: 60 });
+  });
+
+  it("is null when the routine has no such exercise", () => {
+    expect(routineWithRange(exercises, "zzz", { repMin: 6, repMax: 9 })).toBeNull();
   });
 });

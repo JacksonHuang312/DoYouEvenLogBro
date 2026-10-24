@@ -260,7 +260,7 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 
 ---
 
-## 9.2 Rep ranges and progression (agreed; build order steps 1 and 2 of 4 done)
+## 9.2 Rep ranges and progression (built: all 4 steps done)
 
 Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9. Different ranges are different training styles. It gives lifters a clear progress signal that does not depend on the RPG stats.
 
@@ -280,8 +280,8 @@ Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9
 **Build order (small phases, each ends with lint, tsc, vitest, next build, the e2e suite and a 390px check):**
 1. **Done:** data and pure functions with unit tests (`RoutineExercise.repMin/repMax/stepKg` in `types.ts`, `PROGRESSION` in `config.ts`, `src/lib/game/progression.ts` and its 32 tests: boundaries, warm-ups, drop sets, mixed weights, bodyweight, the step rule, unit rounding). Warm-ups and drop sets are ignored, and "same weight" means within 0.01 kg.
 2. **Done:** routine editor: a min and max control per exercise, empty by default, plus an optional weight step (in the user's unit, saved in kg) that shows once there is a range. A half-typed, reversed or out-of-bounds range shows a message and blocks Save (`repRangeProblem`). Clearing the range removes all three fields (`withRepRange`), never writes `undefined`, which Firestore refuses. The new inputs are 44px tall; the rest of that old-style screen waits for the Phase 8 restyle.
-3. Workout screen: show the target ("6-9") beside the exercise, a one-line hint from the last session ("Last time 9, 9, 8 at 60 kg. Try 62.5 kg", or a lighter-weight suggestion below the minimum), and a small control to change the range that saves it to the routine. This is the only change to the active-workout screen, approved by Jackson. Logging itself (typing weight and reps, finishing) is unchanged.
-4. e2e: a routine with a range, the hint after a logged session, mid-workout change saved to the routine.
+3. **Done:** workout screen: each exercise card shows "Target 6-9 reps" with an Edit button, or "Set target reps" when it has none, and a one-line hint from the last session (`progressionHint`: add weight when every set reached the top, the same weight with "aim for the top" in range, a lighter weight under the minimum, worded neutrally). Editing is a small inline editor (min, max, Save, Cancel) that saves to the routine the workout started from (`DraftWorkout.routineId`, `saveRoutineRepRange`, first exercise with that id, quietly skipped if the routine is gone); a workout that did not start from a routine keeps the change for that session and says so. Read-only next to the sets: logging itself is unchanged.
+4. **Done:** e2e (`routines.e2e.ts`, `workout-targets.e2e.ts`): the editor, the three hints, mid-workout change saved to the routine, clearing, a regression check that logging a set still works. Not covered: a freestyle workout (no routine) saving for the session only, which the unit tests cover.
 
 **Model:** Sonnet is enough. Built before Phase 5.
 

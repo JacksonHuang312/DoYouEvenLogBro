@@ -8,7 +8,9 @@ import type { DraftExercise } from "@/lib/draft";
 import type { SetType, Unit } from "@/lib/types";
 import { findRecords } from "@/lib/records";
 import { formatNumber, kgTo, toKg } from "@/lib/units";
+import type { RepRange } from "@/lib/game/progression";
 import { NumberCell } from "./NumberCell";
+import { RepTarget } from "./RepTarget";
 import { RestPicker } from "./RestPicker";
 import { ExerciseThumb } from "./ui";
 
@@ -41,6 +43,8 @@ export const ExerciseCard = memo(function ExerciseCard({
   isLast,
   update,
   editing = false,
+  onRepRange,
+  savesToRoutine = false,
 }: {
   exercise: DraftExercise;
   unit: Unit;
@@ -48,6 +52,10 @@ export const ExerciseCard = memo(function ExerciseCard({
   isLast: boolean;
   update: (fn: (w: Draft.DraftWorkout) => Draft.DraftWorkout) => void;
   editing?: boolean;
+  /** Saves a changed target rep range (null clears it). Without it the target row isn't shown. */
+  onRepRange?: (exKey: string, range: RepRange | null) => void;
+  /** Whether a changed range is saved to a routine (else it lasts for this workout only). */
+  savesToRoutine?: boolean;
 }) {
   const labels = Draft.setLabels(ex.sets);
   // Trophies on record sets: while logging only once checked off; when editing, every set counts.
@@ -91,6 +99,10 @@ export const ExerciseCard = memo(function ExerciseCard({
             onChange={(sec) => update((w) => Draft.setRest(w, ex.key, sec))}
           />
         </div>
+      )}
+
+      {!editing && onRepRange && (
+        <RepTarget exercise={ex} unit={unit} savesToRoutine={savesToRoutine} onSave={(range) => onRepRange(ex.key, range)} />
       )}
 
       <div className={editing ? EDIT_GRID : GRID}>

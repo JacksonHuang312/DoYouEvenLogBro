@@ -1,8 +1,9 @@
 "use client";
 
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { firebase } from "./firebase";
+import { routineWithRange, type RepRange } from "./game/progression";
 import type { Routine } from "./types";
 
 function routinesCol(uid: string) {
@@ -37,4 +38,18 @@ export function saveRoutine(uid: string, routine: Routine) {
 
 export function deleteRoutine(uid: string, id: string) {
   return deleteDoc(doc(routinesCol(uid), id));
+}
+
+/**
+ * Saves a rep range changed mid-workout back to the routine, on the first exercise with that id.
+ * Does nothing if the routine or the exercise is gone (the change then lasts for the workout only).
+ */
+export async function saveRoutineRepRange(uid: string, routineId: string, exerciseId: string, range: RepRange | null) {
+  const ref = doc(routinesCol(uid), routineId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const data = snap.data() as Omit<Routine, "id">;
+  const exercises = routineWithRange(data.exercises, exerciseId, range);
+  if (!exercises) return;
+  await setDoc(ref, { ...data, exercises, updatedAt: Date.now() });
 }

@@ -1,3 +1,4 @@
+import { withRepRange, type RepRange } from "./game/progression";
 import type { ExerciseBests } from "./records";
 import type { Exercise, LoggedSet, Routine, SetType, Workout } from "./types";
 
@@ -16,6 +17,8 @@ export interface DraftWorkout {
   description?: string;
   /** JPEG data URL of the workout photo, or null for none. */
   photo?: string | null;
+  /** The routine this workout was started from, so a changed rep range can be saved back to it. */
+  routineId?: string;
 }
 
 export interface DraftExercise {
@@ -26,6 +29,10 @@ export interface DraftExercise {
   sets: DraftSet[];
   /** Sets from the last time this exercise was logged, shown in the "Previous" column. */
   previous: LoggedSet[] | null;
+  /** Target rep range and weight step (GAME_DESIGN.md 9.2), copied from the routine; both ends or neither. */
+  repMin?: number;
+  repMax?: number;
+  stepKg?: number;
   /** Your bests before this workout, for spotting records. Undefined until history loads. */
   bests?: ExerciseBests;
 }
@@ -67,6 +74,7 @@ export function draftFromRoutine(routine: Routine, keys: string[]): DraftWorkout
   return {
     ...newDraft(),
     name: routine.name,
+    routineId: routine.id,
     exercises: routine.exercises.map((e, i) => ({
       key: keys[i],
       exerciseId: e.exerciseId,
@@ -74,6 +82,8 @@ export function draftFromRoutine(routine: Routine, keys: string[]): DraftWorkout
       restSec: e.restSec,
       sets: Array.from({ length: Math.max(1, e.sets) }, () => newSet()),
       previous: null,
+      ...(e.repMin != null && e.repMax != null ? { repMin: e.repMin, repMax: e.repMax } : {}),
+      ...(e.repMin != null && e.repMax != null && e.stepKg != null ? { stepKg: e.stepKg } : {}),
     })),
   };
 }
@@ -172,6 +182,11 @@ export function setRest(w: DraftWorkout, exKey: string, restSec: number): DraftW
   const next = mapExercise(w, exKey, (e) => ({ ...e, restSec }));
   const timerIsThisExercise = w.restKey == null || w.restKey === exKey;
   return restSec === 0 && w.restEndsAt != null && timerIsThisExercise ? stopRest(next) : next;
+}
+
+/** Sets an exercise's target rep range, or clears it with null (which also clears its step). */
+export function setRepRange(w: DraftWorkout, exKey: string, range: RepRange | null): DraftWorkout {
+  return mapExercise(w, exKey, (e) => withRepRange(e, range ?? { repMin: null, repMax: null }));
 }
 
 export function addSet(w: DraftWorkout, exKey: string): DraftWorkout {

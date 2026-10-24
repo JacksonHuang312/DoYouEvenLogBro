@@ -1,13 +1,15 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { alertDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftWorkout } from "@/lib/draft";
+import type { RepRange } from "@/lib/game/progression";
 import { summaryOf } from "@/lib/game/rewards";
 import { dropClaim, flushGameQueue, queueClaim } from "@/lib/gameSync";
 import { loadExerciseHistory, withRecords } from "@/lib/records";
 import { markRewardsPending } from "@/lib/rewardsStore";
+import { saveRoutineRepRange } from "@/lib/routines";
 import type { Exercise, Routine } from "@/lib/types";
 import { saveWorkout } from "@/lib/workouts";
 
@@ -19,6 +21,8 @@ interface WorkoutContextValue {
   startRoutine: (routine: Routine) => void;
   discard: () => void;
   addExercises: (list: Exercise[]) => void;
+  /** Sets (or clears, with null) an exercise's target rep range, and saves it to the routine the workout came from. */
+  setRepRange: (exKey: string, range: RepRange | null) => void;
   /**
    * Saves the workout (with its photo, if any) as ending at `endedAt` and returns its id,
    * or null if no sets were completed.
@@ -85,6 +89,27 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
   const update = useCallback((fn: (w: DraftWorkout) => DraftWorkout) => {
     setDraft((w) => (w ? fn(w) : w));
   }, []);
+
+  // The latest draft for callbacks that must stay stable (the exercise cards are memoized).
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  });
+
+  const setRepRange = useCallback(
+    (exKey: string, range: RepRange | null) => {
+      const current = draftRef.current;
+      const exercise = current?.exercises.find((e) => e.key === exKey);
+      update((w) => Draft.setRepRange(w, exKey, range));
+      // Saved to the routine the workout came from; a freestyle workout keeps it for this workout only.
+      if (current?.routineId && exercise) {
+        saveRoutineRepRange(uid, current.routineId, exercise.exerciseId, range).catch((err) =>
+          console.warn("Couldn't save the rep range to the routine", err),
+        );
+      }
+    },
+    [uid, update],
+  );
 
   /**
    * Loads each exercise's history: the "Previous" column (last time it was logged) and your
@@ -154,9 +179,10 @@ export function WorkoutProvider({ uid, children }: { uid: string; children: Reac
       startRoutine,
       discard: () => setDraft(null),
       addExercises,
+      setRepRange,
       finish,
     }),
-    [draft, update, startRoutine, addExercises, finish],
+    [draft, update, startRoutine, addExercises, setRepRange, finish],
   );
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;

@@ -1,4 +1,4 @@
-import { kgTo, toKg } from "../units";
+import { formatNumber, formatWeight, kgTo, toKg } from "../units";
 import type { LoggedSet, Unit } from "../types";
 import { PROGRESSION } from "./config";
 import { isWorkingSet } from "./sets";
@@ -157,4 +157,71 @@ export function nextWeightKg({
   if (target <= 0) return null;
   const grid = PROGRESSION.suggestionRounding;
   return toKg(unit, Math.round(target / grid) * grid);
+}
+
+export interface ProgressionHint {
+  kind: "add-weight" | "in-range" | "lighter";
+  text: string;
+}
+
+/** "9, 9, 8 at 60 kg", "9 × 62.5, 8 × 60 kg" for mixed weights, "9, 9, 8 reps" for bodyweight. */
+function lastSummary(working: LoggedSet[], unit: Unit): string {
+  const weights = new Set(working.map((s) => (s.weightKg == null ? "bw" : formatNumber(kgTo(unit, s.weightKg)))));
+  if (weights.size === 1) {
+    const reps = working.map((s) => s.reps).join(", ");
+    return working[0].weightKg == null ? `${reps} reps` : `${reps} at ${formatWeight(unit, working[0].weightKg)}`;
+  }
+  const each = working.map((s) => `${s.reps} × ${s.weightKg == null ? "BW" : formatNumber(kgTo(unit, s.weightKg))}`).join(", ");
+  return `${each} ${unit === "lb" ? "lbs" : "kg"}`;
+}
+
+/**
+ * The one-line hint under an exercise's target (section 9.2), from the last session. It only
+ * suggests: adding weight when every set reached the top, the same weight otherwise, and a lighter
+ * weight when a set fell under the minimum (never worded as a failure). Null when there is no
+ * range or nothing to compare to.
+ */
+export function progressionHint({
+  range,
+  previous,
+  stepKg,
+  unit,
+}: {
+  range: RepRange | null;
+  previous: LoggedSet[] | null | undefined;
+  stepKg: number;
+  unit: Unit;
+}): ProgressionHint | null {
+  if (!range || !previous) return null;
+  const working = progressionSets(previous);
+  if (working.length === 0) return null;
+  const status = progressionStatus(range, working);
+  const summary = lastSummary(working, unit);
+  const topKg = working.some((x) => x.weightKg != null) ? Math.max(...working.map(load)) : null;
+
+  if (status === "add-weight") {
+    const next = topKg == null ? null : nextWeightKg({ lastWeightKg: topKg, stepKg, unit, direction: "heavier" });
+    const text = next == null ? `Try adding ${formatWeight(unit, stepKg)}.` : `Try ${formatWeight(unit, next)}.`;
+    return { kind: "add-weight", text: `Last time: ${summary}. ${text}` };
+  }
+  if (status === "below-range") {
+    const lighter = topKg == null ? null : nextWeightKg({ lastWeightKg: topKg, stepKg, unit, direction: "lighter" });
+    const text = lighter == null ? "Try an easier variation." : `Try ${formatWeight(unit, lighter)}.`;
+    return { kind: "lighter", text: `Last time: ${summary}. Under your ${range.repMin}-${range.repMax} range. ${text}` };
+  }
+  return { kind: "in-range", text: `Last time: ${summary}. Aim for ${range.repMax} on every set.` };
+}
+
+/**
+ * A routine's exercises with the range of the first exercise of that id set (or cleared when
+ * `range` is null). Null when the routine has no such exercise.
+ */
+export function routineWithRange<T extends { exerciseId: string; repMin?: number; repMax?: number; stepKg?: number }>(
+  exercises: T[],
+  exerciseId: string,
+  range: RepRange | null,
+): T[] | null {
+  const i = exercises.findIndex((e) => e.exerciseId === exerciseId);
+  if (i < 0) return null;
+  return exercises.map((e, j) => (j === i ? withRepRange(e, range ?? { repMin: null, repMax: null }) : e));
 }

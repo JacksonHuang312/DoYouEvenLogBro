@@ -42,11 +42,16 @@ export interface SeedOptions {
   gear?: (keyof typeof ITEM_IDS)[];
   /** Also write this week's (empty) shop doc, as if the user had already used the shop. Without it the shop doc does not exist yet. */
   shopDoc?: boolean;
-  /** Also write a saved routine (ROUTINE_ID: "Push day", one exercise, no rep range). */
-  routine?: boolean;
+  /** Also write a saved routine (ROUTINE_ID: "Push day", one Bench Press exercise), with a rep range if given. */
+  routine?: boolean | { repMin: number; repMax: number; stepKg?: number };
+  /** The unit the profile counts in. Default "lb". */
+  unit?: "kg" | "lb";
+  /** Also write one past workout of Bench Press with these reps at this weight, so "last time" has something to show. */
+  lastBench?: { weightKg: number; reps: number[] };
 }
 
 export const ROUTINE_ID = "e2e-routine";
+export const BENCH_ID = "Barbell_Bench_Press_-_Medium_Grip";
 
 function assertEmulator() {
   if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -66,7 +71,7 @@ function muscles(now: number): MusclesFacts {
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 30, gear = Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[], shopDoc = false, routine = false } = options;
+  const { coins = 5000, scrap = 300, level = 30, gear = Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[], shopDoc = false, routine = false, unit = "lb", lastBench } = options;
   const db = adminDb();
   const now = Date.now();
 
@@ -83,7 +88,7 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     usernameChangedAt: new Date(now - 30 * 86_400_000),
     displayName: HERO.username,
     photoURL: null,
-    unit: "lb",
+    unit,
     isPrivate: false,
     createdAt: now - 30 * 86_400_000,
   });
@@ -119,8 +124,28 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
   if (routine) {
     await user.collection("routines").doc(ROUTINE_ID).set({
       name: "Push day",
-      exercises: [{ exerciseId: "Barbell_Bench_Press_-_Medium_Grip", name: "Barbell Bench Press - Medium Grip", sets: 3, restSec: 90 }],
+      exercises: [
+        {
+          exerciseId: BENCH_ID,
+          name: "Barbell Bench Press - Medium Grip",
+          sets: 3,
+          restSec: 90,
+          ...(typeof routine === "object" ? routine : {}),
+        },
+      ],
       updatedAt: now,
+    });
+  }
+  if (lastBench) {
+    const sets = lastBench.reps.map((reps) => ({ type: "normal", weightKg: lastBench.weightKg, reps }));
+    await user.collection("workouts").doc("e2e-last-bench").set({
+      name: "Push day",
+      startedAt: now - 7 * 86_400_000,
+      endedAt: now - 7 * 86_400_000 + 3_600_000,
+      exercises: [{ exerciseId: BENCH_ID, name: "Barbell Bench Press - Medium Grip", sets }],
+      exerciseIds: [BENCH_ID],
+      volumeKg: lastBench.reps.reduce((n, r) => n + r * lastBench.weightKg, 0),
+      setCount: sets.length,
     });
   }
   return HERO.uid;

@@ -123,7 +123,7 @@ function Elapsed({ since }: { since: number }) {
 
 function ActiveWorkout() {
   const profile = useProfile();
-  const { draft, update, discard, addExercises } = useWorkout();
+  const { draft, update, discard, addExercises, setRepRange } = useWorkout();
   const [picking, setPicking] = useState(false);
   // Set once Finish passes its checks: shows the save screen with this duration pre-filled.
   const [saveDuration, setSaveDuration] = useState<number | null>(null);
@@ -201,6 +201,8 @@ function ActiveWorkout() {
           isFirst={i === 0}
           isLast={i === draft.exercises.length - 1}
           update={update}
+          onRepRange={setRepRange}
+          savesToRoutine={!!draft.routineId}
         />
       ))}
 
