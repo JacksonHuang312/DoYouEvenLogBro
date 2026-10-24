@@ -74,6 +74,11 @@ export interface RoutineExercise {
   name: string;
   sets: number;
   restSec: number;
+  /** Target rep range (GAME_DESIGN.md 9.2): hit the top and it is time to add weight. Both or neither; most exercises have none. */
+  repMin?: number;
+  repMax?: number;
+  /** Weight to add when progressing, in kg. Missing means the default step for the user's unit. */
+  stepKg?: number;
 }
 
 /** users/{uid}/routines/{id}: a saved workout template. */

@@ -260,7 +260,7 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 
 ---
 
-## 9.2 Rep ranges and progression (agreed, not built yet)
+## 9.2 Rep ranges and progression (agreed; build order step 1 of 4 done)
 
 Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9. Different ranges are different training styles. It gives lifters a clear progress signal that does not depend on the RPG stats.
 
@@ -278,7 +278,7 @@ Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9
 **Logic (pure, tested): `src/lib/game/progression.ts`.** `progressionStatus(range, sets)` returns `add-weight` (every working set reached `repMax`), `in-range`, `below-range` (a working set under `repMin`) or `no-range`. `didProgress(previousSets, sets, stepKg)` implements the rule above (warm-ups ignored, drop sets handled). `nextWeight(lastWeightKg, stepKg, unit)` suggests the next load, rounded to what the unit can load. It reads the last session of that exercise from the workouts already loaded for the "previous" column and stores no new facts.
 
 **Build order (small phases, each ends with lint, tsc, vitest, next build, the e2e suite and a 390px check):**
-1. Data and pure functions with unit tests: boundaries, warm-ups, drop sets, mixed weights, bodyweight, the step rule, unit rounding.
+1. **Done:** data and pure functions with unit tests (`RoutineExercise.repMin/repMax/stepKg` in `types.ts`, `PROGRESSION` in `config.ts`, `src/lib/game/progression.ts` and its 32 tests: boundaries, warm-ups, drop sets, mixed weights, bodyweight, the step rule, unit rounding). Warm-ups and drop sets are ignored, and "same weight" means within 0.01 kg.
 2. Routine editor: a min and max control per exercise, empty by default.
 3. Workout screen: show the target ("6-9") beside the exercise, a one-line hint from the last session ("Last time 9, 9, 8 at 60 kg. Try 62.5 kg", or a lighter-weight suggestion below the minimum), and a small control to change the range that saves it to the routine. This is the only change to the active-workout screen, approved by Jackson. Logging itself (typing weight and reps, finishing) is unchanged.
 4. e2e: a routine with a range, the hint after a logged session, mid-workout change saved to the routine.

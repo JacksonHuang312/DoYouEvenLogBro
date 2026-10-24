@@ -116,6 +116,20 @@ export const EPLEY_MAX_REPS = 12;
 /** Sets beyond these are treated as typos and ignored by the game. */
 export const SANITY = { maxLoadKg: 600, maxReps: 100 };
 
+// ---- Rep ranges and progression (section 9.2) ----
+
+export const PROGRESSION = {
+  /** A rep range's bounds: both ends are whole numbers in here, min at most max. */
+  minReps: 1,
+  maxReps: 30,
+  /** The weight added when progressing, in the display unit, unless an exercise sets its own step. */
+  defaultStep: { kg: 2.5, lb: 5 },
+  /** Suggested weights are rounded to this much in the display unit, so conversions leave no stray decimals. */
+  suggestionRounding: 0.5,
+  /** Two loads this close (kg) count as the same weight. */
+  sameWeightKg: 0.01,
+};
+
 // ---- 1RM bonus (section 2.3) ----
 
 /** The bonus from beating your calculated 1RM is at most this fraction of the stat. */
