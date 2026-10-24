@@ -260,23 +260,30 @@ PWA manifest, in-progress workout in localStorage, Firestore offline cache, weig
 
 ---
 
-## 9.2 Rep ranges and progression (planned, not built)
+## 9.2 Rep ranges and progression (agreed, not built yet)
 
-Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9. Hit the top of the range on your sets and it is time to add weight; the bottom is the minimum. Different ranges are different training styles (strength, size, endurance). This is "double progression", and it gives lifters a clear progress signal that does not depend on the RPG stats.
+Idea (Jackson): a routine exercise can carry a target rep range, for example 6-9. Different ranges are different training styles. It gives lifters a clear progress signal that does not depend on the RPG stats.
 
-**Principles it must keep:** logging stays as fast as today; the range is optional and old routines are untouched; the stat math is unchanged (Epley still caps reps at 12, so a 15-20 rep range works for logging but adds nothing past 12); nothing here pays coins or XP by itself (any reward goes through the existing server claim and quests).
+**Agreed rules**
+- **Range per exercise**, custom only (no presets). Optional: older routines and exercises with no range are untouched.
+- **Progressed** means a working set beat last session either with the **same weight and more reps**, or with **more weight** (at least the weight step heavier, 2.5 kg or 5 lb unless changed per exercise) with every working set at or above the range's minimum reps. A bodyweight exercise with no weight counts only more reps.
+- **No gate on adding weight:** you can add weight any time, whether or not you reached the top of the range. The hint suggests adding weight when every working set reached the top, but it never blocks anything.
+- **Below the minimum** the hint suggests a lighter weight. It is a neutral suggestion, never a penalty, and never wording like "failed" or "plateau" (plateaus are a normal, long phase of lifting).
+- **Editing:** the range can be changed mid-workout, and the change is **saved to the routine** for next time. A workout that did not start from a routine (freestyle) keeps the change for that session only.
+- **No RPG tie-ins:** no progress quest and no "Progressor" title. Progress is shown as hints and history only, so nobody is pushed to chase it (or fake it) for rewards. Nothing here pays coins or XP.
+- **Stat math unchanged:** Epley still caps reps at 12, so a 12-20 range works for logging but adds nothing past 12.
 
-**Data.** `RoutineExercise` (src/lib/types.ts) gets optional `repMin`, `repMax` and optionally `stepKg` (weight to add). Older routines have none, so nothing migrates. `firestore.rules` only checks the top-level keys of a routine, so the new fields need no rules change; the routine editor validates them (1 to 30, min at most max).
+**Data.** `RoutineExercise` (src/lib/types.ts) gets optional `repMin`, `repMax` and `stepKg`. `firestore.rules` only checks a routine's top-level keys, so no rules change; the editors validate (1 to 30, min at most max).
 
-**Logic (pure, tested): `src/lib/game/progression.ts`.** `progressionStatus(range, sets)` returns one of: `add-weight` (every working set reached `repMax`), `in-range`, `below-range` (a working set under `repMin`) or `no-range`. `nextWeight(lastWeightKg, stepKg, unit)` suggests the next load, rounded to what the unit can load (2.5 kg / 5 lb by default). Reads the last session of that exercise from the workouts already loaded for the "previous" column; stores no new facts.
+**Logic (pure, tested): `src/lib/game/progression.ts`.** `progressionStatus(range, sets)` returns `add-weight` (every working set reached `repMax`), `in-range`, `below-range` (a working set under `repMin`) or `no-range`. `didProgress(previousSets, sets, stepKg)` implements the rule above (warm-ups ignored, drop sets handled). `nextWeight(lastWeightKg, stepKg, unit)` suggests the next load, rounded to what the unit can load. It reads the last session of that exercise from the workouts already loaded for the "previous" column and stores no new facts.
 
-**Build order (small phases, each ends with tests, the e2e suite and a 390px check):**
-1. Data and pure functions, with unit tests (boundaries, warm-ups ignored, drop sets, mixed weights).
-2. Routine editor: a range control per exercise (min, max) with style presets, off by default.
-3. Workout screen: show the target ("6-9") beside the exercise and, from the last session, a small hint ("Add weight: you hit 9 on every set"). Read-only; it never changes what is logged. This is the only change to the active-workout screen and needs your OK.
-4. Later, optional RPG tie-ins through the existing quest and title systems (for example a "Progressor" quest or title for lifts progressed in a week), after the plain feature has been used for a while.
+**Build order (small phases, each ends with lint, tsc, vitest, next build, the e2e suite and a 390px check):**
+1. Data and pure functions with unit tests: boundaries, warm-ups, drop sets, mixed weights, bodyweight, the step rule, unit rounding.
+2. Routine editor: a min and max control per exercise, empty by default.
+3. Workout screen: show the target ("6-9") beside the exercise, a one-line hint from the last session ("Last time 9, 9, 8 at 60 kg. Try 62.5 kg", or a lighter-weight suggestion below the minimum), and a small control to change the range that saves it to the routine. This is the only change to the active-workout screen, approved by Jackson. Logging itself (typing weight and reps, finishing) is unchanged.
+4. e2e: a routine with a range, the hint after a logged session, mid-workout change saved to the routine.
 
-**Model:** Sonnet is enough (CRUD fields, one pure function, one editor control, one hint). No design-heavy balance work.
+**Model:** Sonnet is enough. Built before Phase 5.
 
 ---
 
@@ -433,17 +440,6 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 2. Boss Tower: attempts and cooldown, and what a floor pays. *Building default:* its own 4-hour cooldown after any fight; first clear of a floor pays coins and scrap, with gear drops on the same low-chance rule as the weekly boss.
 3. Campaign: number of chapters and stages, and any limit on attempts. *Building default:* no attempt limit; coins, scrap and Common to Rare gear, Epic very rare; no Legendary or Mythic.
 4. Tower floor 1 needs level 5. *Building default:* no other level gate.
-
-**Rep ranges (section 9.2): open questions, each with a building default**
-1. Range per exercise, or per set? *Building default:* per exercise.
-2. What triggers "add weight"? *Building default:* every working set reached the top of the range (6-9: all sets at 9).
-3. Below the minimum: suggest a lighter weight, or just flag it? *Building default:* a neutral "below range" hint, never a penalty.
-4. Weight step: *Building default:* 2.5 kg or 5 lb, changeable per exercise.
-5. Where is the range set? *Building default:* only in the routine editor, not mid-workout.
-6. May the workout screen show the target and the hint (read-only)? *Building default:* yes, that is the only change there.
-7. Which style presets? *Building default:* Strength 3-6, Heavy size 6-9, Size 8-12, Endurance 12-20, Custom.
-8. RPG tie-ins (quests, a "Progressor" title) now or later? *Building default:* later, after the plain feature has been used.
-9. Phase order: before Phase 5 or after? *Building default:* before, since it is small and has no dependency on combat.
 
 ---
 
