@@ -12,6 +12,12 @@ test.describe("Titles tab", () => {
     }
     // Opening the tab asks the server to check progress, which fills in the progress lines.
     await expect(page.getByText("Progress unavailable")).toHaveCount(0);
+    // The list is headed "Titles", and every title has its own icon.
+    await expect(page.getByRole("heading", { name: "Titles", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Achievements" })).toHaveCount(0);
+    const icons = await achievements.evaluateAll((items) => items.map((li) => li.querySelector("svg")?.getAttribute("class") ?? ""));
+    expect(icons).toHaveLength(8);
+    expect(new Set(icons.map((c) => c.split(" ").find((x) => x.startsWith("lucide-")))).size).toBe(8);
     await shot(page, "titles-tab");
     await expectNoOverflow(page, "Titles tab", info);
     await expectTapTargets(page.getByRole("tabpanel"), "Titles tab", info);

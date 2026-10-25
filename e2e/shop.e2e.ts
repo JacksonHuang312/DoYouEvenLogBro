@@ -14,6 +14,15 @@ test.describe("Shop tab", () => {
     await expect(page.getByText(/Restocks in .* \(Sunday 00:00\)/)).toBeVisible();
     await expect(page.getByRole("button", { name: /^Buy · / })).toHaveCount(6);
     await expect(page.getByRole("button", { name: "Reroll for 100 coins" })).toBeEnabled();
+    await expect(page.getByText("Rerolls left: 2 of 2")).toBeVisible();
+    // The long description is behind an info button, closed by default.
+    const about = page.getByText("The shop sells Common to Epic gear at a markup", { exact: false });
+    await expect(about).toBeHidden();
+    await page.getByRole("button", { name: "About the shop" }).click();
+    await expect(about).toBeVisible();
+    await expect(page.getByRole("button", { name: "About the shop" })).toHaveAttribute("aria-expanded", "true");
+    await page.getByRole("button", { name: "About the shop" }).click();
+    await expect(about).toBeHidden();
     await shot(page, "shop-tab");
     await expectNoOverflow(page, "Shop tab", info);
     await expectTapTargets(page.getByRole("tabpanel"), "Shop tab", info);
@@ -62,6 +71,7 @@ test.describe("Shop tab", () => {
     await confirmDialog(page, /Reroll the shop\?/).getByRole("button", { name: "Reroll for 100" }).click();
 
     await expect(page.getByRole("button", { name: "Reroll for 200 coins" })).toBeVisible();
+    await expect(page.getByText("Rerolls left: 1 of 2")).toBeVisible();
     await expect.poll(() => coins(page)).toBe(before - 100);
     expect(await names(page)).not.toEqual(stock);
     await expect(offers(page)).toHaveCount(6);

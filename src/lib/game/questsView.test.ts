@@ -75,12 +75,12 @@ describe("rerollInfo", () => {
   test("shows the next price and how many are left", () => {
     expect(rerollInfo({ rerollsUsed: 0 })).toMatchObject({ cost: 25, left: 2 });
     expect(rerollInfo({ rerollsUsed: 1 })).toMatchObject({ cost: 50, left: 1 });
-    expect(rerollInfo({ rerollsUsed: 0 }).label).toBe("Rerolls cost 25 coins, then 50. 2 left this week.");
+    expect(rerollInfo({ rerollsUsed: 0 }).label).toBe("Rerolls left: 2 of 2");
   });
 
   test("none left after two", () => {
     expect(rerollInfo({ rerollsUsed: 2 })).toMatchObject({ cost: null, left: 0 });
-    expect(rerollInfo({ rerollsUsed: 2 }).label).toContain("None left this week.");
+    expect(rerollInfo({ rerollsUsed: 2 }).label).toBe("Rerolls left: 0 of 2");
   });
 });
 

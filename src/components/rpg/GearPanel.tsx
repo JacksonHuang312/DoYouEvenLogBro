@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
 import { isAccessory, positionsOf, type Position } from "@/lib/game/config";
@@ -126,9 +126,6 @@ export function GearPanel({
 
       <section className="px-5 pt-5">
         <h2 className={HEADING}>Accessories</h2>
-        <p className="pt-0.5 text-[11px] text-rpg-muted">
-          Two rings, a necklace, a belt and two charms. They count toward gear power but aren&apos;t part of sets.
-        </p>
         <PositionList rows={positions.filter((p) => isAccessory(p.slot))} onOpen={setOpenPosition} />
       </section>
 
@@ -294,7 +291,6 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
                     <span className="text-xs text-rpg-text-2">{item.focus}</span>
                     {item.effect && <span className="text-[11px] text-rpg-muted">{item.effect}</span>}
                     {item.tags.length > 0 && <span className="text-[11px] text-rpg-muted">{item.tags.join(" · ")}</span>}
-                    {item.locked && <span className="text-[11px] text-rpg-warn">Needs level {item.locked.level} to equip</span>}
                   </div>
                 </div>
 
@@ -311,9 +307,16 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
                     <button
                       onClick={() => void run("Couldn't equip", () => equipItem(item.id, view.position))}
                       disabled={off || !item.equip.enabled}
+                      aria-label={item.locked ? `Equip, needs level ${item.locked.level}` : undefined}
                       className={PRIMARY}
                     >
-                      Equip
+                      {item.locked ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                          Equip <Lock size={13} aria-hidden /> {item.locked.level}
+                        </span>
+                      ) : (
+                        "Equip"
+                      )}
                     </button>
                   )}
                   {item.upgrade ? (
@@ -333,18 +336,12 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-0.5 text-[11px] text-rpg-muted">
-                  {item.upgrade && (
-                    <span className={item.upgrade.enabled ? "" : "text-rpg-text-2"}>
-                      {item.upgrade.label}: {item.upgrade.costLabel}
-                      {item.upgrade.reason ? ` (${item.upgrade.reason.toLowerCase()})` : ""}
-                    </span>
-                  )}
-                  {count > 1 && <span>Equip, upgrade, sell and salvage act on one of your {count}.</span>}
-                  {!item.equipped && !item.equip.enabled && item.equip.reason && <span>{item.equip.reason}</span>}
-                  {item.equipped && <span>Unequip it to sell or salvage it.</span>}
-                  {!item.equipped && item.named && <span>Named gear can&apos;t be sold, only salvaged.</span>}
-                </div>
+                {(item.equipped || (item.upgrade && !item.upgrade.enabled && item.upgrade.reason)) && (
+                  <div className="flex flex-col gap-0.5 text-[11px] text-rpg-muted">
+                    {item.upgrade && !item.upgrade.enabled && item.upgrade.reason && <span>{item.upgrade.reason}</span>}
+                    {item.equipped && <span>Unequip it to sell or salvage it.</span>}
+                  </div>
+                )}
               </li>
             );
           })}

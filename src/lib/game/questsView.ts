@@ -51,7 +51,7 @@ export interface RerollInfo {
   /** Price of the next reroll, or null when none are left. */
   cost: number | null;
   left: number;
-  /** "Rerolls: 25 coins, then 50 · 2 left this week" */
+  /** "Rerolls left: 2 of 2" (the price is in the confirm dialog) */
   label: string;
 }
 
@@ -59,8 +59,7 @@ export function rerollInfo(doc: Pick<QuestsDoc, "rerollsUsed">): RerollInfo {
   const costs = QUESTS.rerollCosts;
   const left = Math.max(0, costs.length - doc.rerollsUsed);
   const cost = costs[doc.rerollsUsed] ?? null;
-  const price = costs.map((c, i) => (i === 0 ? `${c} coins` : String(c))).join(", then ");
-  return { cost, left, label: `Rerolls cost ${price}. ${left === 0 ? "None left this week." : `${left} left this week.`}` };
+  return { cost, left, label: `Rerolls left: ${left} of ${costs.length}` };
 }
 
 // ---- Schedule editor ----

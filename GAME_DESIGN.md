@@ -421,6 +421,12 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Accessory effects:** duplicates add up, each effect capped (crit 25%, healing 20%, damage reduction 20%, cooldown reduction 40%, salvage yield +50%, reroll discount 50%).
 - **Boss tiers** 1 to 5, gated at levels 1, 8, 15, 25, 35; the highest your level and power allow, no opting down.
 
+**UI polish (Hero and Quests wording)**
+- Gear cards: a level-gated item keeps its Equip button, disabled, with a lock and the level inside it ("Equip 🔒 25"); Shop cards show a small lock and the level. The upgrade level is shown only once above zero, in brackets after the rarity ("Mythic", "Mythic (+1)"), everywhere (rows, cards, the confirm dialogs). The four helper lines under a card (upgrade preview, "act on one of your N", level, "named gear can't be sold") are gone. A line appears under the buttons only when something is greyed out for a non-obvious reason: an Upgrade the player can't afford, or "Unequip it to sell or salvage it" on an equipped item. The upgrade cost lives in the confirm dialog.
+- The Accessories description is gone. Pause, Injuries and the Shop description sit behind a small info icon next to their heading that expands the text in place (collapsed by default), not a dialog.
+- Rerolls show how many are left ("Rerolls left: 1 of 2") instead of their prices. The Shop button still carries its price ("Reroll for 100 coins"), since that is where you spend it, and the Quests reroll price is in its confirm dialog.
+- The Titles tab's list is headed "Titles" (not "Achievements"), with one line-art icon per title: Calibrated a target, Regular a calendar check, Unbroken a chain link, Record Breaker a trophy, Questmaster a scroll, Well Rounded a hexagon, Iron Habit a flame, Centurion a crown. Lit in the accent color once earned, muted before. The icons show in the list only.
+
 **Rollout order (not yet done; do it once, after Phase 3)**
 1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
 2. Deploy the Firestore rules (`npx firebase-tools deploy --only firestore:rules`). Must come after the backfill, or exercises with old free-text muscles can't be edited.

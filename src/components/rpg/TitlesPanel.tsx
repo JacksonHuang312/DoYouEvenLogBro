@@ -8,6 +8,7 @@ import { buyTitleSlot, checkTitles, equipTitles } from "@/lib/gameApi";
 import { confirmRpgDialog } from "@/lib/rpgDialog";
 import { useRunner } from "@/lib/useRunner";
 import { OfflineNote } from "./Disclosure";
+import { TitleIcon } from "./TitleIcon";
 
 const number = (n: number) => n.toLocaleString("en-US");
 const HEADING = "font-rpg-head text-xl font-semibold uppercase tracking-[0.02em]";
@@ -99,7 +100,7 @@ export function TitlesPanel({ state, online }: { state: GameState | null; online
       </section>
 
       <section className="px-5 pt-4">
-        <h2 className={HEADING}>Achievements</h2>
+        <h2 className={HEADING}>Titles</h2>
         {loadFailed && !progress && (
           <p className="pt-1 text-[11px] text-rpg-warn">Couldn&apos;t check your progress right now. Earned titles still show.</p>
         )}
@@ -108,13 +109,16 @@ export function TitlesPanel({ state, online }: { state: GameState | null; online
           {view.rows.map((r) => (
             <li key={r.id} className="flex flex-col gap-1.5 border-b border-rpg-line-soft py-3">
               <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <TitleIcon id={r.id} earned={r.earned} />
+                  <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-rpg-head text-lg font-semibold uppercase leading-tight">{r.name}</span>
                     <span className="text-xs text-rpg-accent">{r.bonus}</span>
                     {r.equipped && <span className="text-[11px] text-rpg-good">Equipped</span>}
                   </span>
                   <span className="text-xs text-rpg-text-2">{r.description}</span>
+                  </div>
                 </div>
                 {r.action && (
                   <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
 import { isAccessory } from "@/lib/game/config";
@@ -10,6 +11,7 @@ import { addDays, dayStartMs } from "@/lib/game/time";
 import { useShop } from "@/lib/useGame";
 import { useRunner } from "@/lib/useRunner";
 import { OfflineNote } from "./Disclosure";
+import { InfoButton, InfoText, useInfo } from "./InfoToggle";
 import { RARITY_BORDER, RARITY_TEXT } from "./rarity";
 import { Skeleton } from "./RpgScreen";
 import { SlotIcon } from "./SlotIcon";
@@ -43,6 +45,7 @@ export function ShopPanel({
   const shop = useShop(uid, weekId);
   const view = useMemo(() => shopView(uid, shop.data, state, clock, timeZone), [uid, shop.data, state, clock, timeZone]);
   const { busy, run } = useRunner();
+  const info = useInfo();
 
   // Offline with no shop doc cached (a user who has never bought or rerolled has none), the stock
   // is still known: it is computed from the week. It shows with the buttons off, and a note.
@@ -108,11 +111,18 @@ export function ShopPanel({
     <>
       <div className="flex items-end justify-between gap-3 px-5 pt-3">
         <div className="flex flex-col gap-0.5">
-          <h2 className={HEADING}>This week</h2>
+          <div className="flex items-center gap-1">
+            <h2 className={HEADING}>This week</h2>
+            <InfoButton info={info} label="the shop" />
+          </div>
           <span className="text-[11px] text-rpg-muted">Restocks in {view.restocks} (Sunday 00:00)</span>
         </div>
         <span className="pb-0.5 text-xs text-rpg-text-2">{number(state?.coins ?? 0)} coins</span>
       </div>
+      <InfoText info={info} className="px-5 pt-1">
+        The shop sells Common to Epic gear at a markup. Legendary and Mythic gear only drops from bosses. Selling pays a quarter of an
+        item&apos;s original value.
+      </InfoText>
       {!online && (
         <div className="px-5 pt-2">
           <OfflineNote what="Buying and rerolling" />
@@ -138,7 +148,12 @@ export function ShopPanel({
               <span className="break-words font-rpg-head text-lg font-semibold leading-tight">{o.name}</span>
               <span className="text-[11px] text-rpg-muted">{o.focus}</span>
               <span className="text-[11px] text-rpg-muted">{o.setName ? `${o.setName} set` : isAccessory(o.slot) ? "Accessory" : "Loose item"} · unnamed</span>
-              {o.locked && <span className="text-[11px] text-rpg-warn">Equip at level {o.locked.level}</span>}
+              {o.locked && (
+                <span aria-label={`Needs level ${o.locked.level} to equip`} className="flex items-center gap-1 text-[11px] text-rpg-warn">
+                  <Lock size={11} aria-hidden />
+                  {o.locked.level}
+                </span>
+              )}
             </div>
             {o.bought ? (
               <div className="flex min-h-11 items-center justify-center border border-rpg-line-soft text-xs text-rpg-muted">
@@ -168,11 +183,7 @@ export function ShopPanel({
         >
           {view.reroll.label}
         </button>
-        {view.reroll.reason && view.reroll.cost != null && <p className="text-[11px] text-rpg-muted">{view.reroll.reason}</p>}
-        <p className="text-xs leading-relaxed text-rpg-muted">
-          The shop sells Common to Epic gear at a markup. Legendary and Mythic gear only drops from bosses. Selling pays a quarter of an item&apos;s
-          original value.
-        </p>
+        <p className="text-[11px] text-rpg-muted">Rerolls left: {view.reroll.left} of {view.reroll.total}</p>
       </section>
     </>
   );

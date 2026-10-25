@@ -18,6 +18,7 @@ import {
 import { addDays, dayId } from "@/lib/game/time";
 import { DatePicker } from "./DatePicker";
 import { OfflineNote } from "./Disclosure";
+import { InfoButton, InfoText, useInfo } from "./InfoToggle";
 
 const SECONDARY = "min-h-11 border border-rpg-line-strong px-3 text-[13px] text-rpg-text-2 disabled:opacity-40";
 const PRIMARY = "min-h-11 bg-rpg-text px-4 text-[13px] font-semibold text-rpg-bg disabled:opacity-40";
@@ -83,6 +84,7 @@ interface PartProps {
 
 function PausePart({ state, now, timeZone, off, run }: PartProps) {
   const [days, setDays] = useState(14);
+  const info = useInfo();
   const view = pauseView(state, now, timeZone);
   const plan = pausePlan(state, days, now, timeZone);
 
@@ -106,7 +108,13 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className={SUBHEAD}>Pause</h3>
+      <div className="flex items-center justify-between">
+        <h3 className={SUBHEAD}>Pause</h3>
+        <InfoButton info={info} label="pausing" />
+      </div>
+      <InfoText info={info}>
+        Away for a while? A pause freezes decay and your schedule. {PAUSE.minDays} to {PAUSE.maxDays} days.
+      </InfoText>
       {view.active ? (
         <>
           <p className="text-xs leading-relaxed text-rpg-text-2">
@@ -122,9 +130,6 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
         </>
       ) : (
         <>
-          <p className="text-xs leading-relaxed text-rpg-text-2">
-            Away for a while? A pause freezes decay and your schedule. {PAUSE.minDays} to {PAUSE.maxDays} days.
-          </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDays((d) => Math.max(PAUSE.minDays, d - 1))}
@@ -164,6 +169,7 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
   const view = injuryView(state, now, timeZone);
   const today = dayId(now, timeZone);
   const [stat, setStat] = useState<Stat | "">("");
+  const info = useInfo();
   const [back, setBack] = useState("");
   const [note, setNote] = useState("");
 
@@ -192,11 +198,14 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className={SUBHEAD}>Injuries</h3>
-      <p className="text-xs leading-relaxed text-rpg-text-2">
-        Flag up to {INJURY.maxStats} stats you&apos;re resting. Quests skip them and their decay freezes. A flag lapses
-        after {INJURY.expiryWeeks} weeks unless you renew it.
-      </p>
+      <div className="flex items-center justify-between">
+        <h3 className={SUBHEAD}>Injuries</h3>
+        <InfoButton info={info} label="injuries" />
+      </div>
+      <InfoText info={info}>
+        Flag up to {INJURY.maxStats} stats you&apos;re resting. Quests skip them and their decay freezes. A flag lapses after{" "}
+        {INJURY.expiryWeeks} weeks unless you renew it.
+      </InfoText>
 
       {view.rows.map((row) => (
         <div key={row.stat} className="flex flex-col gap-1.5 border-t border-rpg-line-soft py-2">

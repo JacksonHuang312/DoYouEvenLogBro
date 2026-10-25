@@ -55,6 +55,7 @@ To click around by hand as the test user: `npm run emulators`, then `npm run e2e
 | `offline.e2e.ts` | Gear, Shop and Titles with the network off: buttons disabled, offline notes shown, back online re-enables |
 | `routines.e2e.ts` | Routine editor rep range: empty by default, half-typed/reversed/out-of-bounds refused, step in the user's unit saved in kg, reopening, clearing removes every field |
 | `workout-targets.e2e.ts` | Workout screen target and hint (add weight, aim for the top, lighter), changing the range mid-workout saves to the routine, clearing, logging a set still works |
+| `quests.e2e.ts` | Quests screen: rerolls left instead of prices, the pause and injury text behind an info button |
 
 ## Adding a flow
 

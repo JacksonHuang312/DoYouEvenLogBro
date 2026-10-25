@@ -5,6 +5,7 @@ import { ARMOR_SLOTS, POSITIONS } from "./config";
 import { newItem, type OwnedItem } from "./items";
 import {
   powerView,
+  rarityWithPlus,
   restockLabel,
   scrapOf,
   setProgress,
@@ -76,7 +77,7 @@ describe("positionViews", () => {
   test("upgrade shows the step, the cost and what it would give; or why it is off", () => {
     const rare = owned("steelguard-gloves");
     const up = slotOf(game(), [rare], "gloves").items[0].upgrade!;
-    expect(up).toMatchObject({ label: "Rare +0 → Rare +1", coins: 250, scrap: 8, enabled: true, costLabel: "250 coins + 8 scrap" });
+    expect(up).toMatchObject({ label: "Rare → Rare (+1)", coins: 250, scrap: 8, enabled: true, costLabel: "250 coins + 8 scrap" });
     expect(up.powerAfter).toBeGreaterThan(10);
     expect(slotOf(game({ coins: 10 }), [rare], "gloves").items[0].upgrade).toMatchObject({ enabled: false, reason: "Not enough coins" });
     expect(slotOf(game({ materials: {} }), [rare], "gloves").items[0].upgrade).toMatchObject({ enabled: false, reason: "Not enough scrap" });
@@ -84,7 +85,7 @@ describe("positionViews", () => {
 
   test("promotion step and the top of the ladder", () => {
     const promo = owned("steelguard-gloves", { plus: 2 });
-    expect(slotOf(game(), [promo], "gloves").items[0].upgrade?.label).toBe("Rare +2 → Epic +0");
+    expect(slotOf(game(), [promo], "gloves").items[0].upgrade?.label).toBe("Rare (+2) → Epic");
     const named = owned("titans-vow-gloves", { plus: 2 });
     const up = slotOf(game(), [named], "gloves").items[0].upgrade!;
     expect(up).toMatchObject({ mythicCore: 1, enabled: false, reason: "Needs a Mythic Core (boss drop)" });
@@ -309,5 +310,21 @@ describe("stacks and accessories", () => {
     const state = game({ equipped: { ring1: "r" } });
     expect(powerView(500, state, [ring]).gear).toMatchObject({ counted: 9, capped: false });
     expect(powerView(10, state, [ring]).gear).toMatchObject({ counted: 4.3, capped: true });
+  });
+});
+
+describe("rarityWithPlus", () => {
+  test("hides +0 and shows the upgrade level in brackets once upgraded", () => {
+    expect(rarityWithPlus("mythic", 0)).toBe("Mythic");
+    expect(rarityWithPlus("mythic", 1)).toBe("Mythic (+1)");
+    expect(rarityWithPlus("rare", 2)).toBe("Rare (+2)");
+  });
+});
+
+describe("rerolls left", () => {
+  test("counts the rerolls left of the week's total", () => {
+    expect(shopView("alice", null, game(), T0, UTC).reroll).toMatchObject({ left: 2, total: 2 });
+    expect(shopView("alice", { ...emptyShop(WEEK, UTC, T0), rerolls: 1 }, game(), T0, UTC).reroll).toMatchObject({ left: 1, total: 2 });
+    expect(shopView("alice", { ...emptyShop(WEEK, UTC, T0), rerolls: 2 }, game(), T0, UTC).reroll).toMatchObject({ left: 0, total: 2 });
   });
 });

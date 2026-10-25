@@ -41,7 +41,11 @@ test.describe("Gear tab", () => {
     const loops = cardOf(page, "Ring 1", "Silver Loop");
     await expect(loops).toHaveCount(1);
     await expect(loops).toContainText("×2");
-    await expect(loops).toContainText("act on one of your 2");
+    // No +0, no helper lines under the buttons, and the upgrade preview is gone.
+    await expect(sheet(page, "Ring 1")).not.toContainText("+0");
+    await expect(sheet(page, "Ring 1")).not.toContainText("act on one of your");
+    await expect(sheet(page, "Ring 1")).not.toContainText("Named gear can't be sold");
+    await expect(sheet(page, "Ring 1")).not.toContainText("→");
     await expect(sheet(page, "Ring 1").getByRole("listitem")).toHaveCount(4);
     await shot(page, "gear-ring-sheet", { full: false });
     await expectNoOverflow(page, "Ring sheet", info);
@@ -159,14 +163,40 @@ test.describe("Gear tab", () => {
     const named = cardOf(page, "Ring 1", "Sunforged Ring");
     await expect(named.getByRole("button", { name: "Can't sell" })).toBeDisabled();
     await expect(named.getByRole("button", { name: /^Salvage/ })).toBeEnabled();
-    await expect(named).toContainText("Named gear can't be sold");
   });
 
   test("a low level shows what is locked", async ({ hero, page }) => {
     await hero.start({ level: 1 }, "Gear");
     await row(page, "Ring 1").click();
     const epic = cardOf(page, "Ring 1", "Gold Seal");
-    await expect(epic).toContainText("Needs level 8 to equip");
-    await expect(epic.getByRole("button", { name: "Equip", exact: true })).toBeDisabled();
+    // The level sits on the Equip button as a lock and a number, not as a line of text.
+    const equip = epic.getByRole("button", { name: "Equip, needs level 8" });
+    await expect(equip).toBeDisabled();
+    await expect(equip).toContainText("8");
+    await expect(epic).not.toContainText("Needs level");
+    await shot(page, "gear-level-lock", { full: false });
+  });
+});
+
+test.describe("Gear card wording", () => {
+  test("shows (+1) after an upgrade and nothing at +0", async ({ hero, page }) => {
+    await hero.start(undefined, "Gear");
+    await row(page, "Ring 1").click();
+    const card = cardOf(page, "Ring 1", "Copper Band");
+    await expect(card).toContainText("Common · 1 power");
+    await card.getByRole("button", { name: "Upgrade" }).click();
+    await page.getByRole("dialog", { name: "Upgrade Copper Band?" }).getByRole("button", { name: "Upgrade" }).click();
+    await expect(cardOf(page, "Ring 1", "Copper Band")).toContainText("Common (+1)");
+  });
+
+  test("a disabled Upgrade says why, and an equipped item says to unequip first", async ({ hero, page }) => {
+    await hero.start({ scrap: 0 }, "Gear");
+    await row(page, "Ring 1").click();
+    const card = cardOf(page, "Ring 1", "Gold Seal");
+    await expect(card.getByRole("button", { name: "Upgrade" })).toBeDisabled();
+    await expect(card).toContainText(/scrap/i);
+
+    await card.getByRole("button", { name: "Equip", exact: true }).click();
+    await expect(cardOf(page, "Ring 1", "Ring 1")).toContainText("Unequip it to sell or salvage it.");
   });
 });

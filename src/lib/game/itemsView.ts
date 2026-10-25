@@ -9,6 +9,7 @@ import {
   EQUIP_LEVEL,
   POSITIONS,
   SET_BONUS,
+  SHOP,
   TITLES,
   positionsOf,
   slotOfPosition,
@@ -60,6 +61,8 @@ const number = (n: number) => n.toLocaleString("en-US");
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 export const RARITY_LABEL = (r: Rarity) => cap(r);
+/** "Epic", or "Epic (+1)" once upgraded: +0 is not shown. */
+export const rarityWithPlus = (r: Rarity, plus: number) => (plus > 0 ? `${cap(r)} (+${plus})` : cap(r));
 export const SLOT_LABEL: Record<Slot, string> = {
   helmet: "Helmet",
   chestplate: "Chestplate",
@@ -107,7 +110,7 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 // ---- Gear ----
 
 export interface UpgradeView {
-  /** "Rare +1 → Rare +2" or "Rare +2 → Epic +0". */
+  /** "Rare → Rare (+1)" or "Rare (+2) → Epic". */
   label: string;
   coins: number;
   scrap: number;
@@ -127,7 +130,7 @@ export interface ItemView {
   slot: Slot;
   rarity: Rarity;
   plus: number;
-  /** "Epic +1" */
+  /** "Epic" or "Epic (+1)" */
   title: string;
   power: number;
   /** "HP 70 / DEF 30" */
@@ -171,7 +174,7 @@ function itemView(state: GameState, item: OwnedItem, now: number, target: Positi
     const parts = [`${number(cost.coins)} coins`, `${number(cost.scrap)} scrap`];
     if (cost.mythicCore) parts.push(`${cost.mythicCore} Mythic Core`);
     upgrade = {
-      label: `${RARITY_LABEL(item.rarity)} +${item.plus} → ${RARITY_LABEL(to.rarity)} +${to.plus}`,
+      label: `${rarityWithPlus(item.rarity, item.plus)} → ${rarityWithPlus(to.rarity, to.plus)}`,
       coins: cost.coins,
       scrap: cost.scrap,
       mythicCore: cost.mythicCore ?? 0,
@@ -196,7 +199,7 @@ function itemView(state: GameState, item: OwnedItem, now: number, target: Positi
     slot: item.slot,
     rarity: item.rarity,
     plus: item.plus,
-    title: `${RARITY_LABEL(item.rarity)} +${item.plus}`,
+    title: rarityWithPlus(item.rarity, item.plus),
     power: round1(piecePower(item)),
     focus: focusLabel(pieceFocus(item)),
     effect: effectLabel(base, item.rarity),
@@ -356,7 +359,7 @@ export interface ShopView {
   rerolls: number;
   offers: OfferView[];
   restocks: string;
-  reroll: { cost: number | null; enabled: boolean; reason: string | null; label: string };
+  reroll: { cost: number | null; enabled: boolean; reason: string | null; label: string; left: number; total: number };
 }
 
 /** "3d 4h", "5h 12m" or "9m": time until the shop restocks (Sunday 00:00 in the game's time zone). */
@@ -408,6 +411,8 @@ export function shopView(uid: string, doc: ShopDoc | null, state: GameState | nu
       enabled: attempt.ok,
       reason: attempt.ok ? null : attempt.error,
       label: cost == null ? "No rerolls left" : `Reroll for ${number(cost)} coins`,
+      left: Math.max(0, SHOP.rerollCosts.length - shop.rerolls),
+      total: SHOP.rerollCosts.length,
     },
   };
 }
