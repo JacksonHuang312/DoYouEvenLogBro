@@ -156,7 +156,7 @@ function PositionList({ rows, onOpen }: { rows: PositionView[]; onOpen: (p: Posi
                   <span className={`truncate font-rpg-head text-lg font-semibold leading-tight ${RARITY_TEXT[s.equipped.rarity]}`}>
                     {s.equipped.name}
                   </span>
-                  <span className="truncate text-[11px] text-rpg-text-2">
+                  <span className="break-words text-[11px] text-rpg-text-2">
                     {s.equipped.title} · {s.equipped.power} power · {s.equipped.focus}
                   </span>
                 </>

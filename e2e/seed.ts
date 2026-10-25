@@ -23,6 +23,7 @@ export const ITEM_IDS = {
   band: "e2e-copper-band",
   sunforged: "e2e-sunforged-ring",
   helm: "e2e-steelguard-helmet",
+  pot: "e2e-scrapper-pot",
 } as const;
 
 const GEAR: Record<keyof typeof ITEM_IDS, string> = {
@@ -32,13 +33,14 @@ const GEAR: Record<keyof typeof ITEM_IDS, string> = {
   band: "copper-band", // Common ring.
   sunforged: "sunforged-ring", // Legendary ring: named, so salvage-only.
   helm: "steelguard-helmet", // Rare helmet from a set.
+  pot: "scrapper-helmet", // Common helmet (DEF 80 / ATK 20): the longest subtitle. Only when asked for.
 };
 
 export interface SeedOptions {
   coins?: number;
   scrap?: number;
   level?: number;
-  /** Items to give, by ITEM_IDS key. Default: all of them. */
+  /** Items to give, by ITEM_IDS key. Default: all of them except `pot`. */
   gear?: (keyof typeof ITEM_IDS)[];
   /** Also write this week's (empty) shop doc, as if the user had already used the shop. Without it the shop doc does not exist yet. */
   shopDoc?: boolean;
@@ -71,7 +73,7 @@ function muscles(now: number): MusclesFacts {
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 30, gear = Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[], shopDoc = false, routine = false, unit = "lb", lastBench } = options;
+  const { coins = 5000, scrap = 300, level = 30, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench } = options;
   const db = adminDb();
   const now = Date.now();
 

@@ -178,6 +178,23 @@ test.describe("Gear tab", () => {
   });
 });
 
+test.describe("Gear rows", () => {
+  test("an equipped item's details wrap instead of being cut off", async ({ hero, page }) => {
+    await hero.start({ gear: ["pot"] }, "Gear");
+    expect((await hero.api("/api/items", { action: "equip", itemId: ITEM_IDS.pot, position: "helmet" })).status).toBe(200);
+    await page.reload();
+    await hero.openTab("Gear");
+    const helmet = row(page, "Helmet");
+    await expect(helmet).toContainText("DEF 80 / ATK 20");
+    // Nothing inside the row is clipped: no text wider than its box.
+    const clipped = await helmet.evaluate((el) =>
+      [...el.querySelectorAll<HTMLElement>("span")].filter((s) => s.scrollWidth > s.clientWidth + 1).map((s) => s.innerText),
+    );
+    expect(clipped).toEqual([]);
+    await shot(page, "gear-row-wrap", { full: false });
+  });
+});
+
 test.describe("Gear card wording", () => {
   test("shows (+1) after an upgrade and nothing at +0", async ({ hero, page }) => {
     await hero.start(undefined, "Gear");
