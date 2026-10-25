@@ -33,7 +33,7 @@ const GEAR: Record<keyof typeof ITEM_IDS, string> = {
   band: "copper-band", // Common ring.
   sunforged: "sunforged-ring", // Legendary ring: named, so salvage-only.
   helm: "steelguard-helmet", // Rare helmet from a set.
-  pot: "scrapper-helmet", // Common helmet (DEF 80 / ATK 20): the longest subtitle. Only when asked for.
+  pot: "scrapper-helmet", // Common helmet (ATK 20 / DEF 80): the longest subtitle. Only when asked for.
 };
 
 export interface SeedOptions {

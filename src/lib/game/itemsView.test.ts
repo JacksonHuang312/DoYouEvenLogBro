@@ -300,7 +300,7 @@ describe("stacks and accessories", () => {
     expect(ring).toMatchObject({ power: 9, focus: "ATK 80 / DEF 20", named: true, slot: "ring" });
     expect(ring.effect).toBe("Crit chance +5% (not active yet)");
     const charm = slotOf(game(), [owned("lucky-pebble")], "charm2").items[0];
-    expect(charm).toMatchObject({ power: 1, focus: "HP 34 / ATK 33 / DEF 33" });
+    expect(charm).toMatchObject({ power: 1, focus: "ATK 33 / HP 34 / DEF 33" });
     expect(slotOf(game(), [owned("unbroken-gloves")], "gloves").items[0].effect).toBe("Unique effect (not active yet)");
     expect(slotOf(game(), [owned("ironbound-gloves")], "gloves").items[0].effect).toBeNull();
   });
@@ -326,5 +326,20 @@ describe("rerolls left", () => {
     expect(shopView("alice", null, game(), T0, UTC).reroll).toMatchObject({ left: 2, total: 2 });
     expect(shopView("alice", { ...emptyShop(WEEK, UTC, T0), rerolls: 1 }, game(), T0, UTC).reroll).toMatchObject({ left: 1, total: 2 });
     expect(shopView("alice", { ...emptyShop(WEEK, UTC, T0), rerolls: 2 }, game(), T0, UTC).reroll).toMatchObject({ left: 0, total: 2 });
+  });
+});
+
+describe("focusLabel order", () => {
+  test("always attack, then health, then defense, whatever the sizes", () => {
+    expect(focusLabel({ hp: 20, atk: 80 })).toBe("ATK 80 / HP 20");
+    expect(focusLabel({ def: 80, atk: 20 })).toBe("ATK 20 / DEF 80");
+    expect(focusLabel({ def: 50, hp: 30, atk: 20 })).toBe("ATK 20 / HP 30 / DEF 50");
+    expect(focusLabel({ def: 60, hp: 40 })).toBe("HP 40 / DEF 60");
+  });
+
+  test("leaves out a stat at 0 or missing, and shows a single stat alone", () => {
+    expect(focusLabel({ hp: 100, atk: 0, def: 0 })).toBe("HP 100");
+    expect(focusLabel({ def: 100 })).toBe("DEF 100");
+    expect(focusLabel({})).toBe("");
   });
 });

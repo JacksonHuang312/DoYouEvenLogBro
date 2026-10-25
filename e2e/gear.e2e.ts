@@ -185,7 +185,12 @@ test.describe("Gear rows", () => {
     await page.reload();
     await hero.openTab("Gear");
     const helmet = row(page, "Helmet");
-    await expect(helmet).toContainText("DEF 80 / ATK 20");
+    // Two lines: rarity and power, then the stats, always attack, health, defense.
+    await expect(helmet.getByText("Common · 3 power", { exact: true })).toBeVisible();
+    await expect(helmet.getByText("ATK 20 / DEF 80", { exact: true })).toBeVisible();
+    const first = await helmet.getByText("Common · 3 power", { exact: true }).boundingBox();
+    const second = await helmet.getByText("ATK 20 / DEF 80", { exact: true }).boundingBox();
+    expect(second!.y).toBeGreaterThan(first!.y + first!.height - 1);
     // Nothing inside the row is clipped: no text wider than its box.
     const clipped = await helmet.evaluate((el) =>
       [...el.querySelectorAll<HTMLElement>("span")].filter((s) => s.scrollWidth > s.clientWidth + 1).map((s) => s.innerText),

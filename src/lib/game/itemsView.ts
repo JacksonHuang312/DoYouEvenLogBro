@@ -4,7 +4,6 @@ import { newGameState, type GameState } from "./claim";
 import {
   ACCESSORY_EFFECTS,
   ACHIEVEMENTS,
-  ATTRIBUTES,
   BONUS_BUCKET_CAP,
   EQUIP_LEVEL,
   POSITIONS,
@@ -89,10 +88,12 @@ export const POSITION_LABEL: Record<Position, string> = {
   charm2: "Charm 2",
 };
 
-/** "HP 70 / DEF 30": where an item's power goes, biggest share first. */
+/** The order stats are always shown in, whatever their size. */
+const FOCUS_ORDER = ["atk", "hp", "def"] as const;
+
+/** "ATK 80 / HP 20": where an item's power goes, always attack, then health, then defense; a stat at 0 is left out. */
 export function focusLabel(focus: Focus): string {
-  return ATTRIBUTES.filter((a) => (focus[a] ?? 0) > 0)
-    .sort((a, b) => (focus[b] ?? 0) - (focus[a] ?? 0))
+  return FOCUS_ORDER.filter((a) => (focus[a] ?? 0) > 0)
     .map((a) => `${a.toUpperCase()} ${focus[a]}`)
     .join(" / ");
 }
