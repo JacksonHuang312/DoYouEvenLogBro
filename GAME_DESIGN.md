@@ -434,6 +434,26 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Endless tower:** only your next uncleared floor can be fought.
 - **Combat numbers** (damage formula, boss power per tier and floor, timers) are Claude's first draft; after building, a win-chance table (by class, boss type and power ratio) is shown for tuning. Target: a hero at a boss's recommended power wins about 65% of the time, and the chance rises smoothly with power.
 
+**Phase 5, piece 1 (built): fight engine, bosses, loot**
+- Pure and tested, nothing on screen yet: `combat.ts` (hero and enemy, the timed fight), `effects.ts` (gear effects), `bossData.ts` (the 47 bosses, a draft for review), `bosses.ts` (weekly rotation and tier, towers, Campaign stages, stat minimums), `loot.ts` (drops, guarantees, payouts), and every number in `config.ts` (`CLASSES`, `SKILLS`, `COMBAT`, `WEEKLY_BOSS`, `BOSS_DROPS`, `ENDLESS_TOWER`, `BOSS_TOWER`, `CAMPAIGN`, `MYTHIC_EFFECTS`).
+- Changes made while tuning (all in config):
+  - Defense counts against its owner's battle power (hit × K / (K + DEF), K = 0.29 × the defender's power), so a fight plays the same at any power level and class weights stay linear.
+  - Each side rolls a "form" once per fight (±12% damage), so fights near even power can go either way instead of the stronger side always winning.
+  - Vanguard's Bastion also slams for 3× attack (otherwise Vanguards could not kill before the enrage), and Guard is held for telegraphed big hits or used below 60% HP. Vanguard weights are HP and DEF ×1.2 (not 1.3) and it attacks every 0.9 s.
+  - Mend heals 6% + 7% × (Core ÷ your average stat), up to 25%: a Core stronger than your other stats heals more, at any power.
+- Win chance at even power (`npm run combat-table`, 1,000 fights each). Each special type has a class that handles it best and one that struggles; real bosses mix types.
+
+| Boss type | Vanguard | Striker | Cleric |
+| --- | --- | --- | --- |
+| plain | 67% | 65% | 61% |
+| brute (big telegraphed hits) | 85% | 64% | 30% |
+| bleeder (damage DEF can't stop) | 0% | 65% | 91% |
+| timer (early enrage) | 60% | 100% | 2% |
+| mixed | 62% | 80% | 42% |
+
+  At 0.9× power a hero mostly loses (0 to 30%), at 1.1× mostly wins (85 to 100%), so the weekly tier (picked at 90% of a tier's power) is a real but fair fight.
+- **Waiting on Jackson:** review the boss names, descriptions, types and minimums in `bossData.ts` before the server and screens are built on them, and say if any class matchup above feels wrong.
+
 **UI polish (Hero and Quests wording)**
 - Gear cards: a level-gated item keeps its Equip button, disabled, with a lock and the level inside it ("Equip 🔒 25"); Shop cards show a small lock and the level. The upgrade level is shown only once above zero, in brackets after the rarity ("Mythic", "Mythic (+1)"), everywhere (rows, cards, the confirm dialogs). The four helper lines under a card (upgrade preview, "act on one of your N", level, "named gear can't be sold") are gone. A line appears under the buttons only when something is greyed out for a non-obvious reason: an Upgrade the player can't afford, or "Unequip it to sell or salvage it" on an equipped item. The upgrade cost lives in the confirm dialog.
 - An item's stats are always shown attack, then health, then defense ("ATK 80 / HP 20"), never by size, and a stat at 0 is left out. An equipped slot's row has two lines: rarity and power, then the stats.

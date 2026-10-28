@@ -444,3 +444,219 @@ export const ACHIEVEMENTS = {
 export const WEEK_START_DAY = 0;
 
 export const DEFAULT_TIME_ZONE = "UTC";
+
+// ---- Combat (sections 4 and 10, Phase 5) ----
+// First draft of every combat number. After the fight engine is built, scripts/combat-table.ts prints
+// win chances by class, boss type and power ratio so these can be tuned.
+
+export const CLASS_IDS = ["vanguard", "striker", "cleric"] as const;
+export type ClassId = (typeof CLASS_IDS)[number];
+
+export interface ClassDef {
+  name: string;
+  /** Added to the bonus pool (titles + class, capped at BONUS_BUCKET_CAP). Small on purpose: titles share it. */
+  bucketPct: number;
+  /** How this class turns stats into combat attributes: multiplies HP, ATK and DEF. */
+  weights: { hp: number; atk: number; def: number };
+  /** Seconds between basic attacks. */
+  attackEverySec: number;
+  skill: { name: string; cooldownSec: number; firstAtSec: number };
+  ultimate: { name: string };
+}
+
+export const CLASSES: Record<ClassId, ClassDef> = {
+  vanguard: {
+    name: "Vanguard",
+    bucketPct: 0.03,
+    weights: { hp: 1.2, atk: 0.7, def: 1.2 },
+    attackEverySec: 0.9,
+    skill: { name: "Guard", cooldownSec: 6, firstAtSec: 2 },
+    ultimate: { name: "Bastion" },
+  },
+  striker: {
+    name: "Striker",
+    bucketPct: 0.03,
+    weights: { hp: 0.9, atk: 1.4, def: 0.8 },
+    attackEverySec: 0.9,
+    skill: { name: "Power Strike", cooldownSec: 6, firstAtSec: 3 },
+    ultimate: { name: "Execution" },
+  },
+  cleric: {
+    name: "Cleric",
+    bucketPct: 0.03,
+    weights: { hp: 1.1, atk: 0.8, def: 1 },
+    attackEverySec: 1,
+    skill: { name: "Mend", cooldownSec: 6, firstAtSec: 3 },
+    ultimate: { name: "Radiance" },
+  },
+};
+
+/** What each class's skill and ultimate do. */
+export const SKILLS = {
+  /** Vanguard: damage taken from hits is halved for a while. Held for a telegraphed big hit; with none coming, used once hurt below useBelowPct. */
+  guard: { damageTakenFactor: 0.5, durationSec: 3, useBelowPct: 0.6 },
+  /** Striker: one hit at this times attack. */
+  powerStrike: { multiplier: 2.2 },
+  /**
+   * Cleric only: heals maxHP × min(maxPct, basePct + perCorePct × Core / your average stat), used once
+   * hurt below useBelowPct. A Core stronger than your other stats heals more, at any power level.
+   */
+  mend: { basePct: 0.06, perCorePct: 0.07, maxPct: 0.25, useBelowPct: 0.7 },
+  /** Vanguard ultimate: slams for strikeMultiplier × attack and raises a shield of shieldPct of max HP for a while. */
+  bastion: { strikeMultiplier: 3, shieldPct: 0.12, durationSec: 8 },
+  /** Striker ultimate: one hit at this times attack. */
+  execution: { multiplier: 4 },
+  /** Cleric ultimate: heals this share of max HP and stops bleeding for a while. */
+  radiance: { healPct: 0.2, bleedFreeSec: 8 },
+};
+
+/** The five Mythics' unique effects (section 10). */
+export const MYTHIC_EFFECTS = {
+  "unbroken-crown": { label: "Last Stand: once a fight, survive a killing blow at 1 HP" },
+  "unbroken-heart": { label: "Reflects 15% of damage taken" },
+  "unbroken-hands": { label: "Every 4th attack is a critical hit" },
+  "unbroken-pillars": { label: "Regenerates 3% of max HP every 2 s while under half HP" },
+  "unbroken-path": { label: "The enemy enrages 5 s later" },
+} as const;
+export type MythicEffect = keyof typeof MYTHIC_EFFECTS;
+
+export const COMBAT = {
+  /** The fight is simulated in steps of this many milliseconds. */
+  tickMs: 100,
+  /** At this many seconds the enemy enrages and the fight is lost. */
+  enrageSec: 45,
+  /** HP = HP points × this. ATK and DEF are their points as they are. */
+  hpPerPoint: 8,
+  /**
+   * A hit lands for attack × K / (K + defense), where K = defenseShare × the defender's own battle
+   * power: defense counts relative to how strong its owner is, so a fight plays the same at any power
+   * level and every class weight stays linear.
+   */
+  defenseShare: 0.29,
+  /** Every hit varies by up to this share either way, so fights near even can go both ways. */
+  damageSpread: 0.15,
+  /**
+   * Each side's form on the day: one roll per fight multiplies its damage by up to this share either
+   * way, so fights near even power can go both ways instead of the stronger side always winning.
+   */
+  formSpread: 0.12,
+  baseCrit: 0.08,
+  critMultiplier: 1.6,
+  /** The ultimate fires when energy reaches `full`. Taking hits charges it faster, so tanks get theirs too. */
+  energy: { perHitLanded: 5, perHitTaken: 8, full: 100 },
+  /** How each stat's points split into HP / ATK / DEF, before class weights. Each row adds up to 1. */
+  statAttributes: {
+    chest: { hp: 0, atk: 0.6, def: 0.4 },
+    back: { hp: 0.5, atk: 0.2, def: 0.3 },
+    shoulders: { hp: 0.2, atk: 0.5, def: 0.3 },
+    arms: { hp: 0.2, atk: 0.8, def: 0 },
+    legs: { hp: 0.6, atk: 0.2, def: 0.2 },
+    core: { hp: 0.5, atk: 0, def: 0.5 },
+  } as Record<Stat, { hp: number; atk: number; def: number }>,
+  /**
+   * Boss minimums are shares of the stat a balanced hero at the boss's power would have
+   * (power / powerPerStat). Being under one is allowed only with this much more power than the boss.
+   */
+  powerPerStat: 5.5,
+  minimumMargin: 0.2,
+  /** A necklace's healing works at this strength for anyone who isn't a Cleric. */
+  necklaceNonClericFactor: 0.5,
+  /** A necklace heals its healing share of max HP this often. */
+  necklaceEverySec: 5,
+  /** Duplicate accessory effects add up, to these caps. */
+  effectCaps: { crit: 0.25, healing: 0.2, damageReduction: 0.2, bossCooldown: 0.4, salvageYield: 0.5, rerollDiscount: 0.5 },
+  mythic: {
+    lastStandHp: 1,
+    heartReflect: 0.15,
+    handsEvery: 4,
+    pillarsBelowPct: 0.5,
+    pillarsPct: 0.03,
+    pillarsEverySec: 2,
+    pathEnrageSec: 5,
+  },
+  /**
+   * An enemy's numbers from its recommended battle power P, before the boss's own multipliers:
+   * HP = P × hpPerPower, ATK = P × atkPerPower, DEF = P × defPerPower.
+   */
+  foe: { hpPerPower: 6.3, atkPerPower: 0.48, defPerPower: 0.33, attackEverySec: 1.5 },
+};
+
+/** Weekly boss (section 10): one fight a day, tier locked at week start. */
+export const WEEKLY_BOSS = {
+  /** Level needed for tiers 1 to 5. */
+  tierLevels: [1, 8, 15, 25, 35],
+  /** Recommended battle power of tiers 1 to 5. */
+  tierPower: [150, 250, 350, 475, 625],
+  /** You get the highest tier your level allows whose recommended power you reach this share of. */
+  tierPowerShare: 0.9,
+  /** The daily fight resets at this hour in the user's time zone. */
+  resetHour: 4,
+  /** The week's first win pays these, by tier; later wins pay refightShare of them. */
+  coins: [50, 75, 100, 125, 150],
+  scrap: [10, 20, 30, 45, 60],
+  refightShare: 0.5,
+};
+
+/** Drops from boss wins (weekly boss and Boss Tower first clears). */
+export const BOSS_DROPS = {
+  /** By weekly tier 1 to 5: the chance of a gear drop, and its rarity when it drops. */
+  tiers: [
+    { chance: 0.01, weights: { rare: 100 } },
+    { chance: 0.015, weights: { rare: 80, epic: 20 } },
+    { chance: 0.02, weights: { rare: 50, epic: 45, legendary: 5 } },
+    { chance: 0.025, weights: { epic: 60, legendary: 38, mythic: 2 } },
+    { chance: 0.03, weights: { epic: 40, legendary: 55, mythic: 5 } },
+  ] as { chance: number; weights: Partial<Record<Rarity, number>> }[],
+  /** A Mythic Core drops with this chance on a weekly win at tier fromTier or higher. */
+  mythicCore: { fromTier: 4, chance: 0.02 },
+  /**
+   * Guarantees, counted in wins that could have dropped that rarity: a Legendary after this many
+   * without one, a Mythic (with a Mythic Core) after this many without one.
+   */
+  pity: { legendary: 42, mythic: 210 },
+};
+
+/** The endless tower: generic floors, only the next one can be fought. */
+export const ENDLESS_TOWER = {
+  minLevel: 5,
+  basePower: 120,
+  growth: 1.05,
+  lossCooldownHours: 4,
+  autoClimbMax: 5,
+  /** Coins for a floor: base + one per two floors, at most max; every 10th floor pays tenthFloorMultiplier times. */
+  coins: { base: 5, perTwoFloors: 1, max: 30, tenthFloorMultiplier: 3 },
+  scrap: { base: 2, perTenFloors: 1 },
+  gear: { chance: 0.08, weights: { common: 50, uncommon: 35, rare: 15 } as Partial<Record<Rarity, number>> },
+};
+
+/** The Boss Tower: a named boss per floor; first clears pay well, reclears pay a little gold. */
+export const BOSS_TOWER = {
+  minLevel: 15,
+  floors: 30,
+  basePower: 300,
+  growth: 1.05,
+  cooldownHours: 4,
+  /** Floors per drop tier: floors 1-6 drop like weekly tier 1, 7-12 like tier 2, and so on. */
+  floorsPerTier: 6,
+  coins: { base: 60, perFloor: 6 },
+  scrap: { base: 10, perFloor: 2 },
+  /** A first clear's gear chance; the rarity split is the weekly tier's. */
+  gearChance: 0.15,
+  /** Every coreEvery-th floor's first clear has this chance of a Mythic Core. */
+  coreEvery: 10,
+  coreChance: 0.5,
+  /** A reclear pays this share of the first clear's coins, and nothing else. */
+  reclearCoinShare: 0.1,
+};
+
+/** The Campaign: chapters of fixed stages, only the next one can be fought, no cooldown. */
+export const CAMPAIGN = {
+  chapters: 5,
+  stagesPerChapter: 12,
+  basePower: 100,
+  growth: 1.025,
+  coins: { base: 20, perStage: 1 },
+  scrap: { base: 3, perSixStages: 1 },
+  /** Never Legendary or Mythic; Epic very rare, because there are many stages. */
+  gear: { chance: 0.1, weights: { common: 60, uncommon: 30, rare: 9.5, epic: 0.5 } as Partial<Record<Rarity, number>> },
+};
