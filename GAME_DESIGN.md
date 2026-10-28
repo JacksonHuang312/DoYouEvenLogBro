@@ -421,6 +421,19 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Accessory effects:** duplicates add up, each effect capped (crit 25%, healing 20%, damage reduction 20%, cooldown reduction 40%, salvage yield +50%, reroll discount 50%).
 - **Boss tiers** 1 to 5, gated at levels 1, 8, 15, 25, 35; the highest your level and power allow, no opting down.
 
+**Phase 5 decisions, round 2 (agreed; these win where they differ from the list above)**
+- **Bosses:** the weekly boss has its own pool of 12 unique bosses (one a week, repeating every 12 weeks, scaled to your tier). The Boss Tower has its own 30 unique bosses, one per floor. The Campaign has 5 chapter bosses; its other stages are regular enemies. Claude drafts all names and mechanics in `bossData.ts`; Jackson reviews them there before anything is built on them.
+- **Fights are timed, like AFK Arena, not round-based.** Both sides attack on their own timers. Each class has one skill on a cooldown (about 6 s) and an ultimate charged by energy (+8 per hit landed, +12 per hit taken, fires at 100). Bosses telegraph big hits a few seconds ahead and have bleed (ignores DEF; only healing offsets it) and enrage (at 45 s the fight is lost). Fights run on the server as one deterministic calculation from a seed. After a fight: a result screen with a collapsible timestamped log; an animated replay comes later.
+- **Classes:** the +25% pool bonus stays small, +3% for any class. Classes differ through weights and skills:
+  - Vanguard: HP and DEF x1.3, ATK x0.7. Skill Guard (halves damage taken for 3 s; held for telegraphed big hits). Ultimate Bastion (a shield).
+  - Striker: ATK x1.4, HP x0.9, DEF x0.8. Skill Power Strike (2.2x hit). Ultimate Execution (4x hit).
+  - Cleric: HP x1.1, ATK x0.8. Skill Mend (heals 25% of max HP, scaled by the Core stat; Cleric only). Ultimate Radiance (big heal that clears bleed).
+  - A necklace's healing works at half strength for anyone who isn't a Cleric.
+- **Boss Tower:** opens at level 15; its own 4-hour cooldown after any fight, win or lose. A floor's first clear pays the most: coins, scrap and a 15% gear chance at the floor's tier, plus a Mythic Core chance on every 10th floor. Reclearing an easier floor pays gold only, about 10% of the first clear, no scrap or gear.
+- **Campaign:** 5 chapters of 12 stages (60) at launch, opens at level 1, no cooldown or attempt limit. Only your next uncleared stage can be fought (no replays to farm).
+- **Endless tower:** only your next uncleared floor can be fought.
+- **Combat numbers** (damage formula, boss power per tier and floor, timers) are Claude's first draft; after building, a win-chance table (by class, boss type and power ratio) is shown for tuning. Target: a hero at a boss's recommended power wins about 65% of the time, and the chance rises smoothly with power.
+
 **UI polish (Hero and Quests wording)**
 - Gear cards: a level-gated item keeps its Equip button, disabled, with a lock and the level inside it ("Equip 🔒 25"); Shop cards show a small lock and the level. The upgrade level is shown only once above zero, in brackets after the rarity ("Mythic", "Mythic (+1)"), everywhere (rows, cards, the confirm dialogs). The four helper lines under a card (upgrade preview, "act on one of your N", level, "named gear can't be sold") are gone. A line appears under the buttons only when something is greyed out for a non-obvious reason: an Upgrade the player can't afford, or "Unequip it to sell or salvage it" on an equipped item. The upgrade cost lives in the confirm dialog.
 - An item's stats are always shown attack, then health, then defense ("ATK 80 / HP 20"), never by size, and a stat at 0 is left out. An equipped slot's row has two lines: rarity and power, then the stats.
@@ -442,11 +455,7 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 - Exact decay rate after day 7.
 - Final shop prices and coin numbers (starting values are in section 10).
 
-**Phase 5 (combat): still open (each has a building default, all numbers in `config.ts`)**
-1. The class's share of the +25% bonus pool (titles and class add up there). *Building default:* +3%.
-2. Boss Tower: attempts and cooldown, and what a floor pays. *Building default:* its own 4-hour cooldown after any fight; first clear of a floor pays coins and scrap, with gear drops on the same low-chance rule as the weekly boss.
-3. Campaign: number of chapters and stages, and any limit on attempts. *Building default:* no attempt limit; coins, scrap and Common to Rare gear, Epic very rare; no Legendary or Mythic.
-4. Tower floor 1 needs level 5. *Building default:* no other level gate.
+**Phase 5 (combat):** nothing open. Decisions are in section 10 (both Phase 5 blocks). The combat numbers get tuned after the win-chance table.
 
 ---
 
@@ -454,7 +463,7 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 
 **Anti-abuse (soft, not blocking)**
 - Bodyweight changes of more than 5% from the last entry, and any single claim that raises a stat by more than 8 points **(tunable)**, show a non-blocking "Does this look right?" notice with the sets that caused it and an Edit button. Editing triggers the existing recompute. No hard caps.
-- Pity: guaranteed Legendary after **6** first-clear boss kills without one **(tunable)**. Mythic has its own longer pity.
+- Pity: guaranteed Legendary after **42** boss wins without one, Mythic after **210** (superseded the earlier "6 first-clear kills"; see section 10, Phase 5 decisions).
 
 **Power stacking**
 - Gear and titles affect battle power only. The radar shows raw stats.
