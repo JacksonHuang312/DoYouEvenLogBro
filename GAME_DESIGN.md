@@ -454,6 +454,41 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
   At 0.9× power a hero mostly loses (0 to 30%), at 1.1× mostly wins (85 to 100%), so the weekly tier (picked at 90% of a tier's power) is a real but fair fight.
 - **Waiting on Jackson:** review the boss names, descriptions, types and minimums in `bossData.ts` before the server and screens are built on them, and say if any class matchup above feels wrong.
 
+**Stat rework (agreed 2026-10-28, not built; replaces the strength-standard stats of sections 2 and 10)**
+- **Why:** the game should reward showing up. Stats grow every time you train and never stop growing, so someone who has trained on the app for a year is ahead of a stronger newcomer. Progressing in the gym earns a little extra.
+- **Points:** each working set earns 1 point for its exercise's stat (the muscle the exercise is tagged with; bench → Chest, rows → Back). A set that beats your last session of that exercise earns **1.25** (the "progressed" rule from section 9.2: more reps at the same weight, or more weight by at least the step with every set at the minimum reps). Weight only matters through "did you beat your last session".
+- **Stat = points ÷ 10**, no cap. Sub-muscles (lats, quads...) stay on the Stats screen as a breakdown. Body power = the stats added up (Core ×0.5, Legs and Back ×1.2); battle power as before (gear up to 30%, titles and class up to +25%).
+- **What counts:** working sets only. Normal, drop and failure sets count; warm-ups don't. At most 8 sets per muscle group per workout count. Workouts under 4 working sets don't count (as now).
+- **Gone:** bodyweight, sex, age, estimated 1RM and the strength-standard tables no longer feed stats (personal records still show as now). Calibration goes away: new players start every stat at 0. Existing players get stats recomputed from their whole workout history (backfill).
+- **Decay becomes rust:** stats never lose earned points. A muscle group untrained for 14+ days fights at reduced strength, −1% a day to at most −30%; training it once restores it fully.
+- **Pacing (target):** for someone training 4 times a week at about 16 working sets: weekly boss tier 1 at once, tier 3 at about 8 months, Campaign finished at about 9 months, tier 4 at about 14 months, **tier 5 (endgame) at about 24 months**, Boss Tower floor 30 at about 30 months. Rough stat curve: each stat about 28 at 6 months, 55 at 1 year, 110 at 2 years; battle power about 460 at 1 year and 900 at 2 years with decent gear. The existing boss powers already fit this; check with a new "months to reach" table beside the win-chance table.
+- **Levels on the same clock:** retune XP per level so level 35 (weekly tier 5) arrives around 2 years of consistent training; Mythics (level 25) and the other gates follow.
+- **Titles that change:** "Calibrated" becomes **First Steps** (6 workouts logged). Record Breaker (a 1RM bonus on 3 stats) needs a new rule, for example "progressed sets in 3 stats in one workout". Well Rounded (every stat 50+) keeps working on the new scale.
+- **Content stays at 5 weekly tiers** for now; Jackson adds content later.
+
+**RPE and RIR (agreed, not built)**
+- Optional per set, blank by default. Stored as one number (RPE, half steps); Settings chooses whether it shows as RPE or RIR (RIR = 10 − RPE).
+- Tapping the set number while logging opens a small picker with the set type (normal, warm-up, drop, failure; these already exist) and RPE/RIR together, since a set row has no room at phone width.
+- RPE does **not** affect stats (it is self-reported, so it would invite logging RPE 10 on everything). It is for logging and insight.
+
+**Phase 5 decisions, round 3 (agreed 2026-10-28)**
+- **Class pick:** new accounts pick a class during sign-up; existing accounts pick once on their next visit (free). After that, one switch every **7 days since the last switch**, 300 coins.
+- **No charm shortens fight timers.** The Boss Tower and endless tower 4-hour timers are fixed for everyone. The boss cooldown effect is replaced by **Haste** (skill and basic attacks come faster, not the ultimate; 10% at Legendary, cap 25%). Hourglass Charm and Chrono Charm become Haste charms.
+- **Ult charge** is a new effect (the ultimate's energy fills faster; +15% at Legendary, cap +40%).
+- The salvage charm adds its share to scrap from salvaging; the reroll charm discounts **Shop** rerolls only (not Quest rerolls). Both round to whole numbers.
+- **Legs and Back count 1.2× in Power**, done with the stat rework; peak power is raised by the same amount so it pays no XP windfall.
+- Weekly boss wins and Boss Tower first clears count toward the Legendary and Mythic guarantees; Boss Tower reclears, the Campaign and the endless tower don't.
+- **Boss minimums:** base them on what a typically geared hero has at the boss's power (gear and titles included), not on stats alone, so late Boss Tower floors ask for reachable stats.
+- **Gear expansion (proposed, pending Jackson's review in the Game Wiki doc):** 10 new effects (Haste, Ult charge, Lifesteal, Crit damage, **Executioner** (extra damage to enemies under 30% HP), Guard duration, Bastion shield, Thorns, Heal power, Bleed resistance); 3 new Cleric sets (Lightwoven, Dawnkeeper, Seraph's Grace) so every rarity has a set per class, with a 5-piece effect on Epic and Legendary sets; 6 new Mythics (Executioner's Ring, Bloodletter Gauntlets, Bulwark Plate, Oathkeeper Belt, Saint's Locket, Dawn Censer); 20 new accessories, one per accessory slot per rarity. A "fully geared" row per class joins the win table.
+- The Game Wiki (a shared doc, "DoYouEvenLogBro Game Wiki") documents every class, ability, effect, item and enemy as built, plus the proposals. Keep it in step when these land.
+
+**Build order for the next sessions** (each piece committed, with lint, tsc, vitest, next build, the e2e suite and a 390px check):
+1. Stat rework: points engine, recompute and backfill, Legs/Back 1.2× with the peak adjustment, rust, titles, XP and level retune, the "months to reach" table, calibration removed from the app's text. Use Opus.
+2. RPE/RIR picker on the workout screen and the Settings toggle.
+3. Gear expansion, after Jackson reviews the names: the effects in the fight engine, the new items, retuned win table.
+4. Phase 5 piece 2: server routes (four fight modes, class pick and switch), Firestore rules and tests, the charm effects outside fights, the boss minimum baseline fix.
+5. Phase 5 piece 3: the Battle screens. Piece 4: e2e specs.
+
 **UI polish (Hero and Quests wording)**
 - Gear cards: a level-gated item keeps its Equip button, disabled, with a lock and the level inside it ("Equip 🔒 25"); Shop cards show a small lock and the level. The upgrade level is shown only once above zero, in brackets after the rarity ("Mythic", "Mythic (+1)"), everywhere (rows, cards, the confirm dialogs). The four helper lines under a card (upgrade preview, "act on one of your N", level, "named gear can't be sold") are gone. A line appears under the buttons only when something is greyed out for a non-obvious reason: an Upgrade the player can't afford, or "Unequip it to sell or salvage it" on an equipped item. The upgrade cost lives in the confirm dialog.
 - An item's stats are always shown attack, then health, then defense ("ATK 80 / HP 20"), never by size, and a stat at 0 is left out. An equipped slot's row has two lines: rarity and power, then the stats.
@@ -474,6 +509,8 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 - Exact strength-standard tables for normalizing 1RM to 0–100 (current ratios are placeholders).
 - Exact decay rate after day 7.
 - Final shop prices and coin numbers (starting values are in section 10).
+
+**Phase 5 and the stat rework:** open items: Jackson reviews the gear-expansion names in the Game Wiki; the Striker ultimate "Execution" and the new "Executioner" effect may need different names; Record Breaker needs its new rule. Everything else is decided in section 10.
 
 **Phase 5 (combat):** nothing open. Decisions are in section 10 (both Phase 5 blocks). The combat numbers get tuned after the win-chance table.
 
