@@ -612,9 +612,9 @@ export const COMBAT = {
 /** Weekly boss (section 10): one fight a day, tier locked at week start. */
 export const WEEKLY_BOSS = {
   /** Level needed for tiers 1 to 5. */
-  tierLevels: [1, 8, 15, 25, 35],
+  tierLevels: [1, 8, 15, 21, 35],
   /** Recommended battle power of tiers 1 to 5. */
-  tierPower: [150, 250, 350, 475, 625],
+  tierPower: [60, 250, 350, 475, 625],
   /** You get the highest tier your level allows whose recommended power you reach this share of. */
   tierPowerShare: 0.9,
   /** The daily fight resets at this hour in the user's time zone. */
@@ -662,7 +662,7 @@ export const BOSS_TOWER = {
   minLevel: 15,
   floors: 30,
   basePower: 300,
-  growth: 1.05,
+  growth: 1.047,
   cooldownHours: 4,
   /** Floors per drop tier: floors 1-6 drop like weekly tier 1, 7-12 like tier 2, and so on. */
   floorsPerTier: 6,
@@ -682,7 +682,7 @@ export const CAMPAIGN = {
   chapters: 5,
   stagesPerChapter: 12,
   basePower: 100,
-  growth: 1.025,
+  growth: 1.022,
   coins: { base: 20, perStage: 1 },
   scrap: { base: 3, perSixStages: 1 },
   /** Never Legendary or Mythic; Epic very rare, because there are many stages. */

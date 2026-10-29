@@ -421,7 +421,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Mythic effects:** Crown survives one lethal hit per fight at 1 HP; Heart reflects 15% of damage taken; Hands makes every 4th hit a crit; Pillars regenerates 3% of max HP a round under half HP; Path adds 2 rounds to the enrage timer.
 - **Paused and injured:** fighting while paused is allowed, using the frozen stats. Injury flags may be renewed twice, then must stay cleared 7 days before a new one; a flag waives only that stat's boss minimum.
 - **Accessory effects:** duplicates add up, each effect capped (crit 25%, healing 20%, damage reduction 20%, cooldown reduction 40%, salvage yield +50%, reroll discount 50%).
-- **Boss tiers** 1 to 5, gated at levels 1, 8, 15, 25, 35; the highest your level and power allow, no opting down.
+- **Boss tiers** 1 to 5, gated at levels 1, 8, 15, 21, 35 (tier 4 was 25 until the pacing tuning); the highest your level and power allow, no opting down.
 
 **Phase 5 decisions, round 2 (agreed; these win where they differ from the list above)**
 - **Bosses:** the weekly boss has its own pool of 12 unique bosses (one a week, repeating every 12 weeks, scaled to your tier). The Boss Tower has its own 30 unique bosses, one per floor. The Campaign has 5 chapter bosses; its other stages are regular enemies. Claude drafts all names and mechanics in `bossData.ts`; Jackson reviews them there before anything is built on them.
@@ -478,7 +478,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Titles:** First Steps = 6 counted workouts (2%); stored "calibrated" titles read as First Steps. **Record Breaker** = beat your last session on exercises of 3 different stats in one workout (3%), from `game/state.mostStatsBeaten`, which claims raise and recompute rebuilds.
 - **Rewards screen:** stat changes as before, plus "Beat last time: Bench Press, Squat (+25% points)". Older claims and snapshots that stored `{ value, bonus }` still read.
 - **Moving existing games:** `npm run backfill -- --rework` replays stats, peak, workout XP and level from the whole history and adds the XP of claimed quests; coins, items, titles, breaks and claim records stay; snapshots are rebuilt; running it twice gives the same result. It drops the retired `calibration`, `bodyweightKg`, `age` and `sex` fields. The backfill now refuses to write to a real project without `--confirm <projectId>`.
-- **Pacing (`npm run pacing-table`, steady player: 4 workouts a week, 16 sets split chest 3 / back 3.5 / shoulders 2.5 / arms 3 / legs 3 / core 1, 15% progressed, two quests a week, assumed gear 75 at a year and 132 at two, +8% bonuses):** average stat 29 at 6 months, 58 at a year, 115 at two; battle power 473 at a year, 926 at two. Content in months (target → model): weekly tier 1 available at once, but its recommended power at 3.5; tier 3 8 → 9.9; tier 4 14 → 16.8 (held back by level 25); tier 5 24 → 24.0; Campaign finished 9 → 11.1; Boss Tower floor 30 30 → 33.2; level 35 24 → 24.0. Not retuned yet: see section 11.
+- **Pacing (`npm run pacing-table`, steady player: 4 workouts a week, 16 sets split chest 3 / back 3.5 / shoulders 2.5 / arms 3 / legs 3 / core 1, 15% progressed, two quests a week, assumed gear 75 at a year and 132 at two, +8% bonuses):** average stat 29 at 6 months, 58 at a year, 115 at two; battle power 473 at a year, 926 at two. Content in months (target → model): weekly tier 1 available at once, but its recommended power at 3.5; tier 3 8 → 9.9; tier 4 14 → 16.8 (held back by level 25); tier 5 24 → 24.0; Campaign finished 9 → 11.1; Boss Tower floor 30 30 → 33.2; level 35 24 → 24.0. Retuned after piece 2: see "Pacing tuning".
 
 **RPE and RIR (agreed, built 2026-10-29)**
 - Optional per set, blank by default. Stored as one number (RPE, half steps); Settings chooses whether it shows as RPE or RIR (RIR = 10 − RPE).
@@ -521,6 +521,13 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Injury flags.** At most 2 renewals (`INJURY.maxRenewals`); a stat can be flagged again only 7 days after its last flag ended, cleared or expired (`reflagWaitDays`), so clear-and-reflag can't dodge the limit. The Breaks panel greys out Renew ("No renewals left") and the waiting stats.
 - `e2e/fights.e2e.ts` drives both routes through the real server (no screens yet); `gameApi.ts` has `pickClass`, `switchClass` and `fight` for piece 3.
 
+**Pacing tuning (agreed 2026-10-29, after piece 2)**
+- Weekly tier 1's recommended power is **60** (was 150): winnable at about 1.4 months instead of 3.5. Tiers 2-5 unchanged.
+- Weekly tier 4 opens at **level 21** (was 25): about 14 months. Mythics stay at level 25 (about 17 months), so a tier 4 Mythic drop waits a few levels to be worn.
+- Campaign growth **2.2%** a stage (was 2.5%): the last stage is about 360 power, finished at about 9.2 months.
+- Boss Tower growth **4.7%** a floor (was 5%): floor 30 is about 1,140 power, reached at about 30.2 months.
+- `npm run pacing-table` now meets every target: tier 1 1.4, tier 3 9.9 (target 8), tier 4 14.1, tier 5 24.0, Campaign 9.2, Boss Tower floor 30 30.2, level 35 24.0 months.
+
 **Build order for the next sessions** (each piece committed, with lint, tsc, vitest, next build, the e2e suite and a 390px check):
 1. ~~Stat rework~~ (built 2026-10-29, see "Stat rework (built)").
 2. ~~RPE/RIR picker on the workout screen and the Settings toggle~~ (built 2026-10-29).
@@ -547,7 +554,7 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 
 - Final shop prices and coin numbers (starting values are in section 10).
 
-**Phase 5 and the stat rework:** open items: the Game Wiki still shows the gear expansion as "Proposed" with the draft (double) values; update it to what was built. From the pacing table: with flat levels, level 25 (tier 4, Mythics) comes at about 17 months, not 14; the Campaign finishes at about 11 months (target 9) and Boss Tower floor 30 at about 33 (target 30); a new player needs about 3.5 months to reach weekly tier 1's recommended power. Decide whether to tune those before Phase 5 piece 2. The radar's edge is still 100, so a new player's shape starts as a dot.
+**Phase 5 and the stat rework:** From the pacing table (before tuning): with flat levels, level 25 (tier 4, Mythics) comes at about 17 months, not 14; the Campaign finishes at about 11 months (target 9) and Boss Tower floor 30 at about 33 (target 30); a new player needs about 3.5 months to reach weekly tier 1's recommended power. Tuned after piece 2 (see "Pacing tuning" in section 10); only tier 3 (9.9 months, target 8) is still off. The radar's edge is still 100, so a new player's shape starts as a dot.
 
 **Phase 5 (combat):** nothing open. Decisions are in section 10 (both Phase 5 blocks). The combat numbers get tuned after the win-chance table.
 
