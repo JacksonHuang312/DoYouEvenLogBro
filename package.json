@@ -18,7 +18,8 @@
     "e2e:headed": "node e2e/free-ports.mjs && firebase emulators:exec --only firestore,auth --project demo-dyelb \"playwright test -c e2e/playwright.config.ts --headed\"",
     "e2e:seed": "tsx e2e/seed.ts",
     "e2e:cleanup": "node e2e/free-ports.mjs",
-    "combat-table": "tsx scripts/combat-table.ts"
+    "combat-table": "tsx scripts/combat-table.ts",
+    "pacing-table": "tsx scripts/pacing-table.ts"
   },
   "dependencies": {
     "firebase": "^13.0.0",

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { newGameState } from "./claim";
-import { QUESTS, STAT_MUSCLES, SUB_MUSCLES, type Stat } from "./config";
+import { QUESTS, STAT_MUSCLES, SUB_MUSCLES, XP, type Stat } from "./config";
 import { statOf } from "./muscles";
 import {
   claimable,
@@ -328,9 +328,9 @@ describe("paying quests", () => {
   });
 
   test("rewards add coins and XP, move the level, and leave the daily cap alone", () => {
-    const state = { ...newGameState(T0, UTC), coins: 10, xp: 490, coinDay: "2026-10-14", coinsToday: 120 };
+    const state = { ...newGameState(T0, UTC), coins: 10, xp: XP.perLevel - 10, coinDay: "2026-10-14", coinsToday: 120 };
     const next = withQuestRewards(state, make().quests.slice(0, 2), T0 + 1);
-    expect(next).toMatchObject({ coins: 70, xp: 540, level: 2, coinDay: "2026-10-14", coinsToday: 120, updatedAt: T0 + 1 });
+    expect(next).toMatchObject({ coins: 70, xp: XP.perLevel + 40, level: 2, coinDay: "2026-10-14", coinsToday: 120, updatedAt: T0 + 1 });
   });
 
   test("each paid quest also pays scrap", () => {

@@ -1,6 +1,6 @@
 import { BASE_ITEMS, baseItem } from "../src/lib/game/catalog";
 import { newGameState, type GameState } from "../src/lib/game/claim";
-import { STAT_MUSCLES, STAT_POINTS, STATS } from "../src/lib/game/config";
+import { STAT_MUSCLES, STAT_POINTS, STATS, XP } from "../src/lib/game/config";
 import type { MusclesFacts } from "../src/lib/game/facts";
 import { newItem, type Item } from "../src/lib/game/items";
 import { emptyShop } from "../src/lib/game/shop";
@@ -107,8 +107,8 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
   const state: GameState = {
     ...newGameState(now - 30 * 86_400_000, "America/Toronto"),
     coins,
-    // 500 XP per level (GAME_DESIGN.md 3): high enough to equip anything below Mythic.
-    xp: (level - 1) * 500,
+    // High enough to equip anything below Mythic.
+    xp: (level - 1) * XP.perLevel,
     level,
     materials: { scrap },
     updatedAt: now,

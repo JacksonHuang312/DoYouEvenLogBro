@@ -122,7 +122,39 @@ export const XP = {
   /** Per point of power above the highest power reached before. */
   perPowerPoint: 10,
   /** Flat, uncapped levels. Tuned so level 35 comes at about 2 years of 4 workouts a week (npm run pacing-table). */
-  perLevel: 500,
+  perLevel: 600,
+};
+
+/**
+ * The steady player `npm run pacing-table` simulates (stat rework, section 10), and the design
+ * doc's pacing targets in months. Only the table reads this; nothing in the game does.
+ */
+export const PACING = {
+  workoutsPerWeek: 4,
+  /** 16 working sets a workout, split like a typical push/pull/legs week. */
+  setsPerStat: { chest: 3, back: 3.5, shoulders: 2.5, arms: 3, legs: 3, core: 1 } as Record<Stat, number>,
+  /** Share of sets whose exercise beat its last session. */
+  progressedShare: 0.15,
+  /** Two of the three weekly quests claimed. */
+  questXpPerWeek: 50,
+  /** "Decent gear" [months, gear power]: early drops and shop buys, an Epic set at a year, a full Legendary set at two. */
+  gearByMonth: [
+    [0, 0],
+    [3, 20],
+    [6, 45],
+    [12, 75],
+    [18, 110],
+    [24, 132],
+    [36, 150],
+  ] as [number, number][],
+  /** Class bonus plus a title or two. */
+  bonusPct: 0.08,
+  targets: {
+    weeklyTier: [0, null, 8, 14, 24] as (number | null)[],
+    campaign: 9,
+    bossTower: 30,
+    level35: 24,
+  },
 };
 
 // ---- Schedule (sections 3.2, 7.2) ----
