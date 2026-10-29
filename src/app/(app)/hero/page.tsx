@@ -248,7 +248,7 @@ function StatsPanel({
 
         {rusty && (
           <p className="text-xs text-rpg-warn">
-            {rusty}. Untrained for {RUST.graceDays}+ days, so it fights weaker. One workout clears it.
+            {rusty}. Untrained for {RUST.graceDays}+ days: weaker in fights, never in stats. Training it once clears it.
           </p>
         )}
 

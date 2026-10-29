@@ -50,6 +50,8 @@ export interface SeedOptions {
   unit?: "kg" | "lb";
   /** Also write one past workout of Bench Press with these reps at this weight, so "last time" has something to show. */
   lastBench?: { weightKg: number; reps: number[] };
+  /** Days since every muscle was last trained. Default 1; 14+ makes the stats rusty. */
+  trainedDaysAgo?: number;
 }
 
 export const ROUTINE_ID = "e2e-routine";
@@ -63,13 +65,13 @@ function assertEmulator() {
   if (!project.startsWith("demo-")) throw new Error(`Refusing to seed project "${project}": e2e only uses demo-* projects.`);
 }
 
-/** About 30 in every stat (300 working sets each, split like a typical stat), trained yesterday. */
-function muscles(now: number): MusclesFacts {
+/** About 30 in every stat (300 working sets each, split like a typical stat), trained `daysAgo` days ago. */
+function muscles(now: number, daysAgo: number): MusclesFacts {
   return Object.fromEntries(
     STATS.flatMap((stat) =>
       Object.entries(STAT_MUSCLES[stat]).map(([m, share]) => [
         m,
-        { sets: Math.round(30 * STAT_POINTS.perStat * share), progressed: 0, lastTrained: now - 86_400_000, weeks: [] as string[] },
+        { sets: Math.round(30 * STAT_POINTS.perStat * share), progressed: 0, lastTrained: now - daysAgo * 86_400_000, weeks: [] as string[] },
       ]),
     ),
   ) as MusclesFacts;
@@ -81,7 +83,7 @@ const CLAIMS = 6;
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 30, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench } = options;
+  const { coins = 5000, scrap = 300, level = 30, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench, trainedDaysAgo = 1 } = options;
   const db = adminDb();
   const now = Date.now();
 
@@ -114,7 +116,7 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     updatedAt: now,
   };
   await user.collection("game").doc("state").set(state);
-  await user.collection("game").doc("muscles").set({ muscles: muscles(now), updatedAt: now });
+  await user.collection("game").doc("muscles").set({ muscles: muscles(now, trainedDaysAgo), updatedAt: now });
   // Only claimedAt is read from these (title progress); the workouts behind them aren't seeded.
   for (let i = 0; i < CLAIMS; i++) {
     await user.collection("claims").doc(`e2e-claim-${i}`).set({ workoutId: `e2e-claim-${i}`, claimedAt: now - (i + 2) * 86_400_000 });

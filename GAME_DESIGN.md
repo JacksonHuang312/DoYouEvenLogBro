@@ -18,6 +18,8 @@ All numbers marked **(tunable)** are starting values: they live in the game conf
 
 ## 2. Stats
 
+> **Superseded in part by the stat rework (section 10, "Stat rework (built)").** Stats now come from training effort: 2.2 (strength and frequency), 2.3 (1RM bonus), 2.4 (decay, now rust) and 2.6 (starting averages, calibration, bodyweight) no longer apply. 2.1's stat groups, 2.5's power formula (with Legs and Back at 1.2) and 2.7 still do.
+
 ### 2.1 Six stats, built from sub-muscles
 
 Every exercise maps to exactly one sub-muscle (its existing `muscle` field in `src/data/exercises.json`). Each sub-muscle has its own score (0–100). A stat is the **weighted average** of its sub-muscle scores, so one strong muscle can't carry a weak group.
@@ -379,7 +381,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - Shop: six offers a week per user, seeded by uid, week and reroll count, so nothing about the stock is stored. Rarity weights 35/35/20/10, at most one Epic, no base twice. Prices are the values (150/450/1,000/2,500) plus 25%, rounded to 5: 190/565/1,250/3,125. Rerolls cost 100 then 200, two a week. A buy names the week and reroll count it saw, so a reroll or week rollover in between returns 409 instead of charging, and a retried buy returns the item it already bought (the item id is derived from the offer).
 - Selling pays 25% of the origin rarity's value (not the shop price), rounded to 5: 40/115/250/625, whatever the item was upgraded to, so upgrading and selling never profits. Named items can't be sold, only salvaged. Equipped items must be unequipped first.
 - Salvage pays scrap by current rarity (5/15/35/80/150/250); upgrade spending isn't refunded. Sold and salvaged items keep their doc with a `removed` record, so a retry returns what it paid. Each claimed weekly quest also pays 5 scrap. A boss drop of a base you already own becomes its salvage value in scrap (`dropOutcome`, for Phase 5).
-- Titles: eight achievements, all computed from stored facts. Calibrated 2%, Regular (3+ workouts a week for 4 weeks in a row) 3%, Unbroken (no skipped scheduled workout for 28 days, 8+ scheduled; a slot still inside its make-up window isn't a skip yet) 5%, Record Breaker (a 1RM bonus on 3 stats at once) 3%, Questmaster (all quests of one week claimed) 3%, Well Rounded (every stat 50+) 4%, Iron Habit (trained in 12 of the last 16 weeks) 4%, Centurion (100 counted workouts) 3%. Earning is stored (`titles.earned`) and never taken away, because some of the facts behind it (recent schedule matches, decaying stats) don't last. Claims check achievements in their own transaction (a failure there is logged and never fails the claim), and so does `POST /api/titles` when the Titles tab opens. A newly earned title fills an empty slot by itself. One slot to start; slots 2 and 3 cost 500 and 1,500 coins.
+- Titles: eight achievements, all computed from stored facts. First Steps (6 counted workouts; was Calibrated before the stat rework) 2%, Regular (3+ workouts a week for 4 weeks in a row) 3%, Unbroken (no skipped scheduled workout for 28 days, 8+ scheduled; a slot still inside its make-up window isn't a skip yet) 5%, Record Breaker (beat your last session on exercises of 3 stats in one workout; was a 1RM bonus on 3 stats) 3%, Questmaster (all quests of one week claimed) 3%, Well Rounded (every stat 50+) 4%, Iron Habit (trained in 12 of the last 16 weeks) 4%, Centurion (100 counted workouts) 3%. Earning is stored (`titles.earned`) and never taken away, because some of the facts behind it (recent schedule matches, training weeks) don't last. Claims check achievements in their own transaction (a failure there is logged and never fails the claim), and so does `POST /api/titles` when the Titles tab opens. A newly earned title fills an empty slot by itself. One slot to start; slots 2 and 3 cost 500 and 1,500 coins.
 - Routes: `POST /api/shop` (buy, reroll), `POST /api/items` (equip, unequip, upgrade, sell, salvage), `POST /api/titles` (check, equip, buy-slot). Each is one transaction and safe to retry.
 - `npm run grant-items -- --uid <uid> ...` grants items (source "admin") and materials for testing. Against a real project it needs `--confirm <projectId>`.
 
@@ -454,7 +456,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
   At 0.9× power a hero mostly loses (0 to 30%), at 1.1× mostly wins (85 to 100%), so the weekly tier (picked at 90% of a tier's power) is a real but fair fight.
 - **Waiting on Jackson:** review the boss names, descriptions, types and minimums in `bossData.ts` before the server and screens are built on them, and say if any class matchup above feels wrong.
 
-**Stat rework (agreed 2026-10-28, not built; replaces the strength-standard stats of sections 2 and 10)**
+**Stat rework (agreed 2026-10-28, built 2026-10-29; replaces the strength-standard stats of sections 2 and 10)**
 - **Why:** the game should reward showing up. Stats grow every time you train and never stop growing, so someone who has trained on the app for a year is ahead of a stronger newcomer. Progressing in the gym earns a little extra.
 - **Points:** each working set earns 1 point for its exercise's stat (the muscle the exercise is tagged with; bench → Chest, rows → Back). A set that beats your last session of that exercise earns **1.25** (the "progressed" rule from section 9.2: more reps at the same weight, or more weight by at least the step with every set at the minimum reps). Weight only matters through "did you beat your last session".
 - **Stat = points ÷ 10**, no cap. Sub-muscles (lats, quads...) stay on the Stats screen as a breakdown. Body power = the stats added up (Core ×0.5, Legs and Back ×1.2); battle power as before (gear up to 30%, titles and class up to +25%).
@@ -465,6 +467,18 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Levels on the same clock:** retune XP per level so level 35 (weekly tier 5) arrives around 2 years of consistent training; Mythics (level 25) and the other gates follow.
 - **Titles that change:** "Calibrated" becomes **First Steps** (6 workouts logged). Record Breaker (a 1RM bonus on 3 stats) needs a new rule, for example "progressed sets in 3 stats in one workout". Well Rounded (every stat 50+) keeps working on the new scale.
 - **Content stays at 5 weekly tiers** for now; Jackson adds content later.
+
+**Stat rework (built): how it works and what was decided while building**
+- **Facts:** `game/muscles` keeps, per sub-muscle, `sets` (counted working sets), `progressed` (those of an exercise that beat its last session), `lastTrained` and `weeks`. Points and stats are computed from them (`score.ts`), so changing 1 / 1.25 / ÷10 needs no migration; changing the 8-set cap or the step needs a recompute.
+- **"Beat your last session":** `didProgress` on the whole exercise, so every working set of that exercise (drop and failure sets included) earns 1.25. Workouts don't store the routine's range or step, so stats use repMin 1 and a fixed 2.25 kg step (`STAT_POINTS.stepKg`), which replays the same forever. The last session is the newest earlier workout with working sets of that exercise, counted or not; the first time earns 1.0. The claim reads it with an `exerciseIds` query in its transaction (the existing index); recompute and backfill walk the history in order with the same rule.
+- **Cap:** at most 8 sets per **stat** per workout, progressed sets first. A set over the cap earns nothing but still marks its muscle trained.
+- **Stats:** a stat is the **sum** of its sub-muscles' points ÷ 10 (the sub-muscle weights only pick quest targets now). The Stats screen shows one decimal under 10, whole numbers above; the breakdown shows each sub-muscle's score and when it was trained.
+- **Rust:** per stat, from its most recently trained sub-muscle. From day 14 untrained, 1% a day (day 14 is −1%), at most 30%. Pauses and that stat's injury flags stop the clock. Only fights use it: the Hero header's Battle number and the Gear panel's Body start from the rusted body power; the radar, Power, stat XP, quests and titles use earned stats. The Stats tab shows "Rusty: Legs −12%, …" when any stat is rusty.
+- **XP:** unchanged rules (20 per workout, once per 12 hours; 10 per power point above peak; quest XP). Every workout raises stats, so every workout pays stat XP. **600 XP per level** (was 500) puts level 35 at about 24 months (`npm run pacing-table`).
+- **Titles:** First Steps = 6 counted workouts (2%); stored "calibrated" titles read as First Steps. **Record Breaker** = beat your last session on exercises of 3 different stats in one workout (3%), from `game/state.mostStatsBeaten`, which claims raise and recompute rebuilds.
+- **Rewards screen:** stat changes as before, plus "Beat last time: Bench Press, Squat (+25% points)". Older claims and snapshots that stored `{ value, bonus }` still read.
+- **Moving existing games:** `npm run backfill -- --rework` replays stats, peak, workout XP and level from the whole history and adds the XP of claimed quests; coins, items, titles, breaks and claim records stay; snapshots are rebuilt; running it twice gives the same result. It drops the retired `calibration`, `bodyweightKg`, `age` and `sex` fields. The backfill now refuses to write to a real project without `--confirm <projectId>`.
+- **Pacing (`npm run pacing-table`, steady player: 4 workouts a week, 16 sets split chest 3 / back 3.5 / shoulders 2.5 / arms 3 / legs 3 / core 1, 15% progressed, two quests a week, assumed gear 75 at a year and 132 at two, +8% bonuses):** average stat 29 at 6 months, 58 at a year, 115 at two; battle power 473 at a year, 926 at two. Content in months (target → model): weekly tier 1 available at once, but its recommended power at 3.5; tier 3 8 → 9.9; tier 4 14 → 16.8 (held back by level 25); tier 5 24 → 24.0; Campaign finished 9 → 11.1; Boss Tower floor 30 30 → 33.2; level 35 24 → 24.0. Not retuned yet: see section 11.
 
 **RPE and RIR (agreed, not built)**
 - Optional per set, blank by default. Stored as one number (RPE, half steps); Settings chooses whether it shows as RPE or RIR (RIR = 10 − RPE).
@@ -483,7 +497,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - The Game Wiki (a shared doc, "DoYouEvenLogBro Game Wiki") documents every class, ability, effect, item and enemy as built, plus the proposals. Keep it in step when these land.
 
 **Build order for the next sessions** (each piece committed, with lint, tsc, vitest, next build, the e2e suite and a 390px check):
-1. Stat rework: points engine, recompute and backfill, Legs/Back 1.2× with the peak adjustment, rust, titles, XP and level retune, the "months to reach" table, calibration removed from the app's text. Use Opus.
+1. ~~Stat rework~~ (built 2026-10-29, see "Stat rework (built)").
 2. RPE/RIR picker on the workout screen and the Settings toggle.
 3. Gear expansion, after Jackson reviews the names: the effects in the fight engine, the new items, retuned win table.
 4. Phase 5 piece 2: server routes (four fight modes, class pick and switch), Firestore rules and tests, the charm effects outside fights, the boss minimum baseline fix.
@@ -494,10 +508,10 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - An item's stats are always shown attack, then health, then defense ("ATK 80 / HP 20"), never by size, and a stat at 0 is left out. An equipped slot's row has two lines: rarity and power, then the stats.
 - The Accessories description is gone. Pause, Injuries and the Shop description sit behind a small info icon next to their heading that expands the text in place (collapsed by default), not a dialog.
 - Rerolls show how many are left ("Rerolls left: 1 of 2") instead of their prices. The Shop button still carries its price ("Reroll for 100 coins"), since that is where you spend it, and the Quests reroll price is in its confirm dialog.
-- The Titles tab's list is headed "Titles" (not "Achievements"), with one line-art icon per title: Calibrated a target, Regular a calendar check, Unbroken a chain link, Record Breaker a trophy, Questmaster a scroll, Well Rounded a hexagon, Iron Habit a flame, Centurion a crown. Lit in the accent color once earned, muted before. The icons show in the list only.
+- The Titles tab's list is headed "Titles" (not "Achievements"), with one line-art icon per title: First Steps a target, Regular a calendar check, Unbroken a chain link, Record Breaker a trophy, Questmaster a scroll, Well Rounded a hexagon, Iron Habit a flame, Centurion a crown. Lit in the accent color once earned, muted before. The icons show in the list only.
 
-**Rollout order (not yet done; do it once, after Phase 3)**
-1. Run the backfill (dry-run first, `--time-zone America/Toronto`).
+**Rollout order (not yet done; do it once, after Phase 3 and the stat rework)**
+1. Run the backfill, dry-run first: `npm run backfill -- --rework --dry-run --time-zone America/Toronto`, then `npm run backfill -- --rework --time-zone America/Toronto --confirm <projectId>`. `--rework` only matters for accounts that already have a game; others get a new one from their history.
 2. Deploy the Firestore rules (`npx firebase-tools deploy --only firestore:rules`). Must come after the backfill, or exercises with old free-text muscles can't be edited.
 3. Merge and deploy the app.
 Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIREBASE_ADMIN_PRIVATE_KEY (Production and Preview, marked Sensitive) and Node 22+.
@@ -506,11 +520,9 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 
 ## 11. Open questions
 
-- Exact strength-standard tables for normalizing 1RM to 0–100 (current ratios are placeholders).
-- Exact decay rate after day 7.
 - Final shop prices and coin numbers (starting values are in section 10).
 
-**Phase 5 and the stat rework:** open items: Jackson reviews the gear-expansion names in the Game Wiki; the Striker ultimate "Execution" and the new "Executioner" effect may need different names; Record Breaker needs its new rule. Everything else is decided in section 10.
+**Phase 5 and the stat rework:** open items: Jackson reviews the gear-expansion names in the Game Wiki; the Striker ultimate "Execution" and the new "Executioner" effect may need different names. From the pacing table: with flat levels, level 25 (tier 4, Mythics) comes at about 17 months, not 14; the Campaign finishes at about 11 months (target 9) and Boss Tower floor 30 at about 33 (target 30); a new player needs about 3.5 months to reach weekly tier 1's recommended power. Decide whether to tune those before Phase 5 piece 2. The radar's edge is still 100, so a new player's shape starts as a dot.
 
 **Phase 5 (combat):** nothing open. Decisions are in section 10 (both Phase 5 blocks). The combat numbers get tuned after the win-chance table.
 
