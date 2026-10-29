@@ -1,6 +1,6 @@
 import { BASE_ITEMS, baseItem } from "../src/lib/game/catalog";
 import { newGameState, type GameState } from "../src/lib/game/claim";
-import { STAT_MUSCLES, STAT_POINTS, STATS, XP } from "../src/lib/game/config";
+import { STAT_MUSCLES, STAT_POINTS, STATS, XP, type ClassId } from "../src/lib/game/config";
 import type { MusclesFacts } from "../src/lib/game/facts";
 import { newItem, type Item } from "../src/lib/game/items";
 import { emptyShop } from "../src/lib/game/shop";
@@ -52,6 +52,8 @@ export interface SeedOptions {
   lastBench?: { weightKg: number; reps: number[] };
   /** Days since every muscle was last trained. Default 1; 14+ makes the stats rusty. */
   trainedDaysAgo?: number;
+  /** The hero's class. Default none (a player who hasn't picked one yet). */
+  classId?: ClassId;
 }
 
 export const ROUTINE_ID = "e2e-routine";
@@ -83,7 +85,7 @@ const CLAIMS = 6;
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 30, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench, trainedDaysAgo = 1 } = options;
+  const { coins = 5000, scrap = 300, level = 30, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench, trainedDaysAgo = 1, classId } = options;
   const db = adminDb();
   const now = Date.now();
 
@@ -113,6 +115,7 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     xp: (level - 1) * XP.perLevel,
     level,
     materials: { scrap },
+    ...(classId ? { classId } : {}),
     updatedAt: now,
   };
   await user.collection("game").doc("state").set(state);

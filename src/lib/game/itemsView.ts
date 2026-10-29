@@ -1,6 +1,7 @@
 import { baseItem, setDef, SETS, type BaseItem } from "./catalog";
 import { battlePower } from "./battle";
 import { gearEffects, SET_EFFECT_PIECES } from "./effects";
+import { classBonusPct } from "./heroClass";
 import { newGameState, type GameState } from "./claim";
 import {
   ACCESSORY_EFFECTS,
@@ -99,12 +100,13 @@ export function focusLabel(focus: Focus): string {
     .join(" / ");
 }
 
-/** An accessory's effect at the item's rarity, or a Mythic's unique effect. Combat doesn't use either until Phase 5. */
+/** An accessory's effect at the item's rarity, or a Mythic's unique effect. Fight effects stay "not active yet" until the Battle screens; the salvage and reroll charms already work. */
 function effectLabel(base: BaseItem | undefined, rarity: Rarity): string | null {
   if (!base?.effect) return null;
   const known = base.effect in ACCESSORY_EFFECTS ? (base.effect as AccessoryEffect) : null;
   const text = known ? `${ACCESSORY_EFFECTS[known].label} +${Math.round(effectValue(known, rarity) * 1000) / 10}%` : "Unique effect";
-  return `${text} (not active yet)`;
+  const active = known === "salvageYield" || known === "rerollDiscount";
+  return active ? text : `${text} (not active yet)`;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -325,6 +327,7 @@ export function powerView(bodyPower: number | null, state: GameState | null, inv
     equipped: equippedItems(game, inventory),
     level: game.level,
     titlePct: titleBonusPct(game),
+    classPct: classBonusPct(game),
   });
   return {
     body: round1(bodyPower),

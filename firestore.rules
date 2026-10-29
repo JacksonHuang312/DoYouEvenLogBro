@@ -311,6 +311,13 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // A fight's record (log, result, rewards), written only by the fight route (GAME_DESIGN.md 10,
+      // Phase 5). Progress in each mode is game/battle, covered by the game match above.
+      match /fights/{fightId} {
+        allow read: if isUser(uid);
+        allow write: if false;
+      }
+
       match /customExercises/{exerciseId} {
         // The 17 sub-muscles. Must match SUB_MUSCLES in src/lib/game/config.ts.
         function validMuscle(muscle) {

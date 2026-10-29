@@ -1,8 +1,9 @@
-import type { Position, Rarity, Stat } from "./game/config";
+import type { ClassId, Position, Rarity, Stat } from "./game/config";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc, WeekdayRoutines } from "./game/schedule";
 import { firebase } from "./firebase";
 import type { BreaksResponse } from "./server/breaks";
+import type { ClassResponse, FightRequest, FightResponse } from "./server/fights";
 import type { ItemResponse, ShopResponse } from "./server/items";
 import type { ClaimQuestResponse, RerollResponse } from "./server/quests";
 import type { TitlesResponse } from "./server/titles";
@@ -96,3 +97,10 @@ export const equipTitles = (titles: TitleId[]) => post<TitlesResponse>("/api/tit
 /** `expectedSlots` is the slot count on screen, so a retry can't buy two. */
 export const buyTitleSlot = (expectedSlots: number) =>
   post<TitlesResponse>("/api/titles", { action: "buy-slot", expectedSlots, timeZone: timeZone() });
+
+// ---- Class and fights (Phase 5) ----
+
+export const pickClass = (classId: ClassId) => post<ClassResponse>("/api/class", { action: "pick", classId, timeZone: timeZone() });
+export const switchClass = (classId: ClassId) => post<ClassResponse>("/api/class", { action: "switch", classId, timeZone: timeZone() });
+/** `requestId` is made once per tap (keep it for retries), so a retry returns the same fight. */
+export const fight = (request: FightRequest) => post<FightResponse>("/api/fight", { ...request });

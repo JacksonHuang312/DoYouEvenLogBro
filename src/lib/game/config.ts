@@ -456,6 +456,9 @@ export interface ClassDef {
   ultimate: { name: string };
 }
 
+/** Picking a class is free once; after that a switch costs coins, at most once per `everyDays` since the last switch. */
+export const CLASS_SWITCH = { cost: 300, everyDays: 7 };
+
 export const CLASSES: Record<ClassId, ClassDef> = {
   vanguard: {
     name: "Vanguard",

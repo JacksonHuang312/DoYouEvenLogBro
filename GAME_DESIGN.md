@@ -363,7 +363,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - The Train mockup's "Last: Pull day · Wed · +180 coins" shows no coins (it would need a claims read). The Quests tab has the schedule editor but no calendar view (section 7.2).
 
 **Phase 5 note: injury flags and bosses**
-- Injury flags waive the boss minimum for the flagged stat (section 3.6), which makes them worth abusing. Limit renewals when boss minimums are built: for example 2 renewals, then the flag must be cleared for 7 days before a new one can be set. `Injury.renewals` already counts renewals so this needs no migration.
+- Injury flags waive the boss minimum for the flagged stat (section 3.6), which makes them worth abusing. Built in piece 2: 2 renewals, and a stat waits 7 days after any flag on it ends before a new one.
 
 **Power multiplier**
 - Legs and Back count **1.2x in Power only** (largest muscle groups by mass). The six radar stats stay unscaled. All other stats 1.0x. Value lives in `config.ts`. Implemented in Phase 5.
@@ -506,11 +506,26 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - `npm run combat-table` now prints a "+" row per class with an endgame loadout's effects at the same battle power (`FULLY_GEARED` in `combatTuning.ts`). At 0.9× / 1.0×: plain Vanguard+ 86% / 100%, Striker+ 66% / 100%, Cleric+ 61% / 98%; brute Vanguard+ 99% / 100%; bleeder Cleric+ 66% / 98%, Vanguard+ 3% / 46%; timer Striker+ 100% / 100%, Cleric+ 0% / 2%. Gear is worth roughly 7-10% power and every class keeps its matchups. The no-gear rows moved slightly since piece 1 (plain Vanguard 78% at 1.0×) because Legs and Back now count 1.2× in power.
 - Effects stay "(not active yet)" on item cards until fights ship (piece 2 and 3).
 
+**Phase 5, piece 2 (built 2026-10-29): fight routes, classes, charms, minimums**
+- **Routes.** `POST /api/fight` `{ mode, requestId, floor?, climb? }` with mode `weekly`, `endless`, `bossTower` or `campaign`, and `POST /api/class` `{ action: pick | switch, classId }`. Each is one transaction and safe to retry. Pure rules in `fights.ts` (`runFight`, `applyFightRewards`, `fightHero`) and `heroClass.ts`; the transactions in `src/lib/server/fights.ts`.
+- **Stored.** `game/battle` holds progress: this week's weekly boss (`weekId`, locked `tier`, `wins`, `fights`, `lastFightDay`), endless and Boss Tower `cleared` and `cooldownUntil`, Campaign `cleared`, and the guarantee counters (`pity`). Each request writes `fights/{requestId}`: mode, seed, class, battle power, every round with its full log and the minimum check, coins, scrap, Mythic Cores, new items and duplicates turned to scrap. Both are server-written only (rules and tests added). A retry with the same `requestId` returns the stored record ("already-fought"); the seed is made on the server, so nobody can search for a winning one.
+- **Hero.** Fights use rusted stats, worn gear (its effects too), titles and class; a paused player fights with frozen stats (rust doesn't run). An injury flag waives only that stat's minimum. No class picked means no fights ("Pick a class first").
+- **Weekly boss.** One fight a fight day, win or lose. The fight day and week turn at 04:00 in the **saved** time zone (`game/state.timeZone`, not the device's), so a zone change can't buy a fight. The tier is locked by the week's first fight from the level and battle power then (the doc's "week start"; nothing runs at Sunday 04:00). The week's first win pays in full, later wins half. Wins count toward the guarantees.
+- **Endless tower.** Level 5+. Only the next floor; `climb: true` fights up to 5, stopping at the first loss. A loss closes the tower for 4 hours; wins never do.
+- **Boss Tower.** Level 15+. Any cleared floor or the next one (`floor`, default the next). Every fight closes it for 4 hours. A first clear pays coins, scrap, the 15% gear chance and the Core chance, and counts toward the guarantees; a reclear pays 10% of the coins and nothing else.
+- **Campaign.** Only the next stage, no cooldown; the chapter boss (stage 12 of each chapter) checks its minimums. Never counts toward the guarantees.
+- **Drops.** New items get ids `fight-{requestId}-{n}` and source "boss". A base already owned, or dropped twice in one climb, becomes its salvage value in scrap.
+- **Classes.** `game/state.classId` and `classSwitchedAt`. The first pick is free (sign-up for new accounts, next visit for existing ones: the screens are piece 3). A switch costs 300 coins (`CLASS_SWITCH`), once every 7 days since the last switch (the free pick doesn't start the wait). The class's +3% now counts in the Gear tab's battle power too.
+- **Charms outside fights.** Salvage yield adds its share to salvage scrap; the reroll discount lowers **Shop** rerolls (not Quest rerolls). Both round to whole numbers, on the server and in the Gear and Shop views (100-coin reroll with a Legendary charm: 85).
+- **Boss minimums** are shares of `typicalStats(power)` (`pacing.ts`): each stat of the pacing model's steady player at the moment their battle power, gear and bonuses included, reaches the boss's power. They are per stat, so Core asks for much less than Back (people train it less). At 150 power a typical hero has about Chest 20, Back 23, Core 7 (the old formula asked 27 for every stat); at Boss Tower floor 30 (1,235) about Chest 178, Back 208, Core 59 (was 225), so every floor is reachable. `COMBAT.powerPerStat` is gone. `milestones()` moved to `milestones.ts` to keep `bosses.ts` â†’ `pacing.ts` free of a cycle.
+- **Injury flags.** At most 2 renewals (`INJURY.maxRenewals`); a stat can be flagged again only 7 days after its last flag ended, cleared or expired (`reflagWaitDays`), so clear-and-reflag can't dodge the limit. The Breaks panel greys out Renew ("No renewals left") and the waiting stats.
+- `e2e/fights.e2e.ts` drives both routes through the real server (no screens yet); `gameApi.ts` has `pickClass`, `switchClass` and `fight` for piece 3.
+
 **Build order for the next sessions** (each piece committed, with lint, tsc, vitest, next build, the e2e suite and a 390px check):
 1. ~~Stat rework~~ (built 2026-10-29, see "Stat rework (built)").
 2. ~~RPE/RIR picker on the workout screen and the Settings toggle~~ (built 2026-10-29).
 3. ~~Gear expansion~~ (built 2026-10-29, see "Gear expansion (built)").
-4. Phase 5 piece 2: server routes (four fight modes, class pick and switch), Firestore rules and tests, the charm effects outside fights, the boss minimum baseline fix.
+4. ~~Phase 5 piece 2: server routes (four fight modes, class pick and switch), Firestore rules and tests, the charm effects outside fights, the boss minimum baseline fix~~ (built 2026-10-29, see "Phase 5, piece 2 (built)").
 5. Phase 5 piece 3: the Battle screens. Piece 4: e2e specs.
 
 **UI polish (Hero and Quests wording)**

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
 import { ARMOR_SLOTS, POSITIONS } from "./config";
-import { newItem, type OwnedItem } from "./items";
+import { effectValue, newItem, type OwnedItem } from "./items";
 import {
   powerView,
   rarityWithPlus,
@@ -110,6 +110,13 @@ describe("positionViews", () => {
     expect(named.sell.price).toBeNull();
     expect(named.salvage).toMatchObject({ scrap: 150, enabled: true });
   });
+
+  test("a worn salvage charm raises the scrap shown, and its effect reads as active", () => {
+    const cog = owned("tinkers-cog", {}, "cog");
+    const view = slotOf(game({ equipped: { charm1: "cog" } }), [owned("wayfarer-boots", {}, "a"), cog], "boots").items[0];
+    expect(view.salvage.scrap).toBe(Math.round(15 * (1 + effectValue("salvageYield", "epic"))));
+    expect(slotOf(game(), [cog], "charm1").items[0].effect).not.toMatch(/not active/);
+  });
 });
 
 describe("setProgress", () => {
@@ -180,6 +187,8 @@ describe("shopView", () => {
     expect(shopView("alice", doc({ rerolls: 1 }), game(), T0, UTC).reroll.cost).toBe(200);
     expect(shopView("alice", doc({ rerolls: 2 }), game(), T0, UTC).reroll).toMatchObject({ cost: null, enabled: false, label: "No rerolls left" });
     expect(shopView("alice", null, game({ coins: 50 }), T0, UTC).reroll).toMatchObject({ enabled: false, reason: "Not enough coins" });
+    // A reroll charm's discount, as the server applies it.
+    expect(shopView("alice", null, game(), T0, UTC, 0.15).reroll).toMatchObject({ cost: 85, label: "Reroll for 85 coins" });
   });
 
   test("a new week starts clean; the stock follows the reroll count", () => {

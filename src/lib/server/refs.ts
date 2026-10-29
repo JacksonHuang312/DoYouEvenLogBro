@@ -7,6 +7,10 @@ export function gameRefs(db: Firestore, uid: string) {
     state: user.collection("game").doc("state"),
     muscles: user.collection("game").doc("muscles"),
     schedule: user.collection("game").doc("schedule"),
+    /** Progress in each fight mode (Phase 5). */
+    battle: user.collection("game").doc("battle"),
+    /** One record per fight request, keyed by the client's request id. */
+    fights: user.collection("fights"),
     claims: user.collection("claims"),
     snapshots: user.collection("snapshots"),
     quests: user.collection("quests"),

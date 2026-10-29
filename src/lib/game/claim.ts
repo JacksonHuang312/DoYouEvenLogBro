@@ -1,6 +1,6 @@
 import type { LoggedSet, Workout } from "../types";
 import type { Injury, Pause } from "./breaks";
-import { COINS, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type Stat } from "./config";
+import { COINS, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type ClassId, type Stat } from "./config";
 import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./economy";
 import { exerciseSessions, mergeFacts, workoutFacts, type MusclesFacts, type PreviousSession } from "./facts";
 import { statOf } from "./muscles";
@@ -40,6 +40,10 @@ export interface GameState {
   materials?: Materials;
   /** Earned and equipped titles, and title slots. Missing on docs from before Phase 4 (see titlesOf). */
   titles?: TitlesState;
+  /** The hero's class. Missing until the player picks one (free, once). Fights need it. */
+  classId?: ClassId;
+  /** When the class was last switched (not the free pick), for the once-per-7-days rule. */
+  classSwitchedAt?: number | null;
   createdAt: number;
   updatedAt: number;
 }
