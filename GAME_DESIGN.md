@@ -535,6 +535,8 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 4. ~~Phase 5 piece 2: server routes (four fight modes, class pick and switch), Firestore rules and tests, the charm effects outside fights, the boss minimum baseline fix~~ (built 2026-10-29, see "Phase 5, piece 2 (built)").
 5. Phase 5 piece 3: the Battle screens. Piece 4: e2e specs.
 
+Replaced by the order in section 13 (agreed 2026-10-29): levels 1-100 and level rewards first, then the Battle screens, two weeks of real use, then the item rework.
+
 **UI polish (Hero and Quests wording)**
 - Gear cards: a level-gated item keeps its Equip button, disabled, with a lock and the level inside it ("Equip 🔒 25"); Shop cards show a small lock and the level. The upgrade level is shown only once above zero, in brackets after the rarity ("Mythic", "Mythic (+1)"), everywhere (rows, cards, the confirm dialogs). The four helper lines under a card (upgrade preview, "act on one of your N", level, "named gear can't be sold") are gone. A line appears under the buttons only when something is greyed out for a non-obvious reason: an Upgrade the player can't afford, or "Unequip it to sell or salvage it" on an equipped item. The upgrade cost lives in the confirm dialog.
 - An item's stats are always shown attack, then health, then defense ("ATK 80 / HP 20"), never by size, and a stat at 0 is left out. An equipped slot's row has two lines: rarity and power, then the stats.
@@ -596,3 +598,74 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 2. Do `computeStats`, `displayStats` or the radar clamp stats at 100? If so, remove it.
 3. Is workout XP limited by the 12-hour rule? If not, add it.
 4. Are the level gates still 20/35/50 anywhere in config? Change to 8/15/25.
+
+---
+
+## 13. Next plan (agreed 2026-10-29, not built)
+
+Agreed in conversation after Phase 5 piece 2. Numbers marked *draft* get tuned with the pacing and combat tables, as before.
+
+### 13.1 Build order
+1. **Levels 1-100 and level rewards** (13.2, 13.3), plus fight energy from workouts (13.7) and the anti-farming guard (13.8). Small; before the rollout, since production hasn't had the RPG backfill yet (the backfill then simply uses the new curve).
+2. **Battle screens** (Phase 5 piece 3) on the current items, with the loot moments of 13.9.
+3. **Two weeks of real use**, then retune from real fight records (13.11).
+4. **Item rework:** item level + rarity (13.5), weapons (13.6). One or two sessions; the Gear and Shop tabs are reworked with it.
+5. **Phase 6:** party raids (13.10) and friend leaderboards.
+
+### 13.2 Levels 1-100
+- Level 100 at about **2 years** for the steady pacing player, on a **curve**: early levels every workout or two, later ones about every 10 days (roughly a level-up a week on average). Rough target: level 10 at ~3 weeks, 20 at ~2 months, 40 at ~6, 60 at ~11, 80 at ~17, 100 at ~24 months.
+- Every gate (weekly tiers, endless tower, Boss Tower, equip levels) is re-placed **by target month** with `npm run pacing-table`, so content opens when it does now. Tier 5 stays the endgame, at level 100.
+- **After 100:** the XP bar keeps filling and every so often pays a small cosmetic or title reward, so a workout always pays something.
+
+### 13.3 Level-up rewards and stat points
+- Every level pays some coins and scrap, with a bigger reward every 10 levels (*draft*; budgeted with an economy check like the pacing table so it doesn't flood the Shop).
+- Every level also gives a **stat point** to put into one of the six muscle stats:
+  - Each point adds a **percent** of that stat in fights (*draft* +0.5%), so it compounds with training; a neglected stat gets almost nothing from points.
+  - **Fights only.** The radar, Power, stat XP, quests and titles keep using earned stats, and points never count toward **boss minimums**.
+  - Capped per stat; a full level-100 build is worth about **+8-10% battle power**, like a full endgame loadout's effects.
+  - **Respec** for a **flat fee** in coins (*draft*).
+
+### 13.4 Dropped: sets by rarity bands
+Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-100). Replaced by 13.5, which keeps every rarity possible at every level.
+
+### 13.5 Items: item level + rarity
+- **Item level** comes from where it dropped (Campaign stage, tower floor, weekly tier), near the player's level. **Rarity** is a separate roll: a level-30 drop can be Common or Legendary.
+- **Power = base power for its level × a rarity multiplier** (*draft*: Common 1.0, Uncommon 1.15, Rare 1.3, Epic 1.5, Legendary 1.75, Mythic 2.0), so a Legendary is worth roughly a Common about 20 levels higher. The 30% gear cap stays. Effects keep scaling with rarity (`EFFECT_SCALE`).
+- **Named sets per level range (option B):** one set per class every 20 levels (1, 20, 40, 60, 80), 15 sets, each available in every rarity, with its own name and identity. A piece's exact level is wherever it dropped ("Steelguard" covers 20-39). Loose pieces and weapons fill the gaps. Claude drafts the names in `catalogData.ts` for review.
+- **Mythics** stay unique items with their own effect, dropping only late (weekly tiers 4-5, top Boss Tower floors), with item levels like everything else.
+- You can't wear an item above your level. The Shop stocks your level, Common to Epic.
+- **Upgrades:** plus levels only; the rarity upgrade (Rare to Epic) goes. Named Legendary to Mythic with a Mythic Core stays as the endgame path. New: **reforge** spends scrap to raise an item to your current level, so a great roll doesn't go obsolete.
+- Salvage pays scrap by item level and rarity. Existing items need a migration (an item level from their rarity's old equip level).
+
+### 13.6 Weapons
+- One **weapon** slot: the strongest single piece (*draft* about 2× an armor piece), counted toward the 30% gear cap, not part of sets.
+- **Sword:** mostly ATK, crit damage. **Staff:** less ATK, boosts healing (Mend, Radiance, the necklace). **Shield:** mostly DEF, a little ATK, boosts Guard and Bastion.
+- **Open to every class**, with a bonus for the class's matching weapon. Every weapon deals damage, so a Cleric can solo the Campaign and towers.
+- Rarity outweighs type: a staff is weaker than a sword of the same level and rarity, but **an Epic staff out-damages an Uncommon sword** (tested). Needs a full combat-table retune.
+
+### 13.7 Fights tied to training
+- Each counted workout gives **fight energy** (*draft*: 3 Campaign or endless tower attempts, capped), so the game pulls you to the gym instead of competing with it. The weekly boss stays one free fight a day; the Boss Tower keeps its 4-hour timer.
+
+### 13.8 Anti-farming
+- Bigger rewards make fake sets more tempting. Add **at most 2 counted workouts a day**; keep the 8-sets-per-stat cap, the "Does this look right?" notice (section 12) and the social check of friends seeing workouts. Nothing blocks a real user.
+
+### 13.9 Loot and level-up moments (Battle screens and Gear tab)
+- **Loot reveal:** the item card flips in its rarity colour; Legendary and Mythic get a bigger moment. Level-ups get one too. These two are an **exception to 7.1's "no glow, gradients"**.
+- **Visible guarantees:** "Legendary guaranteed in 6 wins".
+- **Compare arrows** against what's worn (green up, red down) and a "best gear" equip button.
+- **Auto-salvage below a chosen rarity**, since the item model drops a lot.
+- Later: an animated fight replay (section 10, Phase 5 round 2).
+
+### 13.10 Party raids (Phase 6; updates section 4.3)
+- Members within about **±25 levels** on the 1-100 scale (was ±10 on 1-35).
+- Loot is rolled at each player's own item level, with their own rarity roll.
+- Roles come from class and weapon (shield tank, staff healer, sword damage).
+- The fight engine grows to several heroes in one fight (boss targeting, heals on teammates). Likely asynchronous: the party gathers in a lobby and the server runs one fight with everyone's hero, so nobody needs to be online at the same moment.
+- **Seasons** later: for example a seasonal endless tower leaderboard among friends with cosmetic rewards, reset every few months.
+
+### 13.11 Measure real players
+- A script reads stored fight records (emulator now, production later) and reports real win rates per boss, months to each tier and coin income, so tuning uses data, not only the pacing model.
+- **Real training history:** Jackson may export his old workouts from Hevy (CSV). An import script would load them into the **emulator only** (never production, never committed) to check the stat and level curves against a real person's training.
+
+### 13.12 Notifications
+- Web push for an installed web app: "Your weekly fight is ready", "The tower is open again", "1 workout from levelling up".
