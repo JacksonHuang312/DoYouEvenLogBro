@@ -9,6 +9,7 @@ import {
   injuredStats,
   pausedOn,
   publicInjuries,
+  reflagAllowedAt,
   renewInjury,
   setShowInjuries,
   startPause,
@@ -110,7 +111,22 @@ describe("injury flags", () => {
     expect(activeInjuries(state, later + DAY)).toHaveLength(0);
     expect(renewInjury(state, "arms", later + DAY).ok).toBe(false);
     expect(clearInjury(state, "arms", later + DAY).ok).toBe(false);
-    expect(flagInjury(state, "arms", {}, later + 2 * DAY, UTC).ok).toBe(true);
+    // The stat waits INJURY.reflagWaitDays after its flag ended; other stats don't.
+    expect(flagInjury(state, "arms", {}, later + 2 * DAY, UTC).ok).toBe(false);
+    expect(reflagAllowedAt(state, "arms", later + 2 * DAY)).toBe(later + DAY + INJURY.reflagWaitDays * DAY);
+    expect(flagInjury(state, "legs", {}, later + 2 * DAY, UTC).ok).toBe(true);
+    expect(flagInjury(state, "arms", {}, later + DAY + INJURY.reflagWaitDays * DAY, UTC).ok).toBe(true);
+  });
+
+  test("a flag renews at most INJURY.maxRenewals times, and an expired flag also starts the wait", () => {
+    let state = good(flagInjury(fresh(), "arms", {}, T0, UTC));
+    let t = T0;
+    for (let i = 0; i < INJURY.maxRenewals; i++) state = good(renewInjury(state, "arms", (t += 50 * DAY)));
+    const r = renewInjury(state, "arms", t + DAY);
+    expect(r.ok).toBe(false);
+    const end = state.injuries![0].expiresAt;
+    expect(flagInjury(state, "arms", {}, end + DAY, UTC).ok).toBe(false);
+    expect(flagInjury(state, "arms", {}, end + INJURY.reflagWaitDays * DAY, UTC).ok).toBe(true);
   });
 
   test("validates the note and the expected return", () => {

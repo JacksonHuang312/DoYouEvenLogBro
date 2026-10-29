@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { clearInjury, flagInjury, startPause } from "./breaks";
 import { injuryView, pausePlan, pauseView } from "./breaksView";
 import { newGameState, type GameState } from "./claim";
+import { INJURY } from "./config";
 import { DAY, T0 } from "./test-helpers";
 
 const UTC = "UTC";
@@ -76,6 +77,7 @@ describe("injuryView", () => {
         daysToExpiry: 56,
         soon: false,
         renewals: 0,
+        canRenew: true,
       },
     ]);
     expect(v.flaggable.map((f) => f.stat)).not.toContain("arms");
@@ -94,12 +96,13 @@ describe("injuryView", () => {
     expect(v.flaggable).toEqual([]);
   });
 
-  test("a cleared flag is gone, and its stat can be flagged again", () => {
+  test("a cleared flag is gone, and its stat can be flagged again after the wait", () => {
     let state = unwrap(flagInjury(fresh(), "arms", {}, T0, UTC));
     state = unwrap(clearInjury(state, "arms", T0 + DAY));
     const v = injuryView(state, T0 + 2 * DAY, UTC);
     expect(v.rows).toEqual([]);
-    expect(v.flaggable.map((f) => f.stat)).toContain("arms");
+    expect(v.flaggable.map((f) => f.stat)).not.toContain("arms");
+    expect(injuryView(state, T0 + (1 + INJURY.reflagWaitDays) * DAY, UTC).flaggable.map((f) => f.stat)).toContain("arms");
   });
 
   test("an expected return in the past is dropped from the row", () => {

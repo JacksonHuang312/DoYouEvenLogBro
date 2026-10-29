@@ -14,6 +14,7 @@ import {
   newItem,
   piecePower,
   removeItem,
+  salvageYield,
   sellPrice,
   setBonusPct,
   unequipPosition,
@@ -304,6 +305,14 @@ describe("selling and salvage", () => {
   test("salvage yield goes by current rarity", () => {
     const r = removeItem(rich({ materials: { scrap: 1 } }), owned("ironbound-boots", { rarity: "rare", plus: 1 }), "salvaged", T0);
     expect(r).toMatchObject({ ok: true, value: { state: { materials: { scrap: 1 + SALVAGE.rare } } } });
+  });
+
+  test("a salvage charm adds its share of the scrap, rounded", () => {
+    const r = removeItem(rich({ materials: {} }), owned("ironbound-boots", { rarity: "rare" }), "salvaged", T0, 0.1);
+    expect(r).toMatchObject({ ok: true, value: { removal: { scrap: Math.round(SALVAGE.rare * 1.1) } } });
+    expect(salvageYield({ rarity: "common" }, 0.5)).toBe(Math.round(SALVAGE.common * 1.5));
+    // Selling never pays scrap, charm or not.
+    expect(removeItem(rich(), owned("ironbound-boots"), "sold", T0, 0.5)).toMatchObject({ value: { removal: { scrap: 0 } } });
   });
 
   test("an equipped item has to be unequipped first", () => {

@@ -4,6 +4,8 @@ import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
 import { isAccessory } from "@/lib/game/config";
+import { gearEffects } from "@/lib/game/effects";
+import { equippedItems, type OwnedItem } from "@/lib/game/items";
 import { RARITY_LABEL, shopView, SLOT_LABEL, type OfferView } from "@/lib/game/itemsView";
 import { buyOffer, rerollShop, ApiError } from "@/lib/gameApi";
 import { confirmRpgDialog, alertRpgDialog } from "@/lib/rpgDialog";
@@ -28,12 +30,15 @@ const HEADING = "font-rpg-head text-xl font-semibold uppercase tracking-[0.02em]
 export function ShopPanel({
   uid,
   state,
+  items,
   now,
   timeZone,
   online,
 }: {
   uid: string;
   state: GameState | null;
+  /** The inventory: a worn reroll charm lowers the reroll price. */
+  items: OwnedItem[];
   now: number;
   timeZone: string;
   online: boolean;
@@ -43,7 +48,11 @@ export function ShopPanel({
   const clock = now + skew;
   const { weekId } = useMemo(() => shopView(uid, null, state, clock, timeZone), [uid, state, clock, timeZone]);
   const shop = useShop(uid, weekId);
-  const view = useMemo(() => shopView(uid, shop.data, state, clock, timeZone), [uid, shop.data, state, clock, timeZone]);
+  const discount = useMemo(() => (state ? gearEffects(equippedItems(state, items), state.level).rerollDiscount : 0), [state, items]);
+  const view = useMemo(
+    () => shopView(uid, shop.data, state, clock, timeZone, discount),
+    [uid, shop.data, state, clock, timeZone, discount],
+  );
   const { busy, run } = useRunner();
   const info = useInfo();
 

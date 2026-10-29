@@ -45,8 +45,11 @@ export const offerKey = (rerolls: number, index: number) => `${rerolls}:${index}
 /** The inventory id of an item bought from an offer. The same offer always makes the same id, so a retry can't buy twice. */
 export const shopItemId = (weekId: string, rerolls: number, index: number) => `shop-${weekId}-${rerolls}-${index}`;
 
-/** Coins for the next reroll, or null when none are left this week. */
-export const rerollCost = (doc: Pick<ShopDoc, "rerolls">): number | null => SHOP.rerollCosts[doc.rerolls] ?? null;
+/** Coins for the next reroll, less the reroll charm's `discount` (rerollDiscount effect) and rounded, or null when none are left this week. */
+export function rerollCost(doc: Pick<ShopDoc, "rerolls">, discount = 0): number | null {
+  const cost = SHOP.rerollCosts[doc.rerolls];
+  return cost == null ? null : Math.round(cost * (1 - discount));
+}
 
 const bases = (rarity: ShopRarity, accessory: boolean) => BASE_ITEMS.filter((b) => b.rarity === rarity && isAccessory(b.slot) === accessory);
 
@@ -124,15 +127,16 @@ export function buyOffer({
   });
 }
 
-/** Rerolls the whole stock for coins. `expectedRerolls` keeps a retry from charging twice. */
+/** Rerolls the whole stock for coins. `expectedRerolls` keeps a retry from charging twice. `discount` is the worn rerollDiscount effect. */
 export function rerollShop(
   doc: ShopDoc,
   state: GameState,
   expectedRerolls: number,
   now: number,
+  discount = 0,
 ): GameResult<{ doc: ShopDoc; state: GameState; cost: number }> {
   if (doc.rerolls !== expectedRerolls) return fail("The shop changed. Take a look at the new stock");
-  const cost = rerollCost(doc);
+  const cost = rerollCost(doc, discount);
   if (cost == null) return fail("No rerolls left this week");
   if (state.coins < cost) return fail("Not enough coins", 402);
   return ok({

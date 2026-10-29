@@ -7,13 +7,15 @@ import {
   campaignEncounter,
   checkMinimums,
   mechanicsOf,
+  minimumNeeded,
   towerEncounter,
   weeklyBoss,
   weeklyEncounter,
   weeklyTier,
 } from "./bosses";
-import { BOSS_TOWER, COMBAT, STATS, WEEKLY_BOSS } from "./config";
-import type { StatLine } from "./score";
+import { BOSS_TOWER, STATS, WEEKLY_BOSS, type Stat } from "./config";
+import { simulatePacing, typicalStats } from "./pacing";
+import { power as power_, type StatLine } from "./score";
 import { addDays } from "./time";
 
 const statLine = (value: number, over: Partial<Record<(typeof STATS)[number], number>> = {}): StatLine =>
@@ -104,7 +106,21 @@ describe("towers and the Campaign", () => {
 
 describe("boss minimums", () => {
   const power = 350;
-  const needed = (share: number) => Math.ceil((share * power) / COMBAT.powerPerStat);
+  const needed = (share: number) => Math.ceil(share * typicalStats(power).legs);
+
+  test("minimums follow a typically geared hero's stats at the boss's power, per stat", () => {
+    const t = typicalStats(power);
+    // Gear and bonuses carry part of the power, so the stats are below an ungeared hero's.
+    expect(power_(t)).toBeLessThan(power);
+    expect(t.core).toBeLessThan(t.back);
+    expect(minimumNeeded("core", 0.8, power)).toBe(Math.ceil(0.8 * t.core));
+    // Boss Tower's last floor asks for what the pacing player has when reaching its power.
+    const top = bossTowerEncounter(30)!;
+    const run = simulatePacing(520).find((w) => w.battle >= top.power)!;
+    for (const [stat, share] of Object.entries(top.minimums) as [Stat, number][]) {
+      expect(minimumNeeded(stat, share, top.power)).toBeLessThanOrEqual(Math.ceil(run.stats[stat]));
+    }
+  });
 
   test("met minimums allow the fight", () => {
     const c = checkMinimums({ minimums: { legs: 0.8 }, power, stats: statLine(60), heroPower: power });

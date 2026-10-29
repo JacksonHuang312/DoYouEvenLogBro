@@ -1,4 +1,4 @@
-import { activeInjuries, activePause, pauseEnd, pausesOf, startPause, type Injury } from "./breaks";
+import { activeInjuries, activePause, canRenew, pauseEnd, pausesOf, reflagAllowedAt, startPause, type Injury } from "./breaks";
 import { newGameState, type GameState } from "./claim";
 import { INJURY, PAUSE, STATS, type Stat } from "./config";
 import { addDays, dayId, daysBetween } from "./time";
@@ -70,11 +70,13 @@ export interface InjuryRow {
   /** A flag that lapses within this many days is worth renewing. */
   soon: boolean;
   renewals: number;
+  /** False once the flag used its INJURY.maxRenewals renewals. */
+  canRenew: boolean;
 }
 
 export interface InjuryView {
   rows: InjuryRow[];
-  /** Stats that can still be flagged. Empty when the limit is reached. */
+  /** Stats that can be flagged now (not flagged, not waiting after a flag ended). Empty when the limit is reached. */
   flaggable: { stat: Stat; label: string }[];
   full: boolean;
   /** Whether followers see the flags. */
@@ -98,12 +100,13 @@ export function injuryView(state: GameState | null, now: number, timeZone: strin
       daysToExpiry,
       soon: daysToExpiry <= SOON_DAYS,
       renewals: i.renewals,
+      canRenew: canRenew(i),
     };
   };
   const full = active.length >= INJURY.maxStats;
   return {
     rows: active.map(row),
-    flaggable: full ? [] : STATS.filter((s) => !active.some((i) => i.stat === s)).map((s) => ({ stat: s, label: STAT_LABELS[s] })),
+    flaggable: full ? [] : STATS.filter((s) => !active.some((i) => i.stat === s) && reflagAllowedAt(game, s, now) == null).map((s) => ({ stat: s, label: STAT_LABELS[s] })),
     full,
     shown: game.showInjuries !== false,
   };

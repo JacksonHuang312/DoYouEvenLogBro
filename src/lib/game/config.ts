@@ -219,6 +219,10 @@ export const PAUSE = {
 export const INJURY = {
   maxStats: 2,
   expiryWeeks: 8,
+  /** A flag can be renewed this many times (flags waive boss minimums, so they mustn't last forever). */
+  maxRenewals: 2,
+  /** A stat can be flagged again only this many days after its last flag ended (cleared or expired). */
+  reflagWaitDays: 7,
   maxNoteLength: 200,
   historyDays: 365,
 };
@@ -548,10 +552,9 @@ export const COMBAT = {
     core: { hp: 0.5, atk: 0, def: 0.5 },
   } as Record<Stat, { hp: number; atk: number; def: number }>,
   /**
-   * Boss minimums are shares of the stat a balanced hero at the boss's power would have
-   * (power / powerPerStat). Being under one is allowed only with this much more power than the boss.
+   * Boss minimums are shares of the stat a typically geared hero at the boss's power has
+   * (`typicalStats`, from PACING). Being under one is allowed only with this much more power than the boss.
    */
-  powerPerStat: 5.5,
   minimumMargin: 0.2,
   /** A necklace's healing works at this strength for anyone who isn't a Cleric. */
   necklaceNonClericFactor: 0.25,

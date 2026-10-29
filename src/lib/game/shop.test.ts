@@ -84,6 +84,11 @@ describe("buyOffer", () => {
 });
 
 describe("rerollShop", () => {
+  test("a reroll charm discounts Shop rerolls, rounded to whole coins", () => {
+    expect(rerollCost(shop(), 0.155)).toBe(85);
+    expect(rerollShop(shop(), state(1000), 0, T0, 0.5)).toMatchObject({ ok: true, value: { cost: 50, state: { coins: 950 } } });
+  });
+
   test("costs 100, then 200, then none are left", () => {
     expect(rerollCost(shop())).toBe(100);
     const first = rerollShop(shop(), state(1000), 0, T0);

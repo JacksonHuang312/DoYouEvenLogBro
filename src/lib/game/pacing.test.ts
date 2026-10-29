@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { PACING, XP } from "./config";
-import { assumedGear, battleFrom, milestones, simulatePacing, suggestedPerLevel } from "./pacing";
+import { milestones } from "./milestones";
+import { assumedGear, battleFrom, simulatePacing, suggestedPerLevel } from "./pacing";
 
 describe("pacing model", () => {
   const run = simulatePacing(52 * 3);

@@ -1,5 +1,4 @@
-import { campaignPower, CAMPAIGN_STAGES, bossTowerPower } from "./bosses";
-import { BOSS_TOWER, GEAR, PACING, STAT_POINTS, STATS, WEEKLY_BOSS, XP } from "./config";
+import { GEAR, PACING, STAT_POINTS, STATS, XP } from "./config";
 import { power, type StatLine } from "./score";
 
 /*
@@ -79,38 +78,29 @@ export function simulatePacing(weeks: number, perLevel = XP.perLevel): PacingWee
   return out;
 }
 
-export interface Milestone {
-  name: string;
-  /** The design doc's target, in months (null when it has none). */
-  target: number | null;
-  /** When the model first reaches it, in months, or null if not within the simulated time. */
-  months: number | null;
-}
-
-/** When each piece of content comes within reach (level gate and recommended power). */
-export function milestones(run: PacingWeek[]): Milestone[] {
-  const first = (ok: (w: PacingWeek) => boolean) => run.find(ok)?.months ?? null;
-  const tiers = WEEKLY_BOSS.tierPower.map((p, i) => ({
-    name: `Weekly boss tier ${i + 1}`,
-    target: PACING.targets.weeklyTier[i],
-    months: first((w) => w.level >= WEEKLY_BOSS.tierLevels[i] && w.battle >= p * WEEKLY_BOSS.tierPowerShare),
-  }));
-  return [
-    ...tiers,
-    { name: "Campaign finished", target: PACING.targets.campaign, months: first((w) => w.battle >= campaignPower(CAMPAIGN_STAGES)) },
-    {
-      name: `Boss Tower floor ${BOSS_TOWER.floors}`,
-      target: PACING.targets.bossTower,
-      months: first((w) => w.level >= BOSS_TOWER.minLevel && w.battle >= bossTowerPower(BOSS_TOWER.floors)),
-    },
-    { name: "Level 25 (Mythics)", target: null, months: first((w) => w.level >= 25) },
-    { name: "Level 35", target: PACING.targets.level35, months: first((w) => w.level >= 35) },
-  ];
-}
-
 /** The XP per level (rounded to 25) that puts level 35 at PACING.targets.level35 months. */
 export function suggestedPerLevel(): number {
   const weeks = Math.round(PACING.targets.level35 * WEEKS_PER_MONTH);
   const xp = simulatePacing(weeks, 1).at(-1)!.xp;
   return Math.floor(xp / 34 / 25) * 25;
+}
+
+const TYPICAL_WEEKS = 520;
+let typicalRun: PacingWeek[] | null = null;
+
+/**
+ * The stats a typically geared hero has at `battle` power (GAME_DESIGN.md 10, round 3): the pacing
+ * model's steady player, with its training split, assumed gear and bonuses, at the moment their
+ * battle power reaches `battle` (straight lines between weeks; scaled past either end). Boss
+ * minimums are shares of this, so they ask for stats a hero at the boss's power really has.
+ */
+export function typicalStats(battle: number): StatLine {
+  const run = (typicalRun ??= simulatePacing(TYPICAL_WEEKS));
+  const scaled = (w: PacingWeek, by: number) => Object.fromEntries(STATS.map((s) => [s, w.stats[s] * by])) as StatLine;
+  if (battle <= run[0].battle) return scaled(run[0], Math.max(0, battle) / run[0].battle);
+  const i = run.findIndex((w) => w.battle >= battle);
+  if (i < 0) return scaled(run[run.length - 1], battle / run[run.length - 1].battle);
+  const [a, b] = [run[i - 1], run[i]];
+  const t = (battle - a.battle) / (b.battle - a.battle);
+  return Object.fromEntries(STATS.map((s) => [s, a.stats[s] + t * (b.stats[s] - a.stats[s])])) as StatLine;
 }

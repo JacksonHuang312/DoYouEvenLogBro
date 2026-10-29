@@ -221,10 +221,10 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
           <div className="flex gap-2">
             <button
               onClick={() => void run("Couldn't renew the flag", () => renewInjury(row.stat), `${row.label} flag renewed.`)}
-              disabled={off}
+              disabled={off || !row.canRenew}
               className={`${SECONDARY} flex-1`}
             >
-              Renew {INJURY.expiryWeeks} weeks
+              {row.canRenew ? `Renew ${INJURY.expiryWeeks} weeks` : "No renewals left"}
             </button>
             <button onClick={() => void clear(row.stat, row.label)} disabled={off} className={`${SECONDARY} flex-1`}>
               Clear

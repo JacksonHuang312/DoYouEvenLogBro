@@ -1,6 +1,6 @@
 import { baseItem, setDef, SETS, type BaseItem } from "./catalog";
 import { battlePower } from "./battle";
-import { SET_EFFECT_PIECES } from "./effects";
+import { gearEffects, SET_EFFECT_PIECES } from "./effects";
 import { newGameState, type GameState } from "./claim";
 import {
   ACCESSORY_EFFECTS,
@@ -160,7 +160,7 @@ export interface ItemView {
 const NO_STATE = (now: number) => newGameState(now, "UTC");
 
 /** One owned copy as shown for `target`, the position being equipped into. */
-function itemView(state: GameState, item: OwnedItem, now: number, target: Position): ItemView {
+function itemView(state: GameState, item: OwnedItem, now: number, target: Position, salvageBonus: number): ItemView {
   const base = baseItem(item.baseId);
   const position = equippedPosition(state, item.id);
   const equipped = position != null;
@@ -189,7 +189,7 @@ function itemView(state: GameState, item: OwnedItem, now: number, target: Positi
 
   // Selling and salvaging need the item unequipped; a dry run on a copy tells what else stops them.
   const sellTry = removeItem(state, item, "sold", now);
-  const salvageTry = removeItem(state, item, "salvaged", now);
+  const salvageTry = removeItem(state, item, "salvaged", now, salvageBonus);
   const sellPrice = sellTry.ok ? sellTry.value.removal.coins : null;
   const where = position && positionsOf(item.slot).length > 1 ? ` · ${POSITION_LABEL[position]}` : "";
 
@@ -250,10 +250,12 @@ const strongestFirst = (a: ItemView, b: ItemView) => b.power - a.power || a.name
 export function positionViews(state: GameState | null, inventory: OwnedItem[], now: number): PositionView[] {
   const game = state ?? NO_STATE(now);
   const live = inventory.filter((i) => !i.removed);
+  // A worn salvage charm adds to the scrap every salvage shows, as on the server.
+  const salvageBonus = gearEffects(equippedItems(game, inventory), game.level).salvageYield;
   return POSITIONS.map((position) => {
     const slot = slotOfPosition(position);
     const copies = live.filter((i) => i.slot === slot);
-    const views = copies.map((i) => ({ owned: i, view: itemView(game, i, now, position) }));
+    const views = copies.map((i) => ({ owned: i, view: itemView(game, i, now, position, salvageBonus) }));
     const worn = views.filter((v) => v.view.equipped).map((v) => ({ key: v.owned.id, count: 1, item: v.view }));
     worn.sort((a, b) => Number(b.item.position === position) - Number(a.item.position === position) || strongestFirst(a.item, b.item));
 
@@ -379,7 +381,15 @@ export function restockLabel(weekId: string, now: number, timeZone: string): str
 }
 
 /** This week's stock with what's bought, what the user can afford, and the reroll. */
-export function shopView(uid: string, doc: ShopDoc | null, state: GameState | null, now: number, timeZone: string): ShopView {
+/** `rerollDiscount` is the worn rerollDiscount effect (see `gearEffects`), as the server applies it. */
+export function shopView(
+  uid: string,
+  doc: ShopDoc | null,
+  state: GameState | null,
+  now: number,
+  timeZone: string,
+  rerollDiscount = 0,
+): ShopView {
   const week = weekIdOf(now, timeZone);
   const game = state ?? NO_STATE(now);
   const shop = doc ?? emptyShop(week, timeZone, now);
@@ -403,8 +413,8 @@ export function shopView(uid: string, doc: ShopDoc | null, state: GameState | nu
       locked: game.level < EQUIP_LEVEL[o.rarity] ? { level: EQUIP_LEVEL[o.rarity] } : null,
     };
   });
-  const cost = rerollCost(shop);
-  const attempt = rerollShop(shop, game, shop.rerolls, now);
+  const cost = rerollCost(shop, rerollDiscount);
+  const attempt = rerollShop(shop, game, shop.rerolls, now, rerollDiscount);
   return {
     weekId: week,
     rerolls: shop.rerolls,

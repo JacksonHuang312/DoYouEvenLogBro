@@ -128,7 +128,21 @@ function badReturn(day: string | undefined, today: string): string | null {
   return null;
 }
 
-/** Marks a stat as injured, for up to INJURY.maxStats stats at once. */
+/** When `stat` may be flagged again: INJURY.reflagWaitDays after its last flag ended, or null if that has passed. */
+export function reflagAllowedAt(state: Pick<GameState, "injuries">, stat: Stat, now: number): number | null {
+  const ended = injuriesOf(state).filter((i) => i.stat === stat && injuryEnd(i) <= now).map(injuryEnd);
+  if (!ended.length) return null;
+  const at = Math.max(...ended) + INJURY.reflagWaitDays * DAY_MS;
+  return at > now ? at : null;
+}
+
+/** Whether an active flag can still be renewed (INJURY.maxRenewals). */
+export const canRenew = (injury: Pick<Injury, "renewals">): boolean => injury.renewals < INJURY.maxRenewals;
+
+/**
+ * Marks a stat as injured, for up to INJURY.maxStats stats at once. A stat whose last flag ended
+ * less than INJURY.reflagWaitDays ago must wait, so clearing and re-flagging can't dodge the renewal limit.
+ */
 export function flagInjury(
   state: GameState,
   stat: Stat,
@@ -140,6 +154,7 @@ export function flagInjury(
   const active = activeInjuries(state, now);
   if (active.some((i) => i.stat === stat)) return fail("That stat is already flagged");
   if (active.length >= INJURY.maxStats) return fail(`At most ${INJURY.maxStats} stats can be flagged at once`);
+  if (reflagAllowedAt(state, stat, now) != null) return fail(`A stat can be flagged again ${INJURY.reflagWaitDays} days after its last flag ended`);
   const note = opts.note?.trim();
   if (note && note.length > INJURY.maxNoteLength) return fail("That note is too long");
   const problem = badReturn(opts.expectedReturn, dayId(now, timeZone));
@@ -156,10 +171,11 @@ export function flagInjury(
   return ok(withBreaks(state, now, { ...kept, injuries: [...kept.injuries, injury] }));
 }
 
-/** Pushes an active flag's expiry out another INJURY.expiryWeeks weeks from now. */
+/** Pushes an active flag's expiry out another INJURY.expiryWeeks weeks from now, at most INJURY.maxRenewals times. */
 export function renewInjury(state: GameState, stat: Stat, now: number): Result<GameState> {
   const injury = activeInjuries(state, now).find((i) => i.stat === stat);
   if (!injury) return fail("That stat is not flagged");
+  if (!canRenew(injury)) return fail(`A flag can be renewed ${INJURY.maxRenewals} times. Clear it when you're back`);
   const renewed: Injury = { ...injury, expiresAt: expiry(now), renewals: injury.renewals + 1 };
   return ok(withBreaks(state, now, { injuries: injuriesOf(state).map((i) => (i === injury ? renewed : i)) }));
 }

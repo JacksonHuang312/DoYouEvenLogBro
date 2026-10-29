@@ -262,21 +262,22 @@ export function sellPrice(item: Pick<Item, "named" | "originRarity">): number | 
   return roundCoins(ITEM_VALUE[item.originRarity as ShopRarity] * SELL_SHARE);
 }
 
-/** Scrap for salvaging, by current rarity. */
-export const salvageYield = (item: Pick<Item, "rarity">): number => SALVAGE[item.rarity];
+/** Scrap for salvaging, by current rarity, plus the salvage charm's share (`bonus`, the salvageYield effect), rounded. */
+export const salvageYield = (item: Pick<Item, "rarity">, bonus = 0): number => Math.round(SALVAGE[item.rarity] * (1 + bonus));
 
-/** Sells or salvages an item. It must be unequipped first. */
+/** Sells or salvages an item. It must be unequipped first. `salvageBonus` is the worn salvageYield effect. */
 export function removeItem(
   state: GameState,
   item: OwnedItem,
   reason: Removal["reason"],
   now: number,
+  salvageBonus = 0,
 ): GameResult<{ state: GameState; item: Item; removal: Removal }> {
   if (item.removed) return fail("That item is gone", 404);
   if (equippedPosition(state, item.id)) return fail("Unequip it first");
   const price = reason === "sold" ? sellPrice(item) : 0;
   if (price == null) return fail("Named gear can't be sold. Salvage it for scrap instead");
-  const scrap = reason === "salvaged" ? salvageYield(item) : 0;
+  const scrap = reason === "salvaged" ? salvageYield(item, salvageBonus) : 0;
   const removal: Removal = { reason, at: now, coins: price, scrap };
   const m = materialsOf(state);
   return ok({

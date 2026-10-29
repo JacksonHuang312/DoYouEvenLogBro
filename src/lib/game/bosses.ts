@@ -1,6 +1,7 @@
 import { BOSS_TYPES, CAMPAIGN_CHAPTERS, TOWER_BOSSES, WEEKLY_BOSSES, type BossEntry } from "./bossData";
 import { buildFoe, type Foe, type FoeMechanics } from "./combat";
 import { BOSS_TOWER, CAMPAIGN, COMBAT, ENDLESS_TOWER, STATS, WEEKLY_BOSS, type Stat } from "./config";
+import { typicalStats } from "./pacing";
 import type { StatLine } from "./score";
 import { daysBetween } from "./time";
 
@@ -105,8 +106,11 @@ export interface MinimumCheck {
   powerToOverride: number;
 }
 
+/** The stat a minimum asks for: `share` of what a typically geared hero at `power` has in it. */
+export const minimumNeeded = (stat: Stat, share: number, power: number): number => Math.ceil(share * typicalStats(power)[stat]);
+
 /**
- * Checks a boss's stat minimums. Under a minimum the fight is allowed only with
+ * Checks a boss's stat minimums against `stats` (fights pass rusted stats). Under a minimum the fight is allowed only with
  * (1 + COMBAT.minimumMargin) × the boss's power. An injured stat's minimum is waived.
  */
 export function checkMinimums({
@@ -123,7 +127,7 @@ export function checkMinimums({
   injured?: Stat[];
 }): MinimumCheck {
   const rows = STATS.filter((s) => minimums[s] != null).map((stat) => {
-    const needed = Math.ceil((minimums[stat]! * power) / COMBAT.powerPerStat);
+    const needed = minimumNeeded(stat, minimums[stat]!, power);
     const have = Math.round(stats[stat]);
     const waived = injured.includes(stat);
     return { stat, needed, have, met: have >= needed, waived };

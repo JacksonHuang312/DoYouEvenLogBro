@@ -121,7 +121,7 @@ export default function HeroPage() {
             online={online}
           />
         ) : tab === "Shop" ? (
-          <ShopPanel uid={profile.uid} state={state.data} now={now} timeZone={timeZone} online={online} />
+          <ShopPanel uid={profile.uid} state={state.data} items={inventory.data} now={now} timeZone={timeZone} online={online} />
         ) : (
           <TitlesPanel state={state.data} online={online} />
         )}

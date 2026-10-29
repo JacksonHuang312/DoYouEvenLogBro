@@ -1,4 +1,4 @@
-import type { DocumentSnapshot } from "firebase-admin/firestore";
+import type { DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { newGameState, type GameState } from "../game/claim";
 import { DEFAULT_TIME_ZONE, type Position, type Rarity } from "../game/config";
 import {
@@ -18,11 +18,12 @@ import {
   type OwnedItem,
   type Removal,
 } from "../game/items";
+import { gearEffects, NO_EFFECTS, type GearEffects } from "../game/effects";
 import { buyOffer, emptyShop, offerKey, rerollShop, type ShopDoc } from "../game/shop";
 import { weekId as weekIdOf } from "../game/time";
 import { adminDb } from "./admin";
 import { HttpError } from "./api";
-import { gameRefs } from "./refs";
+import { gameRefs, type GameRefs } from "./refs";
 
 /** A failed game action becomes an HTTP error with the status it carries. */
 export function unwrap<T>(result: GameResult<T>): T {
@@ -33,7 +34,21 @@ export function unwrap<T>(result: GameResult<T>): T {
 export const stateOf = (snap: DocumentSnapshot, now: number, timeZone: string): GameState =>
   snap.exists ? (snap.data() as GameState) : newGameState(now, timeZone);
 
-const ownedOf = (snap: DocumentSnapshot): OwnedItem => ({ id: snap.id, ...(snap.data() as Item) });
+export const ownedOf = (snap: DocumentSnapshot): OwnedItem => ({ id: snap.id, ...(snap.data() as Item) });
+
+/** The equipped items, read in the transaction. */
+export async function wornItems(tx: Transaction, r: GameRefs, state: GameState): Promise<OwnedItem[]> {
+  const ids = [...new Set(Object.values(equippedOf(state)).filter((id): id is string => !!id))];
+  if (!ids.length) return [];
+  const snaps = await tx.getAll(...ids.map((id) => r.inventory.doc(id)));
+  return snaps.filter((s) => s.exists).map(ownedOf).filter((i) => !i.removed);
+}
+
+/** What the worn gear does (charms included), read in the transaction. */
+export async function wornEffects(tx: Transaction, r: GameRefs, state: GameState): Promise<GearEffects> {
+  const worn = await wornItems(tx, r, state);
+  return worn.length ? gearEffects(worn, state.level) : NO_EFFECTS;
+}
 
 // ---- Shop ----
 
@@ -77,7 +92,8 @@ export async function shopAction(uid: string, input: ShopAction, timeZone?: stri
     if (weekIdOf(now, zone) !== input.weekId) throw new HttpError(409, "The shop just restocked. Take a look at the new stock");
 
     if (input.action === "reroll") {
-      const next = unwrap(rerollShop(doc, state, input.expectedRerolls, now));
+      const { rerollDiscount } = await wornEffects(tx, r, state);
+      const next = unwrap(rerollShop(doc, state, input.expectedRerolls, now, rerollDiscount));
       tx.set(shopRef, next.doc);
       tx.set(r.state, next.state);
       return { status: "rerolled", shop: next.doc, coins: next.state.coins, cost: next.cost };
@@ -170,7 +186,8 @@ export async function itemAction(uid: string, input: ItemAction): Promise<ItemRe
       case "salvage": {
         const reason = REMOVAL[input.action];
         if (item.removed?.reason === reason) return answer("already-done", state, item);
-        const next = unwrap(removeItem(state, item, reason, now));
+        const bonus = input.action === "salvage" ? (await wornEffects(tx, r, state)).salvageYield : 0;
+        const next = unwrap(removeItem(state, item, reason, now, bonus));
         tx.set(r.state, next.state);
         tx.set(itemSnap.ref, next.item);
         return answer("done", next.state, { id: item.id, ...next.item });

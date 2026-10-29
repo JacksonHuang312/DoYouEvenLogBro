@@ -4,7 +4,8 @@
 //
 //   npm run pacing-table
 import { PACING, STATS, XP } from "../src/lib/game/config";
-import { milestones, simulatePacing, suggestedPerLevel } from "../src/lib/game/pacing";
+import { milestones } from "../src/lib/game/milestones";
+import { simulatePacing, suggestedPerLevel } from "../src/lib/game/pacing";
 
 const run = simulatePacing(52 * 4);
 const months = (m: number | null) => (m == null ? "-" : m.toFixed(1)).padStart(6);

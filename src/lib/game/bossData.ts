@@ -15,8 +15,8 @@ import type { Stat } from "./config";
  *                mixed    a little of everything
  *                plain    no tricks
  *   tweak      Optional small changes to the type (more HP, a harder hit). Keep them small.
- *   minimums   Stats the boss checks, as a share of what a hero with every stat equal at the boss's
- *              power would have (1 = exactly that). Under one, you need 20% more power than the boss
+ *   minimums   Stats the boss checks, as a share of what a typically geared hero at the boss's power
+ *              has in that stat (`typicalStats` in pacing.ts; 1 = exactly that). Under one, you need 20% more power than the boss
  *              to fight it at all (section 4). An injury flag waives that stat's minimum.
  *
  * Power, HP and attack come from where the boss is used (weekly tier, tower floor, campaign stage),
