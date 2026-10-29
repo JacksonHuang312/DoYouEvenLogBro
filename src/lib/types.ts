@@ -27,6 +27,8 @@ export interface UserProfile {
   createdAt: number;
   /** "About me" shown on the profile. Missing on accounts that never set one. */
   bio?: string;
+  /** Whether set effort shows as RPE or reps in reserve. Missing means RPE. */
+  effortScale?: "rpe" | "rir";
 }
 
 /**
@@ -40,6 +42,8 @@ export interface LoggedSet {
   type: SetType;
   weightKg: number | null;
   reps: number;
+  /** How hard it was, as RPE in half steps (5 to 10). Optional; see src/lib/effort.ts. Never affects stats. */
+  rpe?: number;
   /** Set when this set was a personal record at the time it was saved. */
   record?: RecordType;
 }

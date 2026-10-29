@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftFromRoutine, setRepRange } from "./draft";
+import { draftFromRoutine, draftFromWorkout, setRepRange, setRpe, setSetType, toWorkout } from "./draft";
 import type { Routine } from "./types";
 
 const routine: Routine = {
@@ -54,5 +54,36 @@ describe("setRepRange", () => {
   it("changes nothing for an unknown exercise", () => {
     const draft = draftFromRoutine(routine, ["k1", "k2"]);
     expect(setRepRange(draft, "nope", { repMin: 1, repMax: 2 }).exercises).toEqual(draft.exercises);
+  });
+});
+
+describe("set type and effort", () => {
+  const draft = () => {
+    const d = draftFromRoutine(routine, ["k1", "k2"]);
+    const ex = d.exercises[0];
+    return { d, ex: ex.key, set: ex.sets[0].key };
+  };
+
+  it("sets the type directly", () => {
+    const { d, ex, set } = draft();
+    expect(setSetType(d, ex, set, "drop").exercises[0].sets[0].type).toBe("drop");
+  });
+
+  it("sets and clears RPE, ignoring values the picker doesn't offer", () => {
+    const { d, ex, set } = draft();
+    const rated = setRpe(d, ex, set, 8.5);
+    expect(rated.exercises[0].sets[0].rpe).toBe(8.5);
+    expect(setRpe(rated, ex, set, null).exercises[0].sets[0].rpe).toBeNull();
+    expect(setRpe(d, ex, set, 11)).toBe(d);
+  });
+
+  it("saves RPE only when given, and an edited workout keeps it", () => {
+    const { d, ex, set } = draft();
+    let w = setRpe(d, ex, set, 9);
+    w = { ...w, exercises: w.exercises.map((e) => ({ ...e, sets: e.sets.map((s) => ({ ...s, reps: 5, weightKg: 100, done: true })) })) };
+    const saved = toWorkout(w, d.startedAt + 1);
+    expect(saved.exercises[0].sets[0]).toEqual({ type: "normal", weightKg: 100, reps: 5, rpe: 9 });
+    expect(saved.exercises[0].sets[1]).not.toHaveProperty("rpe");
+    expect(draftFromWorkout(saved, null).exercises[0].sets[0].rpe).toBe(9);
   });
 });

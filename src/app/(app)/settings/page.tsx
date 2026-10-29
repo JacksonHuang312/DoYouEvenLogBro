@@ -1,5 +1,6 @@
 "use client";
 
+import { effortScaleOf } from "@/lib/effort";
 import type { User } from "firebase/auth";
 import { Camera, Check, KeyRound } from "lucide-react";
 import { useReducer, useRef, useState } from "react";
@@ -448,6 +449,24 @@ export default function SettingsPage() {
                 className={`rounded-md px-3 py-1 text-sm font-medium ${profile.unit === u ? "bg-accent text-on-accent" : ""}`}
               >
                 {u}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 p-4">
+          <span>
+            Set effort
+            <span className="block text-xs text-muted">Tap a set&apos;s number while logging to add it. RIR is reps in reserve (10 − RPE).</span>
+          </span>
+          <div role="group" aria-label="Set effort" className="flex shrink-0 gap-1 rounded-lg bg-surface-2 p-1">
+            {(["rpe", "rir"] as const).map((scale) => (
+              <button
+                key={scale}
+                aria-pressed={effortScaleOf(profile) === scale}
+                onClick={() => save({ effortScale: scale })}
+                className={`min-h-9 rounded-md px-3 py-1 text-sm font-medium ${effortScaleOf(profile) === scale ? "bg-accent text-on-accent" : ""}`}
+              >
+                {scale.toUpperCase()}
               </button>
             ))}
           </div>

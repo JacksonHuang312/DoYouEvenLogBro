@@ -480,10 +480,11 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - **Moving existing games:** `npm run backfill -- --rework` replays stats, peak, workout XP and level from the whole history and adds the XP of claimed quests; coins, items, titles, breaks and claim records stay; snapshots are rebuilt; running it twice gives the same result. It drops the retired `calibration`, `bodyweightKg`, `age` and `sex` fields. The backfill now refuses to write to a real project without `--confirm <projectId>`.
 - **Pacing (`npm run pacing-table`, steady player: 4 workouts a week, 16 sets split chest 3 / back 3.5 / shoulders 2.5 / arms 3 / legs 3 / core 1, 15% progressed, two quests a week, assumed gear 75 at a year and 132 at two, +8% bonuses):** average stat 29 at 6 months, 58 at a year, 115 at two; battle power 473 at a year, 926 at two. Content in months (target → model): weekly tier 1 available at once, but its recommended power at 3.5; tier 3 8 → 9.9; tier 4 14 → 16.8 (held back by level 25); tier 5 24 → 24.0; Campaign finished 9 → 11.1; Boss Tower floor 30 30 → 33.2; level 35 24 → 24.0. Not retuned yet: see section 11.
 
-**RPE and RIR (agreed, not built)**
+**RPE and RIR (agreed, built 2026-10-29)**
 - Optional per set, blank by default. Stored as one number (RPE, half steps); Settings chooses whether it shows as RPE or RIR (RIR = 10 − RPE).
 - Tapping the set number while logging opens a small picker with the set type (normal, warm-up, drop, failure; these already exist) and RPE/RIR together, since a set row has no room at phone width.
 - RPE does **not** affect stats (it is self-reported, so it would invite logging RPE 10 on everything). It is for logging and insight.
+- Built: the picker offers RPE 5 to 10 in half steps (RIR 5 to 0) plus "–" for none, stored as `rpe` on the set only when given (`src/lib/effort.ts`). Tapping the set number opens it on the workout and edit screens; it replaces the old tap-to-cycle type. A set row shows "@8" or "2 RIR" under its number; saved workouts show "100 kg × 5 @8" or "100 kg × 5 · 2 RIR" in the viewer's scale. Settings has "Set effort: RPE / RIR" (`users/{uid}.effortScale`, missing means RPE; the rules allow only those two).
 
 **Phase 5 decisions, round 3 (agreed 2026-10-28)**
 - **Class pick:** new accounts pick a class during sign-up; existing accounts pick once on their next visit (free). After that, one switch every **7 days since the last switch**, 300 coins.
@@ -498,7 +499,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 
 **Build order for the next sessions** (each piece committed, with lint, tsc, vitest, next build, the e2e suite and a 390px check):
 1. ~~Stat rework~~ (built 2026-10-29, see "Stat rework (built)").
-2. RPE/RIR picker on the workout screen and the Settings toggle.
+2. ~~RPE/RIR picker on the workout screen and the Settings toggle~~ (built 2026-10-29).
 3. Gear expansion, after Jackson reviews the names: the effects in the fight engine, the new items, retuned win table.
 4. Phase 5 piece 2: server routes (four fight modes, class pick and switch), Firestore rules and tests, the charm effects outside fights, the boss minimum baseline fix.
 5. Phase 5 piece 3: the Battle screens. Piece 4: e2e specs.

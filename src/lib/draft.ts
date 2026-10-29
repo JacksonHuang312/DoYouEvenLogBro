@@ -1,4 +1,5 @@
 import { withRepRange, type RepRange } from "./game/progression";
+import { isValidRpe } from "./effort";
 import type { ExerciseBests } from "./records";
 import type { Exercise, LoggedSet, Routine, SetType, Workout } from "./types";
 
@@ -43,6 +44,8 @@ export interface DraftSet {
   weightKg: number | null;
   reps: number | null;
   done: boolean;
+  /** RPE in half steps, or null/missing when not given (src/lib/effort.ts). */
+  rpe?: number | null;
 }
 
 /** New exercises start with the rest timer off; it's opt-in per exercise. */
@@ -206,11 +209,14 @@ export function updateSet(
   return mapSet(w, exKey, setKey, (s) => ({ ...s, ...patch }));
 }
 
-export function cycleSetType(w: DraftWorkout, exKey: string, setKey: string): DraftWorkout {
-  return mapSet(w, exKey, setKey, (s) => ({
-    ...s,
-    type: SET_TYPES[(SET_TYPES.indexOf(s.type) + 1) % SET_TYPES.length],
-  }));
+export function setSetType(w: DraftWorkout, exKey: string, setKey: string, type: SetType): DraftWorkout {
+  return mapSet(w, exKey, setKey, (s) => ({ ...s, type }));
+}
+
+/** Sets or clears (null) a set's RPE. Values outside the picker's are ignored. */
+export function setRpe(w: DraftWorkout, exKey: string, setKey: string, rpe: number | null): DraftWorkout {
+  if (rpe != null && !isValidRpe(rpe)) return w;
+  return mapSet(w, exKey, setKey, (s) => ({ ...s, rpe }));
 }
 
 /** Toggles a set's done state. Completing a set starts that exercise's rest timer. */
@@ -273,7 +279,7 @@ export function draftFromWorkout(workout: Workout, photo: string | null): DraftW
       exerciseId: e.exerciseId,
       name: e.name,
       restSec: 0,
-      sets: e.sets.map((s) => ({ key: newKey(), type: s.type, weightKg: s.weightKg, reps: s.reps, done: true })),
+      sets: e.sets.map((s) => ({ key: newKey(), type: s.type, weightKg: s.weightKg, reps: s.reps, done: true, rpe: s.rpe ?? null })),
       previous: null,
     })),
     restEndsAt: null,
@@ -294,7 +300,8 @@ export function toWorkout(w: DraftWorkout, endedAt = Date.now(), { requireDone =
       name: e.name,
       sets: e.sets
         .filter((s) => (s.done || !requireDone) && s.reps != null && s.reps > 0)
-        .map<LoggedSet>((s) => ({ type: s.type, weightKg: s.weightKg, reps: s.reps! })),
+        // RPE is left out when blank: Firestore refuses undefined.
+        .map<LoggedSet>((s) => ({ type: s.type, weightKg: s.weightKg, reps: s.reps!, ...(isValidRpe(s.rpe) ? { rpe: s.rpe } : {}) })),
     }))
     .filter((e) => e.sets.length > 0);
 

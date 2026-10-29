@@ -111,7 +111,7 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
 
 export function updateProfile(
   uid: string,
-  patch: Partial<Pick<UserProfile, "unit" | "isPrivate" | "displayName" | "photoURL" | "bio">>,
+  patch: Partial<Pick<UserProfile, "unit" | "isPrivate" | "displayName" | "photoURL" | "bio" | "effortScale">>,
 ) {
   const { db } = firebase();
   return updateDoc(doc(db, "users", uid), patch);

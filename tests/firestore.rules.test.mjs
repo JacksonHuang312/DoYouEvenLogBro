@@ -152,6 +152,16 @@ describe("about me", () => {
   });
 });
 
+describe("set effort scale", () => {
+  test("can be RPE or RIR, nothing else", async () => {
+    await seedUser("alice", "alice", 8);
+    const ref = doc(dbAs("alice"), "users", "alice");
+    await assertSucceeds(setDoc(ref, { effortScale: "rir" }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { effortScale: "rpe" }, { merge: true }));
+    await assertFails(setDoc(ref, { effortScale: "borg" }, { merge: true }));
+  });
+});
+
 describe("username change", () => {
   test("allowed once 7 days have passed", async () => {
     await seedUser("alice", "alice", 8);

@@ -1,5 +1,6 @@
 "use client";
 
+import { effortScaleOf } from "@/lib/effort";
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -138,6 +139,7 @@ export function EditWorkout() {
           key={ex.key}
           exercise={ex}
           unit={profile.unit}
+          effortScale={effortScaleOf(profile)}
           isFirst={i === 0}
           isLast={i === draft.exercises.length - 1}
           update={update}

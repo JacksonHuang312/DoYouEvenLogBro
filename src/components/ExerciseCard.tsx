@@ -1,10 +1,11 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Check, Plus, Trophy, X } from "lucide-react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { confirmDialog } from "@/lib/dialog";
 import * as Draft from "@/lib/draft";
 import type { DraftExercise } from "@/lib/draft";
+import { DEFAULT_EFFORT_SCALE, effortLong, effortShort, type EffortScale } from "@/lib/effort";
 import type { SetType, Unit } from "@/lib/types";
 import { findRecords } from "@/lib/records";
 import { formatNumber, kgTo, toKg } from "@/lib/units";
@@ -12,6 +13,7 @@ import type { RepRange } from "@/lib/game/progression";
 import { NumberCell } from "./NumberCell";
 import { RepTarget } from "./RepTarget";
 import { RestPicker } from "./RestPicker";
+import { SetPicker } from "./SetPicker";
 import { ExerciseThumb } from "./ui";
 
 const SET_TYPE_STYLE: Record<SetType, string> = {
@@ -22,11 +24,14 @@ const SET_TYPE_STYLE: Record<SetType, string> = {
 };
 
 // Set | Previous | Weight | Reps | ✓ | delete. Fits a 360px phone; below that the
-// Previous column is hidden (its values still show as input placeholders).
+// Previous column is hidden (its values still show as input placeholders). The set column is
+// wide enough for its effort line ("2.5 RIR").
 const GRID =
-  "grid grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_3.25rem_2.5rem_1.75rem] max-[359px]:grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,1fr)_2.5rem_2rem] items-center gap-x-1.5 gap-y-2";
+  "grid grid-cols-[2.5rem_minmax(0,1fr)_4.75rem_3.25rem_2.5rem_1.75rem] max-[359px]:grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1fr)_2.5rem_2rem] items-center gap-x-1.5 gap-y-2";
 // Editing a saved workout: Set | Weight | Reps | delete (no Previous column or check marks).
-const EDIT_GRID = "grid grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,1fr)_1.75rem] items-center gap-x-1.5 gap-y-2";
+const EDIT_GRID = "grid grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1fr)_1.75rem] items-center gap-x-1.5 gap-y-2";
+
+const TYPE_TITLE = { warmup: "Warm-up set", drop: "Drop set", failure: "Failure set" } as const;
 
 /**
  * One exercise in a workout draft: header, rest timer setting and the set rows. `update` applies
@@ -45,6 +50,7 @@ export const ExerciseCard = memo(function ExerciseCard({
   editing = false,
   onRepRange,
   savesToRoutine = false,
+  effortScale = DEFAULT_EFFORT_SCALE,
 }: {
   exercise: DraftExercise;
   unit: Unit;
@@ -56,8 +62,14 @@ export const ExerciseCard = memo(function ExerciseCard({
   onRepRange?: (exKey: string, range: RepRange | null) => void;
   /** Whether a changed range is saved to a routine (else it lasts for this workout only). */
   savesToRoutine?: boolean;
+  /** How set effort shows: RPE or reps in reserve (Settings). */
+  effortScale?: EffortScale;
 }) {
   const labels = Draft.setLabels(ex.sets);
+  // The set whose type and effort picker is open.
+  const [picking, setPicking] = useState<string | null>(null);
+  const pickedIndex = ex.sets.findIndex((s) => s.key === picking);
+  const picked = pickedIndex >= 0 ? ex.sets[pickedIndex] : null;
   // Trophies on record sets: while logging only once checked off; when editing, every set counts.
   const records = findRecords(
     ex.sets.map((s) => (editing || s.done ? s : { ...s, reps: null })),
@@ -123,11 +135,17 @@ export const ExerciseCard = memo(function ExerciseCard({
           return (
             <div key={set.key} className="contents">
               <button
-                aria-label={`Set ${labels[i]}, ${set.type}${records[i] ? ", personal record" : ""}. Tap to change type`}
-                onClick={() => update((w) => Draft.cycleSetType(w, ex.key, set.key))}
-                className={`relative h-10 rounded-md font-semibold ${SET_TYPE_STYLE[set.type]}`}
+                aria-label={`Set ${labels[i]}, ${set.type}${set.rpe != null ? `, ${effortLong(set.rpe, effortScale)}` : ""}${records[i] ? ", personal record" : ""}. Tap to change type or effort`}
+                aria-haspopup="dialog"
+                onClick={() => setPicking(set.key)}
+                className={`relative flex h-10 flex-col items-center justify-center rounded-md font-semibold leading-none ${SET_TYPE_STYLE[set.type]}`}
               >
                 {labels[i]}
+                {set.rpe != null && (
+                  <span className="mt-0.5 whitespace-nowrap text-[9px] font-medium tracking-tight opacity-80">
+                    {effortShort(set.rpe, effortScale)}
+                  </span>
+                )}
                 {records[i] && (
                   <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-black">
                     <Trophy size={11} strokeWidth={2.5} />
@@ -180,6 +198,20 @@ export const ExerciseCard = memo(function ExerciseCard({
           );
         })}
       </div>
+
+      {picked && (
+        <SetPicker
+          open
+          title={picked.type === "normal" ? `Set ${labels[pickedIndex]}` : TYPE_TITLE[picked.type]}
+          exerciseName={ex.name}
+          type={picked.type}
+          rpe={picked.rpe ?? null}
+          scale={effortScale}
+          onType={(type) => update((w) => Draft.setSetType(w, ex.key, picked.key, type))}
+          onRpe={(rpe) => update((w) => Draft.setRpe(w, ex.key, picked.key, rpe))}
+          onClose={() => setPicking(null)}
+        />
+      )}
 
       <button
         onClick={() => update((w) => Draft.addSet(w, ex.key))}

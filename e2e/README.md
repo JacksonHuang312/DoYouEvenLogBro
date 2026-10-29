@@ -56,6 +56,7 @@ To click around by hand as the test user: `npm run emulators`, then `npm run e2e
 | `routines.e2e.ts` | Routine editor rep range: empty by default, half-typed/reversed/out-of-bounds refused, step in the user's unit saved in kg, reopening, clearing removes every field |
 | `workout-targets.e2e.ts` | Workout screen target and hint (add weight, aim for the top, lighter), changing the range mid-workout saves to the routine, clearing, logging a set still works |
 | `quests.e2e.ts` | Quests screen: rerolls left instead of prices, the pause and injury text behind an info button |
+| `effort.e2e.ts` | Set picker from the set number: RPE and type apply at once, clearing, Settings RPE/RIR, RIR on the workout and a saved workout |
 | `stats.e2e.ts` | Stats tab after the stat rework: layout and breakdown, the rust line, a claim that beats the last session (1.25 points a set), recompute, and `backfill --rework` |
 
 ## Adding a flow

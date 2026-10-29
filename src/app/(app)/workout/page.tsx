@@ -1,5 +1,6 @@
 "use client";
 
+import { effortScaleOf } from "@/lib/effort";
 import { ChevronDown, ChevronLeft, ClipboardList, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -198,6 +199,7 @@ function ActiveWorkout() {
           key={ex.key}
           exercise={ex}
           unit={profile.unit}
+          effortScale={effortScaleOf(profile)}
           isFirst={i === 0}
           isLast={i === draft.exercises.length - 1}
           update={update}

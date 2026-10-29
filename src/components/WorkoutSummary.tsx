@@ -5,6 +5,7 @@ import { Trophy } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { setLabels } from "@/lib/draft";
+import { effortScaleOf, effortShort, type EffortScale } from "@/lib/effort";
 import { profilePath } from "@/lib/follows";
 import { formatRelativeDay, formatShortDuration } from "@/lib/format";
 import { useComments, workoutPath } from "@/lib/social";
@@ -16,8 +17,11 @@ import { CommentThread } from "./Comments";
 import { SocialBar } from "./SocialBar";
 import { Avatar, ExerciseThumb, OverflowMenu, Stat } from "./ui";
 
-export function formatSet(unit: Unit, set: LoggedSet) {
-  return `${formatWeight(unit, set.weightKg)} × ${set.reps}`;
+/** "100 kg × 5", plus " @8" or " · 2 RIR" when the set has an effort and a scale is given. */
+export function formatSet(unit: Unit, set: LoggedSet, scale?: EffortScale) {
+  const base = `${formatWeight(unit, set.weightKg)} × ${set.reps}`;
+  if (!scale || set.rpe == null) return base;
+  return scale === "rir" ? `${base} · ${effortShort(set.rpe, scale)}` : `${base} ${effortShort(set.rpe, scale)}`;
 }
 
 export function formatVolume(unit: Unit, kg: number) {
@@ -186,12 +190,14 @@ export function WorkoutPost({
 
 export function SetList({ sets, unit }: { sets: LoggedSet[]; unit: Unit }) {
   const labels = setLabels(sets);
+  // Effort in the viewer's scale, whoever logged it.
+  const scale = effortScaleOf(useAuth().profile);
   return (
     <ol className="space-y-1">
       {sets.map((s, i) => (
         <li key={i} className="flex items-center gap-4 rounded-md px-2 py-1 odd:bg-surface-2/50">
           <span className="w-5 text-center text-muted">{labels[i]}</span>
-          <span className="flex-1 tabular-nums">{formatSet(unit, s)}</span>
+          <span className="flex-1 tabular-nums">{formatSet(unit, s, scale)}</span>
           {s.record && (
             <span className="flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-footnote font-medium text-amber-400">
               <Trophy size={12} />
