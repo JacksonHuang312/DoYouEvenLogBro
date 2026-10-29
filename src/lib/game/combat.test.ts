@@ -176,6 +176,99 @@ describe("gear effects in a fight", () => {
     expect(belted.stats.taken / Math.max(1, belted.seconds)).toBeLessThan(plain.stats.taken / Math.max(1, plain.seconds));
   });
 
+  const total = (h: Hero, pick: (r: ReturnType<typeof simulateFight>) => number, n = 30) =>
+    Array.from({ length: n }, (_, i) => pick(fight(h, `n${i}`))).reduce((a, b) => a + b, 0);
+
+  test("haste makes basic attacks come faster", () => {
+    const attacks = (h: Hero) => fight(h, "haste").log.filter((e) => e.action === "attack" && e.actor === "hero").length;
+    const wall = buildFoe("Wall", 350, { hp: 50, atk: 0.01 });
+    const count = (h: Hero) => simulateFight(h, wall, "haste").log.filter((e) => e.action === "attack" && e.actor === "hero").length;
+    expect(count(balancedHero(350, "striker", withEffects({ haste: 0.25 })))).toBeGreaterThan(count(balancedHero(350, "striker")));
+    expect(attacks(balancedHero(350, "striker"))).toBeGreaterThan(0);
+  });
+
+  test("ult charge fires the ultimate more often", () => {
+    const wall = buildFoe("Wall", 350, { hp: 50, atk: 0.01 });
+    const ults = (h: Hero) => simulateFight(h, wall, "ult").log.filter((e) => e.action === "ultimate").length;
+    expect(ults(balancedHero(350, "striker", withEffects({ ultCharge: 0.4 })))).toBeGreaterThan(ults(balancedHero(350, "striker")));
+  });
+
+  test("lifesteal heals without filling the log", () => {
+    const r = fight(balancedHero(350, "striker", withEffects({ lifesteal: 0.12 })));
+    expect(r.stats.healed).toBeGreaterThan(0);
+    expect(r.log.some((e) => e.action === "heal")).toBe(false);
+  });
+
+  test("crit damage and Finisher raise damage dealt", () => {
+    const dealt = (h: Hero) => total(h, (r) => r.stats.dealt / r.seconds);
+    const plain = dealt(balancedHero(350, "striker"));
+    expect(dealt(balancedHero(350, "striker", withEffects({ critDamage: 0.6 })))).toBeGreaterThan(plain);
+    expect(dealt(balancedHero(350, "striker", withEffects({ finisher: 0.5 })))).toBeGreaterThan(plain);
+  });
+
+  test("thorns hurt the enemy on every hit taken", () => {
+    const r = fight(balancedHero(350, "vanguard", withEffects({ thorns: 0.15 })));
+    expect(r.log.filter((e) => e.action === "reflect").length).toBeGreaterThan(3);
+  });
+
+  test("Guard duration and Bastion shield strengthen the Vanguard", () => {
+    const brute = buildFoe("Brute", 350, BOSS_TYPES.brute);
+    const shields = (h: Hero) => simulateFight(h, brute, "bastion").log.filter((e) => e.action === "shield").map((e) => e.amount!);
+    const base = shields(balancedHero(350, "vanguard"))[0];
+    expect(shields(balancedHero(350, "vanguard", withEffects({ bastionShield: 0.3 })))[0]).toBeCloseTo(base * 1.3, -1);
+    expect(shields(balancedHero(350, "vanguard", withEffects({ mythic: ["oathkeeper-belt"] })))[0]).toBeCloseTo(base * COMBAT.mythic.oathkeeperShieldFactor, -1);
+    const taken = (h: Hero) => total(h, (r) => r.stats.taken / r.seconds);
+    expect(taken(balancedHero(350, "vanguard", withEffects({ guardDuration: 0.75 })))).toBeLessThan(taken(balancedHero(350, "vanguard")));
+  });
+
+  test("heal power and bleed resistance help the Cleric against bleeders", () => {
+    const bleeder = buildFoe("Bleeder", 350, BOSS_TYPES.bleeder);
+    const heals = (h: Hero) => simulateFight(h, bleeder, "mend").log.find((e) => e.action === "heal" && e.name === "Mend")!.amount!;
+    expect(heals(balancedHero(350, "cleric", withEffects({ healPower: 0.6 })))).toBeGreaterThan(heals(balancedHero(350, "cleric")));
+    const bled = (h: Hero) => simulateFight(h, bleeder, "bleed").log.filter((e) => e.action === "bleed")[0].amount!;
+    expect(bled(balancedHero(350, "cleric", withEffects({ bleedResist: 0.45 })))).toBeLessThan(bled(balancedHero(350, "cleric")));
+  });
+
+  test("Executioner's Ring crits every hit on an enemy under 30% HP", () => {
+    const h = { ...balancedHero(500, "striker", withEffects({ mythic: ["executioners-ring"] })), critChance: 0 };
+    const r = fight(h, "exec");
+    expect(r.won).toBe(true);
+    let hp = foe.maxHp;
+    for (const e of r.log) {
+      if (e.actor !== "hero" || !["attack", "skill", "ultimate"].includes(e.action) || e.amount == null) continue;
+      expect(Boolean(e.crit)).toBe(hp < foe.maxHp * COMBAT.mythic.executionerBelowPct);
+      hp -= e.amount;
+    }
+  });
+
+  test("Bloodletter Gauntlets heal on crits", () => {
+    const h = { ...balancedHero(350, "striker", withEffects({ mythic: ["bloodletter-gauntlets"] })), critChance: 0.5 };
+    expect(fight(h).stats.healed).toBeGreaterThan(0);
+  });
+
+  test("Bulwark Plate reflects while Guard is up", () => {
+    const brute = buildFoe("Brute", 350, BOSS_TYPES.brute);
+    const reflects = (h: Hero) => simulateFight(h, brute, "bulwark").log.filter((e) => e.action === "reflect").length;
+    expect(reflects(balancedHero(350, "vanguard", withEffects({ mythic: ["bulwark-plate"] })))).toBeGreaterThan(0);
+    expect(reflects(balancedHero(350, "vanguard"))).toBe(0);
+  });
+
+  test("Saint's Locket stops bleeding after Mend", () => {
+    const bleeder = buildFoe("Bleeder", 350, BOSS_TYPES.bleeder);
+    const bleeds = (h: Hero) =>
+      Array.from({ length: 10 }, (_, i) => simulateFight(h, bleeder, `saint${i}`))
+        .map((r) => r.log.filter((e) => e.action === "bleed").length / r.seconds)
+        .reduce((a, b) => a + b, 0);
+    expect(bleeds(balancedHero(350, "cleric", withEffects({ mythic: ["saints-locket"] })))).toBeLessThan(bleeds(balancedHero(350, "cleric")));
+  });
+
+  test("Dawn Censer turns overhealing into a shield", () => {
+    const wall = buildFoe("Wall", 350, { hp: 50, atk: 0.3 });
+    const taken = (h: Hero) => simulateFight(h, wall, "censer").stats.taken;
+    const regen = withEffects({ healing: 0.2 });
+    expect(taken(balancedHero(350, "cleric", { ...regen, mythic: ["dawn-censer"] }))).toBeLessThan(taken(balancedHero(350, "cleric", regen)));
+  });
+
   test("ring crit raises the crit rate", () => {
     const crits = (h: Hero) => Array.from({ length: 30 }, (_, i) => fight(h, `c${i}`).stats.crits).reduce((a, b) => a + b, 0);
     expect(crits(balancedHero(350, "striker", withEffects({ crit: 0.2 })))).toBeGreaterThan(crits(balancedHero(350, "striker")));

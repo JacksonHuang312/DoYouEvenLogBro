@@ -1,5 +1,6 @@
 import { baseItem, setDef, SETS, type BaseItem } from "./catalog";
 import { battlePower } from "./battle";
+import { SET_EFFECT_PIECES } from "./effects";
 import { newGameState, type GameState } from "./claim";
 import {
   ACCESSORY_EFFECTS,
@@ -296,7 +297,9 @@ export function setProgress(equipped: Pick<OwnedItem, "baseId">[]): SetProgress[
       active: active?.setId === s.id,
       tiers: SET_BONUS.map((t) => ({
         pieces: t.pieces,
-        label: `${t.pieces} pieces: +${pct(t.gearPct)} gear power`,
+        label: `${t.pieces} pieces: +${pct(t.gearPct)} gear power${
+          s.effect && t.pieces === SET_EFFECT_PIECES ? `, ${ACCESSORY_EFFECTS[s.effect.id].label} +${pct(s.effect.value)}` : ""
+        }`,
         reached: counts[s.id] >= t.pieces,
       })),
     }));

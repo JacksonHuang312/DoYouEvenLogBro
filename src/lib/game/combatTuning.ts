@@ -2,7 +2,8 @@ import { battlePower } from "./battle";
 import { CLASSES, CLASS_IDS, POWER_MULTIPLIERS, STATS, type ClassId } from "./config";
 import { buildFoe, buildHero, simulateFight, type FoeMechanics, type Hero } from "./combat";
 import { BOSS_TYPES } from "./bossData";
-import { NO_EFFECTS, type GearEffects } from "./effects";
+import { gearEffects, NO_EFFECTS, type GearEffects } from "./effects";
+import { baseItem } from "./catalog";
 import type { StatLine } from "./score";
 
 /*
@@ -44,6 +45,28 @@ export function winRate({
   let wins = 0;
   for (let i = 0; i < runs; i++) if (simulateFight(hero, foe, `tune-${i}`).won) wins++;
   return wins / runs;
+}
+
+const ARMOR = ["helmet", "chestplate", "gloves", "leggings", "boots"];
+const set = (id: string) => ARMOR.map((slot) => `${id}-${slot}`);
+
+/**
+ * An endgame loadout per class, built from real catalog items: its Legendary set, the Mythic
+ * accessory that suits it and the best accessories for it. Used for the win table's "fully
+ * geared" rows, so no setup turns a fair fight into a sure win.
+ */
+export const FULLY_GEARED: Record<ClassId, string[]> = {
+  vanguard: [...set("titans-vow"), "oathkeeper-belt", "sunforged-ring", "sunforged-ring", "heartstone-pendant", "chrono-charm", "phoenix-charm"],
+  striker: [...set("ashen-covenant"), "executioners-ring", "reapers-coil", "mountainheart-girdle", "heartstone-pendant", "chrono-charm", "phoenix-charm"],
+  cleric: [...set("seraphs-grace"), "saints-locket", "dawn-censer", "phoenix-charm", "sunforged-ring", "sunforged-ring", "mountainheart-girdle"],
+};
+
+/** The effects of a class's FULLY_GEARED loadout. */
+export function fullyGearedEffects(classId: ClassId): GearEffects {
+  return gearEffects(
+    FULLY_GEARED[classId].map((id) => ({ baseId: id, rarity: baseItem(id)!.rarity })),
+    50,
+  );
 }
 
 /** The boss types the tuning table and tests compare (bossData.ts). */

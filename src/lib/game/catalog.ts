@@ -1,4 +1,4 @@
-import { GEAR, NAMED_RARITIES, type Focus, type Rarity, type Slot } from "./config";
+import { GEAR, NAMED_RARITIES, type AccessoryEffect, type Focus, type Rarity, type Slot } from "./config";
 import { ITEMS, SETS as SET_ENTRIES } from "./catalogData";
 
 /*
@@ -11,9 +11,11 @@ export interface SetDef {
   name: string;
   /** The rarity its pieces start at. */
   rarity: Rarity;
-  /** Named sets (Legendary) also get a unique effect, defined with combat in Phase 5. */
+  /** Legendary sets are named. */
   named: boolean;
   focus: Focus;
+  /** Epic and Legendary sets: an effect while all five pieces are worn. */
+  effect?: { id: AccessoryEffect; value: number };
 }
 
 export interface BaseItem {
@@ -26,7 +28,7 @@ export interface BaseItem {
   rarity: Rarity;
   /** Where its power goes: the set's, its own, or the slot's usual split. */
   focus: Focus;
-  /** A Phase 5 hook: accessory effects and each Mythic's unique effect. */
+  /** An accessory effect, or a Mythic's unique effect. */
   effect: string | null;
 }
 

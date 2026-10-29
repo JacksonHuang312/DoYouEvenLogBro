@@ -1,4 +1,4 @@
-import type { Focus, Rarity, Slot } from "./config";
+import type { AccessoryEffect, Focus, Rarity, Slot } from "./config";
 
 /*
  * THE ITEM LIST (GAME_DESIGN.md 5 and 10). This is the only file to edit to add items. Names and
@@ -16,14 +16,16 @@ import type { Focus, Rarity, Slot } from "./config";
  *           Left out, it falls back to the slot's usual split (config.ts, GEAR.slotFocus).
  *           A Mythic is 100% one attribute. Pieces of a set take the set's focus: don't give them one.
  *   set     Optional. The id of a set in SETS. Only Rare, Epic and Legendary armor can be in a set.
- *   effect  Optional. An effect id (a Phase 5 hook; nothing runs yet). Every accessory needs one from
- *           ACCESSORY_EFFECTS in config.ts. Every Mythic needs its own unique one.
+ *   effect  Optional. An effect id. Every accessory needs one from ACCESSORY_EFFECTS in config.ts;
+ *           every Mythic (accessories included) needs its own unique one from MYTHIC_EFFECTS.
  *
  * Rules (catalog.test.ts enforces them):
  *   - Common and Uncommon items have no sets: they are loose items, several per slot.
  *   - Sets exist only at Rare, Epic and Legendary, with 5 armor pieces each (one per slot). Rare and
  *     Epic sets are unnamed; Legendary sets are named.
  *   - Mythic has no sets: each Mythic is a standalone named item with its own unique effect.
+ *   - Epic and Legendary sets may carry a 5-piece effect (SETS `effect`): an ACCESSORY_EFFECTS id and its
+ *     value, added to that effect's total while all five pieces are worn.
  *   - Accessories are never in a set.
  *
  * To add a set, add a line to SETS, then five ITEMS lines with `set` and the same rarity.
@@ -35,6 +37,8 @@ export interface SetEntry {
   rarity: Rarity;
   /** Shared by all five pieces. */
   focus: Focus;
+  /** Epic and Legendary sets: an effect while all five pieces are worn. */
+  effect?: { id: AccessoryEffect; value: number };
 }
 
 export interface ItemEntry {
@@ -47,13 +51,17 @@ export interface ItemEntry {
   focus?: Focus;
 }
 
+// One set per class at each rarity: Vanguard, Striker, Cleric.
 export const SETS: SetEntry[] = [
   { id: "steelguard", name: "Steelguard", rarity: "rare", focus: { def: 60, hp: 40 } },
   { id: "thornweave", name: "Thornweave", rarity: "rare", focus: { atk: 70, hp: 30 } },
-  { id: "warden", name: "Warden", rarity: "epic", focus: { hp: 100 } },
-  { id: "stormcaller", name: "Stormcaller", rarity: "epic", focus: { atk: 100 } },
-  { id: "titans-vow", name: "Titan's Vow", rarity: "legendary", focus: { hp: 100 } },
-  { id: "ashen-covenant", name: "Ashen Covenant", rarity: "legendary", focus: { atk: 70, def: 30 } },
+  { id: "lightwoven", name: "Lightwoven", rarity: "rare", focus: { hp: 60, def: 40 } },
+  { id: "warden", name: "Warden", rarity: "epic", focus: { hp: 100 }, effect: { id: "guardDuration", value: 0.15 } },
+  { id: "stormcaller", name: "Stormcaller", rarity: "epic", focus: { atk: 100 }, effect: { id: "finisher", value: 0.125 } },
+  { id: "dawnkeeper", name: "Dawnkeeper", rarity: "epic", focus: { hp: 70, def: 30 }, effect: { id: "healPower", value: 0.125 } },
+  { id: "titans-vow", name: "Titan's Vow", rarity: "legendary", focus: { hp: 100 }, effect: { id: "bastionShield", value: 0.2 } },
+  { id: "ashen-covenant", name: "Ashen Covenant", rarity: "legendary", focus: { atk: 70, def: 30 }, effect: { id: "critDamage", value: 0.2 } },
+  { id: "seraphs-grace", name: "Seraph's Grace", rarity: "legendary", focus: { hp: 60, def: 40 }, effect: { id: "healPower", value: 0.2 } },
 ];
 
 export const ITEMS: ItemEntry[] = [
@@ -104,6 +112,11 @@ export const ITEMS: ItemEntry[] = [
   { id: "thornweave-gloves", name: "Thornweave Wraps", slot: "gloves", rarity: "rare", set: "thornweave" },
   { id: "thornweave-leggings", name: "Thornweave Chausses", slot: "leggings", rarity: "rare", set: "thornweave" },
   { id: "thornweave-boots", name: "Thornweave Treads", slot: "boots", rarity: "rare", set: "thornweave" },
+  { id: "lightwoven-helmet", name: "Lightwoven Hood", slot: "helmet", rarity: "rare", set: "lightwoven" },
+  { id: "lightwoven-chestplate", name: "Lightwoven Robe", slot: "chestplate", rarity: "rare", set: "lightwoven" },
+  { id: "lightwoven-gloves", name: "Lightwoven Mitts", slot: "gloves", rarity: "rare", set: "lightwoven" },
+  { id: "lightwoven-leggings", name: "Lightwoven Leggings", slot: "leggings", rarity: "rare", set: "lightwoven" },
+  { id: "lightwoven-boots", name: "Lightwoven Slippers", slot: "boots", rarity: "rare", set: "lightwoven" },
 
   // ---- Epic sets (unnamed) ----
   { id: "warden-helmet", name: "Warden Visor", slot: "helmet", rarity: "epic", set: "warden" },
@@ -116,6 +129,11 @@ export const ITEMS: ItemEntry[] = [
   { id: "stormcaller-gloves", name: "Stormcaller Talons", slot: "gloves", rarity: "epic", set: "stormcaller" },
   { id: "stormcaller-leggings", name: "Stormcaller Legwraps", slot: "leggings", rarity: "epic", set: "stormcaller" },
   { id: "stormcaller-boots", name: "Stormcaller Sandals", slot: "boots", rarity: "epic", set: "stormcaller" },
+  { id: "dawnkeeper-helmet", name: "Dawnkeeper Veil", slot: "helmet", rarity: "epic", set: "dawnkeeper" },
+  { id: "dawnkeeper-chestplate", name: "Dawnkeeper Vestment", slot: "chestplate", rarity: "epic", set: "dawnkeeper" },
+  { id: "dawnkeeper-gloves", name: "Dawnkeeper Gloves", slot: "gloves", rarity: "epic", set: "dawnkeeper" },
+  { id: "dawnkeeper-leggings", name: "Dawnkeeper Skirt", slot: "leggings", rarity: "epic", set: "dawnkeeper" },
+  { id: "dawnkeeper-boots", name: "Dawnkeeper Steps", slot: "boots", rarity: "epic", set: "dawnkeeper" },
 
   // ---- Legendary sets (named) ----
   { id: "titans-vow-helmet", name: "Titan's Crest", slot: "helmet", rarity: "legendary", set: "titans-vow" },
@@ -128,6 +146,11 @@ export const ITEMS: ItemEntry[] = [
   { id: "ashen-covenant-gloves", name: "Ashen Claws", slot: "gloves", rarity: "legendary", set: "ashen-covenant" },
   { id: "ashen-covenant-leggings", name: "Ashen Cinders", slot: "leggings", rarity: "legendary", set: "ashen-covenant" },
   { id: "ashen-covenant-boots", name: "Ashen Stride", slot: "boots", rarity: "legendary", set: "ashen-covenant" },
+  { id: "seraphs-grace-helmet", name: "Seraph's Halo", slot: "helmet", rarity: "legendary", set: "seraphs-grace" },
+  { id: "seraphs-grace-chestplate", name: "Seraph's Wings", slot: "chestplate", rarity: "legendary", set: "seraphs-grace" },
+  { id: "seraphs-grace-gloves", name: "Seraph's Touch", slot: "gloves", rarity: "legendary", set: "seraphs-grace" },
+  { id: "seraphs-grace-leggings", name: "Seraph's Vigil", slot: "leggings", rarity: "legendary", set: "seraphs-grace" },
+  { id: "seraphs-grace-boots", name: "Seraph's Ascent", slot: "boots", rarity: "legendary", set: "seraphs-grace" },
 
   // ---- Mythic: standalone named items, each with its own unique effect (behavior comes in Phase 5) ----
   { id: "unbroken-helmet", name: "Crown of the Unbroken", slot: "helmet", rarity: "mythic", focus: { hp: 100 }, effect: "unbroken-crown" },
@@ -135,6 +158,12 @@ export const ITEMS: ItemEntry[] = [
   { id: "unbroken-gloves", name: "Hands of the Unbroken", slot: "gloves", rarity: "mythic", focus: { atk: 100 }, effect: "unbroken-hands" },
   { id: "unbroken-leggings", name: "Pillars of the Unbroken", slot: "leggings", rarity: "mythic", focus: { hp: 100 }, effect: "unbroken-pillars" },
   { id: "unbroken-boots", name: "Path of the Unbroken", slot: "boots", rarity: "mythic", focus: { atk: 100 }, effect: "unbroken-path" },
+  { id: "bloodletter-gauntlets", name: "Bloodletter Gauntlets", slot: "gloves", rarity: "mythic", focus: { atk: 100 }, effect: "bloodletter-gauntlets" },
+  { id: "bulwark-plate", name: "Bulwark Plate", slot: "chestplate", rarity: "mythic", focus: { def: 100 }, effect: "bulwark-plate" },
+  { id: "executioners-ring", name: "Executioner's Ring", slot: "ring", rarity: "mythic", focus: { atk: 100 }, effect: "executioners-ring" },
+  { id: "oathkeeper-belt", name: "Oathkeeper Belt", slot: "belt", rarity: "mythic", focus: { def: 100 }, effect: "oathkeeper-belt" },
+  { id: "saints-locket", name: "Saint's Locket", slot: "necklace", rarity: "mythic", focus: { hp: 100 }, effect: "saints-locket" },
+  { id: "dawn-censer", name: "Dawn Censer", slot: "charm", rarity: "mythic", focus: { hp: 100 }, effect: "dawn-censer" },
 
   // ---- Accessories: never in a set ----
   // Rings lean ATK.
@@ -143,22 +172,42 @@ export const ITEMS: ItemEntry[] = [
   { id: "silver-loop", name: "Silver Loop", slot: "ring", rarity: "rare", focus: { atk: 80, hp: 20 }, effect: "crit" },
   { id: "gold-seal", name: "Gold Seal", slot: "ring", rarity: "epic", focus: { atk: 70, hp: 30 }, effect: "crit" },
   { id: "sunforged-ring", name: "Sunforged Ring", slot: "ring", rarity: "legendary", focus: { atk: 80, def: 20 }, effect: "crit" },
+  { id: "bone-ring", name: "Bone Ring", slot: "ring", rarity: "common", focus: { atk: 80, hp: 20 }, effect: "critDamage" },
+  { id: "fang-band", name: "Fang Band", slot: "ring", rarity: "uncommon", focus: { atk: 70, hp: 30 }, effect: "lifesteal" },
+  { id: "blood-garnet", name: "Blood Garnet", slot: "ring", rarity: "rare", focus: { atk: 80, hp: 20 }, effect: "finisher" },
+  { id: "hunters-seal", name: "Hunter's Seal", slot: "ring", rarity: "epic", focus: { atk: 80, def: 20 }, effect: "critDamage" },
+  { id: "reapers-coil", name: "Reaper's Coil", slot: "ring", rarity: "legendary", focus: { atk: 90, hp: 10 }, effect: "finisher" },
   // Necklaces lean HP / DEF.
   { id: "twine-pendant", name: "Twine Pendant", slot: "necklace", rarity: "common", focus: { hp: 60, def: 40 }, effect: "healing" },
   { id: "bead-strand", name: "Bead Strand", slot: "necklace", rarity: "uncommon", focus: { hp: 70, def: 30 }, effect: "healing" },
   { id: "silver-locket", name: "Silver Locket", slot: "necklace", rarity: "rare", focus: { hp: 50, def: 50 }, effect: "healing" },
   { id: "amber-torque", name: "Amber Torque", slot: "necklace", rarity: "epic", focus: { hp: 60, def: 40 }, effect: "healing" },
   { id: "heartstone-pendant", name: "Heartstone Pendant", slot: "necklace", rarity: "legendary", focus: { hp: 70, def: 30 }, effect: "healing" },
+  { id: "prayer-beads", name: "Prayer Beads", slot: "necklace", rarity: "common", focus: { hp: 70, def: 30 }, effect: "healPower" },
+  { id: "clearwater-vial", name: "Clearwater Vial", slot: "necklace", rarity: "uncommon", focus: { hp: 60, def: 40 }, effect: "bleedResist" },
+  { id: "sun-medallion", name: "Sun Medallion", slot: "necklace", rarity: "rare", focus: { hp: 70, def: 30 }, effect: "healPower" },
+  { id: "pilgrims-torque", name: "Pilgrim's Torque", slot: "necklace", rarity: "epic", focus: { hp: 60, def: 40 }, effect: "bleedResist" },
+  { id: "halo-pendant", name: "Halo Pendant", slot: "necklace", rarity: "legendary", focus: { hp: 80, def: 20 }, effect: "healPower" },
   // Belts lean DEF.
   { id: "rope-belt", name: "Rope Belt", slot: "belt", rarity: "common", focus: { def: 80, hp: 20 }, effect: "damageReduction" },
   { id: "leather-belt", name: "Leather Belt", slot: "belt", rarity: "uncommon", focus: { def: 70, hp: 30 }, effect: "damageReduction" },
   { id: "studded-belt", name: "Studded Belt", slot: "belt", rarity: "rare", focus: { def: 100 }, effect: "damageReduction" },
   { id: "iron-girdle", name: "Iron Girdle", slot: "belt", rarity: "epic", focus: { def: 80, hp: 20 }, effect: "damageReduction" },
   { id: "mountainheart-girdle", name: "Mountainheart Girdle", slot: "belt", rarity: "legendary", focus: { def: 70, hp: 30 }, effect: "damageReduction" },
+  { id: "cord-sash", name: "Cord Sash", slot: "belt", rarity: "common", focus: { def: 70, hp: 30 }, effect: "guardDuration" },
+  { id: "buckler-belt", name: "Buckler Belt", slot: "belt", rarity: "uncommon", focus: { def: 80, hp: 20 }, effect: "thorns" },
+  { id: "shield-strap", name: "Shield Strap", slot: "belt", rarity: "rare", focus: { def: 70, hp: 30 }, effect: "bastionShield" },
+  { id: "bastion-girdle", name: "Bastion Girdle", slot: "belt", rarity: "epic", focus: { def: 80, hp: 20 }, effect: "guardDuration" },
+  { id: "thornhide-belt", name: "Thornhide Belt", slot: "belt", rarity: "legendary", focus: { def: 70, hp: 30 }, effect: "thorns" },
   // Charms spread their power.
   { id: "lucky-pebble", name: "Lucky Pebble", slot: "charm", rarity: "common", focus: { hp: 34, atk: 33, def: 33 }, effect: "salvageYield" },
   { id: "fox-tooth", name: "Fox Tooth", slot: "charm", rarity: "uncommon", focus: { hp: 40, atk: 30, def: 30 }, effect: "rerollDiscount" },
-  { id: "hourglass-charm", name: "Hourglass Charm", slot: "charm", rarity: "rare", focus: { hp: 30, atk: 40, def: 30 }, effect: "bossCooldown" },
+  { id: "hourglass-charm", name: "Hourglass Charm", slot: "charm", rarity: "rare", focus: { hp: 30, atk: 40, def: 30 }, effect: "haste" },
   { id: "tinkers-cog", name: "Tinker's Cog", slot: "charm", rarity: "epic", focus: { hp: 34, atk: 33, def: 33 }, effect: "salvageYield" },
-  { id: "chrono-charm", name: "Chrono Charm", slot: "charm", rarity: "legendary", focus: { hp: 30, atk: 30, def: 40 }, effect: "bossCooldown" },
+  { id: "chrono-charm", name: "Chrono Charm", slot: "charm", rarity: "legendary", focus: { hp: 30, atk: 30, def: 40 }, effect: "haste" },
+  { id: "spark-charm", name: "Spark Charm", slot: "charm", rarity: "common", focus: { hp: 30, atk: 40, def: 30 }, effect: "ultCharge" },
+  { id: "feather-charm", name: "Feather Charm", slot: "charm", rarity: "uncommon", focus: { hp: 30, atk: 40, def: 30 }, effect: "haste" },
+  { id: "storm-bead", name: "Storm Bead", slot: "charm", rarity: "rare", focus: { hp: 30, atk: 40, def: 30 }, effect: "ultCharge" },
+  { id: "thunder-charm", name: "Thunder Charm", slot: "charm", rarity: "epic", focus: { hp: 34, atk: 33, def: 33 }, effect: "ultCharge" },
+  { id: "phoenix-charm", name: "Phoenix Charm", slot: "charm", rarity: "legendary", focus: { hp: 40, atk: 30, def: 30 }, effect: "ultCharge" },
 ];

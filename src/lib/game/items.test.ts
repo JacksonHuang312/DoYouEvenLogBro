@@ -269,8 +269,8 @@ describe("accessories", () => {
   });
 
   test("effects scale with rarity and are small", () => {
-    expect(effectValue("crit", "legendary")).toBeCloseTo(0.05);
-    expect(effectValue("crit", "common")).toBeCloseTo(0.01);
+    expect(effectValue("crit", "legendary")).toBeCloseTo(0.025);
+    expect(effectValue("crit", "common")).toBeCloseTo(0.005);
     expect(effectValue("crit", "mythic")).toBeLessThan(0.1);
   });
 });

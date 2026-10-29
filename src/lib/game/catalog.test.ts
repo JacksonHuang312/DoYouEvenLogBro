@@ -71,6 +71,20 @@ describe("set rules", () => {
     for (const r of ["rare", "epic", "legendary"]) expect(SETS.filter((s) => s.rarity === r).length, r).toBeGreaterThanOrEqual(2);
   });
 
+  test("one set per class at each rarity: three at Rare, Epic and Legendary", () => {
+    for (const r of ["rare", "epic", "legendary"]) expect(SETS.filter((s) => s.rarity === r).length, r).toBe(3);
+  });
+
+  test("Epic and Legendary sets carry a 5-piece effect from ACCESSORY_EFFECTS; Rare sets don't", () => {
+    for (const s of SETS) {
+      if (s.rarity === "rare") expect(s.effect, s.id).toBeUndefined();
+      else {
+        expect(Object.keys(ACCESSORY_EFFECTS), s.id).toContain(s.effect?.id);
+        expect(s.effect!.value, s.id).toBeGreaterThan(0);
+      }
+    }
+  });
+
   test("Rare and Epic sets are unnamed, Legendary sets are named", () => {
     for (const s of SETS) expect(s.named, s.id).toBe(s.rarity === "legendary");
     for (const b of BASE_ITEMS) expect(NAMED_RARITIES.includes(b.rarity), b.id).toBe(b.rarity === "legendary" || b.rarity === "mythic");

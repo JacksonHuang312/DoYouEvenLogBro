@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { COMBAT, EFFECT_SCALE } from "./config";
+import { ACCESSORY_EFFECTS as FX, COMBAT, EFFECT_SCALE } from "./config";
+import { setDef } from "./catalog";
 import { gearEffects } from "./effects";
 
 const worn = (baseId: string, rarity: string) => ({ baseId, rarity }) as { baseId: string; rarity: "common" | "rare" | "legendary" | "mythic" };
@@ -10,13 +11,13 @@ describe("gearEffects", () => {
   });
 
   test("an accessory's effect scales with its rarity", () => {
-    expect(gearEffects([worn("sunforged-ring", "legendary")], 50).crit).toBeCloseTo(0.05, 6);
-    expect(gearEffects([worn("silver-loop", "rare")], 50).crit).toBeCloseTo(0.05 * EFFECT_SCALE.rare, 6);
+    expect(gearEffects([worn("sunforged-ring", "legendary")], 50).crit).toBeCloseTo(FX.crit.value, 6);
+    expect(gearEffects([worn("silver-loop", "rare")], 50).crit).toBeCloseTo(FX.crit.value * EFFECT_SCALE.rare, 6);
   });
 
   test("two rings add up, to the cap", () => {
     const two = gearEffects([worn("sunforged-ring", "legendary"), worn("sunforged-ring", "legendary")], 50);
-    expect(two.crit).toBeCloseTo(0.1, 6);
+    expect(two.crit).toBeCloseTo(2 * FX.crit.value, 6);
     const many = gearEffects(Array.from({ length: 10 }, () => worn("sunforged-ring", "legendary")), 50);
     expect(many.crit).toBe(COMBAT.effectCaps.crit);
   });
@@ -32,8 +33,30 @@ describe("gearEffects", () => {
   });
 
   test("effects never include coins or XP", () => {
-    expect(Object.keys(gearEffects([], 1)).sort()).toEqual(
-      ["bossCooldown", "crit", "damageReduction", "healing", "mythic", "rerollDiscount", "salvageYield"].sort(),
-    );
+    for (const key of Object.keys(gearEffects([], 1))) expect(key).not.toMatch(/coin|xp/i);
+    expect(Object.keys(gearEffects([], 1))).toContain("haste");
+  });
+
+  test("the new accessories carry the new effects", () => {
+    expect(gearEffects([worn("phoenix-charm", "legendary")], 50).ultCharge).toBeCloseTo(FX.ultCharge.value, 6);
+    expect(gearEffects([worn("chrono-charm", "legendary")], 50).haste).toBeCloseTo(FX.haste.value, 6);
+    expect(gearEffects([worn("reapers-coil", "legendary")], 50).finisher).toBeCloseTo(FX.finisher.value, 6);
+    expect(gearEffects([worn("thornhide-belt", "legendary")], 50).thorns).toBeCloseTo(FX.thorns.value, 6);
+  });
+
+  test("an Epic or Legendary set adds its effect only with all five pieces", () => {
+    const slots = ["helmet", "chestplate", "gloves", "leggings", "boots"];
+    const seraph = slots.map((s) => worn(`seraphs-grace-${s}`, "legendary"));
+    expect(gearEffects(seraph, 50).healPower).toBeCloseTo(setDef("seraphs-grace")!.effect!.value, 6);
+    expect(gearEffects(seraph.slice(0, 4), 50).healPower).toBe(0);
+    // Set and accessory effects add up, to the cap.
+    const halo = Array.from({ length: 4 }, () => worn("halo-pendant", "legendary"));
+    expect(gearEffects([...seraph, ...halo], 50).healPower).toBe(COMBAT.effectCaps.healPower);
+    // A Rare set has no effect.
+    expect(gearEffects(slots.map((s) => worn(`lightwoven-${s}`, "rare")), 50)).toEqual(gearEffects([], 50));
+  });
+
+  test("the new Mythics, accessories included, add their unique effect", () => {
+    expect(gearEffects([worn("executioners-ring", "mythic"), worn("dawn-censer", "mythic")], 50).mythic).toEqual(["dawn-censer", "executioners-ring"]);
   });
 });

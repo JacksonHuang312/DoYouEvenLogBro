@@ -301,10 +301,29 @@ export const GEAR = {
  * coins or XP earned (section 12).
  */
 export const ACCESSORY_EFFECTS = {
-  crit: { label: "Crit chance", value: 0.05 },
-  healing: { label: "Healing", value: 0.06 },
-  damageReduction: { label: "Damage reduction", value: 0.04 },
-  bossCooldown: { label: "Boss cooldown reduction", value: 0.1 },
+  crit: { label: "Crit chance", value: 0.025 },
+  healing: { label: "Healing", value: 0.03 },
+  damageReduction: { label: "Damage reduction", value: 0.02 },
+  /** Skill cooldown and time between basic attacks are this much shorter (not the ultimate). Replaces boss cooldown reduction. */
+  haste: { label: "Haste", value: 0.05 },
+  /** The ultimate's energy fills this much faster. */
+  ultCharge: { label: "Ult charge", value: 0.075 },
+  /** Heal this share of the damage you deal. */
+  lifesteal: { label: "Lifesteal", value: 0.02 },
+  /** Crits deal this much more than COMBAT.critMultiplier. */
+  critDamage: { label: "Crit damage", value: 0.1 },
+  /** Extra damage against an enemy under COMBAT.finisherBelowPct of its HP. */
+  finisher: { label: "Finisher", value: 0.1 },
+  /** Guard (Vanguard skill) lasts this much longer. */
+  guardDuration: { label: "Guard duration", value: 0.125 },
+  /** Bastion's shield (Vanguard ultimate) is this much bigger. */
+  bastionShield: { label: "Bastion shield", value: 0.1 },
+  /** Every physical hit taken deals this share of it back. */
+  thorns: { label: "Thorns", value: 0.025 },
+  /** Mend and Radiance heal this much more. */
+  healPower: { label: "Heal power", value: 0.1 },
+  /** Bleeding hurts this much less. */
+  bleedResist: { label: "Bleed resistance", value: 0.075 },
   salvageYield: { label: "Salvage yield", value: 0.1 },
   rerollDiscount: { label: "Shop reroll discount", value: 0.15 },
 } as const;
@@ -479,13 +498,19 @@ export const SKILLS = {
   radiance: { healPct: 0.2, bleedFreeSec: 8 },
 };
 
-/** The five Mythics' unique effects (section 10). */
+/** The Mythics' unique effects (section 10). */
 export const MYTHIC_EFFECTS = {
   "unbroken-crown": { label: "Last Stand: once a fight, survive a killing blow at 1 HP" },
   "unbroken-heart": { label: "Reflects 15% of damage taken" },
   "unbroken-hands": { label: "Every 4th attack is a critical hit" },
   "unbroken-pillars": { label: "Regenerates 3% of max HP every 2 s while under half HP" },
   "unbroken-path": { label: "The enemy enrages 5 s later" },
+  "executioners-ring": { label: "Hits on an enemy under 30% HP are always crits" },
+  "bloodletter-gauntlets": { label: "Crits heal you for 30% of their damage" },
+  "bulwark-plate": { label: "While Guard is up, reflect 50% of each hit" },
+  "oathkeeper-belt": { label: "Bastion's shield is twice as big" },
+  "saints-locket": { label: "Mend also stops bleeding for 4 s" },
+  "dawn-censer": { label: "Healing past full HP becomes a shield, up to 15% of max HP" },
 } as const;
 export type MythicEffect = keyof typeof MYTHIC_EFFECTS;
 
@@ -529,11 +554,33 @@ export const COMBAT = {
   powerPerStat: 5.5,
   minimumMargin: 0.2,
   /** A necklace's healing works at this strength for anyone who isn't a Cleric. */
-  necklaceNonClericFactor: 0.5,
+  necklaceNonClericFactor: 0.25,
   /** A necklace heals its healing share of max HP this often. */
   necklaceEverySec: 5,
-  /** Duplicate accessory effects add up, to these caps. */
-  effectCaps: { crit: 0.25, healing: 0.2, damageReduction: 0.2, bossCooldown: 0.4, salvageYield: 0.5, rerollDiscount: 0.5 },
+  /**
+   * Duplicate accessory effects (and set effects) add up, to these caps. Values and caps are half
+   * the first draft's: fights are steep around even power, so a full endgame loadout's effects are
+   * worth only about 7-10% power (npm run combat-table, the "+" rows).
+   */
+  effectCaps: {
+    crit: 0.125,
+    healing: 0.1,
+    damageReduction: 0.1,
+    haste: 0.125,
+    ultCharge: 0.2,
+    lifesteal: 0.06,
+    critDamage: 0.3,
+    finisher: 0.25,
+    guardDuration: 0.375,
+    bastionShield: 0.3,
+    thorns: 0.075,
+    healPower: 0.3,
+    bleedResist: 0.225,
+    salvageYield: 0.5,
+    rerollDiscount: 0.5,
+  } as Record<AccessoryEffect, number>,
+  /** Finisher and Executioner's Ring work on an enemy under this share of its HP. */
+  finisherBelowPct: 0.3,
   mythic: {
     lastStandHp: 1,
     heartReflect: 0.15,
@@ -542,6 +589,12 @@ export const COMBAT = {
     pillarsPct: 0.03,
     pillarsEverySec: 2,
     pathEnrageSec: 5,
+    executionerBelowPct: 0.3,
+    bloodletterHealPct: 0.3,
+    bulwarkReflect: 0.5,
+    oathkeeperShieldFactor: 1.25,
+    saintsBleedFreeSec: 4,
+    censerShieldMaxPct: 0.15,
   },
   /**
    * An enemy's numbers from its recommended battle power P, before the boss's own multipliers:

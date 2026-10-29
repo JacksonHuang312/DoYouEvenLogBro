@@ -298,7 +298,7 @@ describe("stacks and accessories", () => {
   test("an accessory shows its power, focus and effect", () => {
     const ring = slotOf(game(), [owned("sunforged-ring")], "ring1").items[0];
     expect(ring).toMatchObject({ power: 9, focus: "ATK 80 / DEF 20", named: true, slot: "ring" });
-    expect(ring.effect).toBe("Crit chance +5% (not active yet)");
+    expect(ring.effect).toBe("Crit chance +2.5% (not active yet)");
     const charm = slotOf(game(), [owned("lucky-pebble")], "charm2").items[0];
     expect(charm).toMatchObject({ power: 1, focus: "ATK 33 / HP 34 / DEF 33" });
     expect(slotOf(game(), [owned("unbroken-gloves")], "gloves").items[0].effect).toBe("Unique effect (not active yet)");
