@@ -42,7 +42,7 @@ test.describe("Gear tab", () => {
     await expect(loops).toHaveCount(1);
     await expect(loops).toContainText("×2");
     // No +0, no helper lines under the buttons, and the upgrade preview is gone.
-    await expect(sheet(page, "Ring 1")).not.toContainText("+0");
+    await expect(sheet(page, "Ring 1")).not.toContainText(/\+0(?![.\d])/); // no "+0" upgrade level (an effect may read "+0.5%")
     await expect(sheet(page, "Ring 1")).not.toContainText("act on one of your");
     await expect(sheet(page, "Ring 1")).not.toContainText("Named gear can't be sold");
     await expect(sheet(page, "Ring 1")).not.toContainText("→");
