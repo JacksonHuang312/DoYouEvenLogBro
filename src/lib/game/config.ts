@@ -508,7 +508,7 @@ export const MYTHIC_EFFECTS = {
   "executioners-ring": { label: "Hits on an enemy under 30% HP are always crits" },
   "bloodletter-gauntlets": { label: "Crits heal you for 30% of their damage" },
   "bulwark-plate": { label: "While Guard is up, reflect 50% of each hit" },
-  "oathkeeper-belt": { label: "Bastion's shield is twice as big" },
+  "oathkeeper-belt": { label: "Bastion's shield is 25% bigger" },
   "saints-locket": { label: "Mend also stops bleeding for 4 s" },
   "dawn-censer": { label: "Healing past full HP becomes a shield, up to 15% of max HP" },
 } as const;
