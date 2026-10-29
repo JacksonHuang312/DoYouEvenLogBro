@@ -9,7 +9,7 @@ import type { StatLine } from "./score";
 
 const RUNS = 300;
 const statLine = (value: number, over: Partial<Record<(typeof STATS)[number], number>> = {}): StatLine =>
-  Object.fromEntries(STATS.map((s) => [s, { value: over[s] ?? value, bonus: 0 }])) as StatLine;
+  Object.fromEntries(STATS.map((s) => [s, over[s] ?? value])) as StatLine;
 const withEffects = (e: Partial<GearEffects>): GearEffects => ({ ...NO_EFFECTS, ...e });
 
 describe("building the hero", () => {

@@ -1,10 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { clearInjury, flagInjury } from "./breaks";
-import { calibrationDone, NEW_CALIBRATION } from "./calibration";
 import { newGameState, type GameState, type Snapshot } from "./claim";
-import { CALIBRATION, POPULATION_AVERAGE_SCORE, STATS } from "./config";
-import { workoutFacts, type MusclesFacts } from "./facts";
-import { averageStats } from "./calibration";
+import { RUST, STATS } from "./config";
+import { mergeFacts, workoutFacts, type MusclesFacts } from "./facts";
 import { buildExerciseLookup } from "./sets";
 import { BENCH, BIKE, benchDay, CRUNCH, DAY, set, SQUAT, T0, workout } from "./test-helpers";
 import {
@@ -14,6 +12,9 @@ import {
   pickSnapshot,
   resolveTimeZone,
   routineStats,
+  rustLine,
+  snapshotStat,
+  statNumber,
   trainedLabel,
   weekStrip,
 } from "./view";
@@ -21,12 +22,11 @@ import {
 const UTC = "UTC";
 const lookup = buildExerciseLookup();
 const factsOf = (...days: ReturnType<typeof benchDay>[]) =>
-  days.reduce<MusclesFacts>((all, w) => ({ ...all, ...workoutFacts(w, lookup, 75, UTC) }), {});
+  days.reduce<MusclesFacts>((all, w) => mergeFacts(all, workoutFacts(w, lookup, () => undefined, UTC).muscles), {});
 
-/** A game/state past calibration. */
+/** A game/state that has been playing a while. */
 const veteran = (overrides: Partial<GameState> = {}): GameState => ({
   ...newGameState(T0 - 60 * DAY, UTC),
-  calibration: { startedAt: T0 - 60 * DAY, workouts: 12, done: true },
   xp: 1250,
   coins: 340,
   ...overrides,
@@ -61,66 +61,71 @@ describe("resolveTimeZone", () => {
 });
 
 describe("heroView", () => {
-  test("empty state: a new account is calibrating at the population average, with no power", () => {
+  test("empty state: a new account starts every stat at 0", () => {
     const v = heroView(null, {}, T0, "America/New_York");
-    expect(v.calibrating).toBe(true);
-    expect(STATS.every((s) => v.stats[s].value === POPULATION_AVERAGE_SCORE && v.stats[s].bonus === 0)).toBe(true);
-    expect(v.power).toBeNull();
+    expect(STATS.every((s) => v.stats[s] === 0 && v.rust[s] === 0)).toBe(true);
+    expect(v.power).toBe(0);
+    expect(v.battleBody).toBe(0);
     expect(v.coins).toBe(0);
-    expect(v.level).toEqual({ level: 1, into: 0, needed: 500 });
-    expect(v.calibration).toEqual({ workouts: 0, needed: CALIBRATION.workouts, daysLeft: null });
+    expect(v.level).toMatchObject({ level: 1, into: 0 });
     expect(v.timeZone).toBe("America/New_York");
   });
 
-  test("calibrating with stored facts still shows the averages, not the real numbers", () => {
-    const state = veteran({ calibration: { startedAt: T0 - 4 * DAY, workouts: 2, done: false } });
-    const v = heroView(state, factsOf(benchDay(T0 - DAY, 100)), T0, UTC);
-    expect(v.calibrating).toBe(true);
-    expect(v.stats).toEqual(averageStats());
-    expect(v.scores.chest).toBeGreaterThan(0);
-    expect(v.calibration).toEqual({ workouts: 2, needed: CALIBRATION.workouts, daysLeft: 10 });
-  });
-
-  test("calibration days left never go negative", () => {
-    const state = veteran({ calibration: { startedAt: T0 - 30 * DAY, workouts: 3, done: false } });
-    expect(calibrationDone(state.calibration, T0)).toBe(true);
-    expect(heroView(state, {}, T0, UTC).calibration.daysLeft).toBe(0);
-  });
-
-  test("after calibration the real stats show, with power and level progress", () => {
-    const v = heroView(veteran(), factsOf(benchDay(T0 - DAY, 100)), T0, UTC);
-    expect(v.calibrating).toBe(false);
-    expect(v.stats.chest.value).toBeGreaterThan(POPULATION_AVERAGE_SCORE);
-    expect(v.stats.legs.value).toBe(0);
-    expect(v.power).toBeGreaterThan(0);
-    expect(v.level).toEqual({ level: 3, into: 250, needed: 500 });
+  test("shows the earned stats, power and level progress from the first workout", () => {
+    const v = heroView(veteran(), factsOf(benchDay(T0 - DAY, 100), benchDay(T0 - 3 * DAY, 100)), T0, UTC);
+    expect(v.stats.chest).toBe(0.8);
+    expect(v.scores.chest).toBe(0.8);
+    expect(v.stats.legs).toBe(0);
+    expect(v.power).toBe(0.8);
+    expect(v.battleBody).toBe(0.8);
+    expect(v.level.level).toBeGreaterThan(1);
     expect(v.coins).toBe(340);
   });
 
-  test("decay lowers a stat that hasn't been trained for a while", () => {
-    const muscles = factsOf(benchDay(T0 - DAY, 100));
-    const fresh = heroView(veteran(), muscles, T0, UTC).stats.chest.value;
-    const stale = heroView(veteran(), muscles, T0 + 40 * DAY, UTC).stats.chest.value;
-    expect(stale).toBeLessThan(fresh);
+  test("rust weakens only the fighting power; the stats stay", () => {
+    const muscles: MusclesFacts = { chest: { sets: 100, progressed: 0, lastTrained: T0 - DAY, weeks: [] } };
+    const later = heroView(veteran(), muscles, T0 + (RUST.graceDays + 8) * DAY, UTC);
+    expect(later.stats.chest).toBe(10);
+    expect(later.power).toBe(10);
+    expect(later.rust.chest).toBeCloseTo(0.1);
+    expect(later.battleBody).toBeCloseTo(9);
   });
 
-  test("a missing state with defaults behaves like the server's new state (same stats as a fresh one)", () => {
+  test("a pause keeps rust away", () => {
     const muscles = factsOf(benchDay(T0 - DAY, 100));
-    const missing = heroView(null, muscles, T0, UTC);
-    const fresh = heroView(newGameState(T0, UTC), muscles, T0, UTC);
-    expect(missing).toEqual(fresh);
-    expect(NEW_CALIBRATION.done).toBe(false);
+    const paused = veteran({ pauses: [{ startAt: T0 - DAY, endAt: T0 + 60 * DAY, startDay: "2026-10-13", endDay: "2026-12-13" }] });
+    expect(heroView(paused, muscles, T0 + 30 * DAY, UTC).rust.chest).toBe(0);
   });
 
-  test("uses the stored time zone for week boundaries", () => {
-    // 03:30 UTC Sunday is still Saturday night in New York, so the two zones are in different weeks.
-    const now = Date.UTC(2026, 9, 18, 3, 30);
-    const muscles = factsOf(benchDay(now)); // the facts record the week as UTC sees it (starting 10-18)
-    const ny = heroView(veteran({ timeZone: "America/New_York" }), muscles, now, UTC);
-    const utc = heroView(veteran({ timeZone: UTC }), muscles, now, UTC);
-    expect(ny.timeZone).toBe("America/New_York");
-    expect(utc.timeZone).toBe(UTC);
-    expect(ny.scores.chest).not.toBe(utc.scores.chest);
+  test("a missing state behaves like the server's new state", () => {
+    const muscles = factsOf(benchDay(T0 - DAY, 100));
+    expect(heroView(null, muscles, T0, UTC)).toEqual(heroView(newGameState(T0, UTC), muscles, T0, UTC));
+  });
+});
+
+describe("rustLine", () => {
+  test("lists rusty stats, or nothing", () => {
+    const none = Object.fromEntries(STATS.map((s) => [s, 0])) as Record<(typeof STATS)[number], number>;
+    expect(rustLine(none)).toBeNull();
+    expect(rustLine({ ...none, legs: 0.12, core: 0.03 })).toBe("Rusty: Legs −12%, Core −3%");
+  });
+});
+
+describe("statNumber", () => {
+  test("one decimal under 10, whole numbers above", () => {
+    expect(statNumber(0.44)).toBe("0.4");
+    expect(statNumber(9.96)).toBe("10");
+    expect(statNumber(55.6)).toBe("56");
+    expect(statNumber(3)).toBe("3");
+  });
+});
+
+describe("snapshotStat", () => {
+  test("reads new snapshots and ones from before the stat rework", () => {
+    const stats = Object.fromEntries(STATS.map((s) => [s, 0])) as Snapshot["stats"];
+    const snap = (chest: unknown) => ({ weekId: "2026-10-11", stats: { ...stats, chest }, power: 0, takenAt: T0 }) as Snapshot;
+    expect(snapshotStat(snap(12.5), "chest")).toBe(12.5);
+    expect(snapshotStat(snap({ value: 40, bonus: 2 }), "chest")).toBe(40);
   });
 });
 
@@ -156,7 +161,7 @@ describe("heroView injured stats", () => {
 describe("pickSnapshot", () => {
   const snap = (daysAgo: number): Snapshot => ({
     weekId: `w${daysAgo}`,
-    stats: averageStats(),
+    stats: Object.fromEntries(STATS.map((s) => [s, 10])) as Snapshot["stats"],
     power: 0,
     takenAt: T0 - daysAgo * DAY,
   });

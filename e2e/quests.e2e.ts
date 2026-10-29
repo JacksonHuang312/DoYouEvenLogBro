@@ -16,7 +16,7 @@ test.describe("Quests screen wording", () => {
     await page.goto("/quests");
     await page.getByRole("button", { name: /^Breaks/ }).click();
 
-    const pauseText = page.getByText("A pause freezes decay and your schedule", { exact: false });
+    const pauseText = page.getByText("A pause freezes rust and your schedule", { exact: false });
     await expect(pauseText).toBeHidden();
     await page.getByRole("button", { name: "About pausing" }).click();
     await expect(pauseText).toBeVisible();
@@ -24,7 +24,7 @@ test.describe("Quests screen wording", () => {
     await page.getByRole("button", { name: "About pausing" }).click();
     await expect(pauseText).toBeHidden();
 
-    const injuryText = page.getByText("Quests skip them and their decay freezes", { exact: false });
+    const injuryText = page.getByText("Quests skip them and their rust freezes", { exact: false });
     await expect(injuryText).toBeHidden();
     await page.getByRole("button", { name: "About injuries" }).click();
     await expect(injuryText).toBeVisible();

@@ -1,23 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { BODYWEIGHT_FACTOR, EPLEY_MAX_REPS } from "./config";
-import { buildExerciseLookup, countsAsWorkout, epley, isWorkingSet, setLoadKg, workingSets } from "./sets";
-import { BENCH, BIKE, CRUNCH, lookup, PULLUP, set, T0, workout } from "./test-helpers";
-
-describe("epley", () => {
-  test("weight × (1 + reps/30)", () => {
-    expect(epley(100, 10)).toBeCloseTo(133.33, 2);
-    expect(epley(60, 5)).toBeCloseTo(70, 10);
-  });
-
-  test("a single is its own weight", () => {
-    expect(epley(140, 1)).toBe(140);
-  });
-
-  test("reps past the cap add nothing", () => {
-    expect(epley(50, 40)).toBe(epley(50, EPLEY_MAX_REPS));
-    expect(EPLEY_MAX_REPS).toBe(12);
-  });
-});
+import { buildExerciseLookup, countsAsWorkout, isWorkingSet, workingSets } from "./sets";
+import { BENCH, BIKE, CRUNCH, lookup, set, T0, workout } from "./test-helpers";
 
 describe("isWorkingSet", () => {
   test("excludes warm-ups and sets without reps", () => {
@@ -36,24 +19,6 @@ describe("isWorkingSet", () => {
     expect(isWorkingSet(set(6000, 5))).toBe(false);
     expect(isWorkingSet(set(60, 500))).toBe(false);
     expect(isWorkingSet(set(-5, 5))).toBe(false);
-  });
-});
-
-describe("setLoadKg", () => {
-  const barbell = { muscle: "chest" as const, category: "strength", equipment: "barbell" };
-  const bodyOnly = { muscle: "lats" as const, category: "strength", equipment: "body only" };
-
-  test("a weighted set is its weight", () => {
-    expect(setLoadKg(set(100, 5), BENCH, barbell, 80)).toBe(100);
-  });
-
-  test("no weight means bodyweight × the default factor", () => {
-    expect(setLoadKg(set(null, 5), "Anything", bodyOnly, 80)).toBeCloseTo(80 * BODYWEIGHT_FACTOR.default);
-  });
-
-  test("uses the exercise's own factor, with added weight on top", () => {
-    expect(setLoadKg(set(null, 5), PULLUP, bodyOnly, 80)).toBe(80);
-    expect(setLoadKg(set(20, 5), PULLUP, bodyOnly, 80)).toBe(100);
   });
 });
 

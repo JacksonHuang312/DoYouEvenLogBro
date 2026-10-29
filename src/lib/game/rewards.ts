@@ -1,7 +1,7 @@
 import type { ClaimResponse } from "../server/game";
-import { formatNumber, kgTo } from "../units";
+import { kgTo } from "../units";
 import type { Unit, Workout } from "../types";
-import { COINS, STATS, XP } from "./config";
+import { COINS, STAT_POINTS, STATS, XP, type Stat } from "./config";
 import { levelProgress } from "./economy";
 import { isWorkingSet } from "./sets";
 import { dayId, daysBetween } from "./time";
@@ -12,7 +12,8 @@ import { STAT_LABELS } from "./view";
  * What the Rewards screen shows after a workout (GAME_DESIGN.md 7.3). Pure: the claim response
  * and the little the client knows about the workout go in, plain strings and percentages come
  * out, so the screen only lays them out. Fields the server added in Phase 3 (usedToday,
- * dailyCap, oneRm, schedule, quests) are optional because claims from before it lack them.
+ * dailyCap, schedule, quests) and the stat rework (progressed) are optional because older claims
+ * lack them.
  */
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -79,10 +80,9 @@ export interface RewardsView {
     /** Why no workout XP was paid, and when it can be again. */
     note: string | null;
   } | null;
-  /** While calibrating the stats shown are averages, so no changes are listed. */
-  calibrating: boolean;
   stats: { name: string; from: string; to: string; delta: string }[];
-  oneRm: string[];
+  /** "Beat last time: Bench Press, Squat (+25% points)", or null when no exercise did. */
+  progressed: string | null;
   quests: QuestBar[];
   /** "Title earned: Regular (+3% battle power)", one per title this claim earned. */
   titles: string[];
@@ -109,6 +109,12 @@ const round1 = (x: number) => Math.round(x * 10) / 10;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** 1 decimal, no trailing ".0". */
 const one = (x: number) => String(round1(x));
+
+/** A claim's stat. Claims from before the stat rework stored { value, bonus }. */
+function statOf(stats: Record<Stat, number | { value: number }>, stat: Stat): number {
+  const v = stats[stat];
+  return typeof v === "number" ? v : (v?.value ?? 0);
+}
 
 export function durationLabel(ms: number): string {
   const min = Math.max(1, Math.round(ms / 60_000));
@@ -176,9 +182,8 @@ export function rewardsView(input: RewardsInput): RewardsView {
             },
       coins: null,
       xp: null,
-      calibrating: false,
       stats: [],
-      oneRm: [],
+      progressed: null,
       quests: [],
       titles: [],
       scrap: null,
@@ -202,19 +207,17 @@ export function rewardsView(input: RewardsInput): RewardsView {
   const cap = r.coins.dailyCap ?? COINS.dailyCap;
 
   const statsChanged = STATS.flatMap((s) => {
-    const from = r.stats.before[s].value;
-    const to = r.stats.after[s].value;
+    const from = statOf(r.stats.before, s);
+    const to = statOf(r.stats.after, s);
     const delta = round1(to - from);
     return Math.abs(delta) >= 0.1 ? [{ stat: s, name: STAT_LABELS[s], from: one(from), to: one(to), d: delta }] : [];
   })
     .sort((a, b) => b.d - a.d)
     .map(({ name, from, to, d }) => ({ name, from, to, delta: d > 0 ? `+${one(d)}` : `−${one(-d)}` }));
 
-  const unitLabel = unit === "lb" ? "lb" : "kg";
-  const oneRm = (r.oneRm ?? []).map((l) => {
-    const lift = input.exerciseName(l.exerciseId) ?? "Lift";
-    return `${lift} ${formatNumber(kgTo(unit, l.weightKg))} ${unitLabel} × ${l.reps} beat your estimate · ${STAT_LABELS[l.stat]} bonus +${one(l.bonusDelta)}`;
-  });
+  const beat = (r.progressed ?? []).map((l) => input.exerciseName(l.exerciseId) ?? STAT_LABELS[l.stat]);
+  const extra = Math.round((STAT_POINTS.progressedSet / STAT_POINTS.perSet - 1) * 100);
+  const progressed = beat.length ? `Beat last time: ${beat.join(", ")} (+${extra}% points)` : null;
 
   return {
     counted: true,
@@ -235,9 +238,8 @@ export function rewardsView(input: RewardsInput): RewardsView {
       levelUp: sameLevel ? null : `Level ${before.level} → ${after.level}`,
       note: r.xp.workout === 0 ? xpNote(input) : null,
     },
-    calibrating: r.calibrating,
-    stats: r.calibrating ? [] : statsChanged,
-    oneRm: r.calibrating ? [] : oneRm,
+    stats: statsChanged,
+    progressed,
     titles: (r.titles ?? []).map((id) => `Title earned: ${TITLE_INFO[id].name} (+${Math.round(titleBonus(id) * 100)}% battle power)`),
     scrap: r.scrap && r.scrap.earned > 0 ? `+${r.scrap.earned} scrap` : null,
     quests: quests.map((q) => ({

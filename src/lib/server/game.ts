@@ -1,9 +1,7 @@
-import { freezeFor } from "../game/breaks";
-import { calibrationDone, displayStats } from "../game/calibration";
+import type { Transaction } from "firebase-admin/firestore";
 import {
   applyClaim,
   newGameState,
-  profileOf,
   recomputedPeak,
   replayMuscles,
   roundStats,
@@ -15,17 +13,18 @@ import {
   type Snapshot,
 } from "../game/claim";
 import { DEFAULT_TIME_ZONE, MIN_WORKING_SETS } from "../game/config";
+import { exerciseSessions, type PreviousSession } from "../game/facts";
 import { claimDeadline, generateQuests, questContext, questsAfterWorkout, withQuestRewards, type QuestsDoc, type QuestUpdate } from "../game/quests";
 import { emptySchedule, matchWorkout, withMatch, type ScheduleDoc } from "../game/schedule";
 import { computeStats, power, type StatLine } from "../game/score";
-import { buildExerciseLookup } from "../game/sets";
+import { buildExerciseLookup, type ExerciseLookup } from "../game/sets";
 import { dayId, weekId as weekIdOf } from "../game/time";
 import { achievementProgress, withEarnedTitles, type TitleId } from "../game/titles";
-import type { Workout } from "../types";
+import type { LoggedSet, Workout } from "../types";
 import { adminDb } from "./admin";
 import { HttpError } from "./api";
 import { questWeek, readLookup, readWeekWorkouts } from "./quests";
-import { customExercise, gameRefs } from "./refs";
+import { customExercise, gameRefs, type GameRefs } from "./refs";
 import { readTitleFacts } from "./titles";
 
 /** POST /api/claim response. */
@@ -35,10 +34,42 @@ export type ClaimResponse =
 
 /** POST /api/recompute response. */
 export interface RecomputeResponse {
-  /** As shown: population averages while calibrating. */
   stats: StatLine;
   power: number;
-  calibrating: boolean;
+}
+
+/** Earlier workouts read per exercise to find its last session (one with working sets of it). */
+const PREVIOUS_LOOKBACK = 5;
+
+/**
+ * Each exercise's latest session before `workout`: the newest earlier workout with working sets
+ * of it, counted or not, the same rule a history replay uses.
+ */
+async function readPreviousSessions(tx: Transaction, r: GameRefs, workout: Workout, lookup: ExerciseLookup): Promise<PreviousSession> {
+  const found = new Map<string, LoggedSet[]>();
+  const ids = [...exerciseSessions(workout, lookup).keys()];
+  const snaps = await Promise.all(
+    ids.map((id) =>
+      tx.get(
+        r.workouts
+          .where("exerciseIds", "array-contains", id)
+          .where("startedAt", "<", workout.startedAt)
+          .orderBy("startedAt", "desc")
+          .limit(PREVIOUS_LOOKBACK)
+          .select("exercises"),
+      ),
+    ),
+  );
+  ids.forEach((id, i) => {
+    for (const d of snaps[i].docs) {
+      const sets = exerciseSessions({ exercises: (d.data() as Pick<Workout, "exercises">).exercises }, lookup).get(id);
+      if (sets) {
+        found.set(id, sets);
+        break;
+      }
+    }
+  });
+  return (id) => found.get(id);
 }
 
 /**
@@ -77,6 +108,7 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
     const questsOpen = week === weekIdOf(now, zone) || (savedQuests != null && now < claimDeadline(week, savedQuests.timeZone));
     const weekWorkouts = questsOpen ? await readWeekWorkouts(tx, r, week, zone) : [];
     const lookup = await readLookup(tx, r, [workout, ...weekWorkouts]);
+    const previous = await readPreviousSessions(tx, r, workout, lookup);
 
     // Which scheduled day (if any) this workout fills; the bonus follows the off-day curve.
     const schedule = scheduleSnap.exists ? (scheduleSnap.data() as ScheduleDoc) : emptySchedule(now);
@@ -89,9 +121,9 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
       muscles,
       workout,
       lookup,
+      previous,
       now,
       timeZone: zone,
-      freeze: freezeFor(state),
       daysOff: match?.daysOff ?? null,
     });
     if (!outcome.counted) {
@@ -164,7 +196,7 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
 /**
  * Rebuilds game/muscles and the weekly snapshots from the user's whole workout history, so an
  * edited typo or a deleted workout stops counting, and lowers the XP peak to match. Coins, XP
- * and claim records are untouched.
+ * and claim records are untouched; Record Breaker's fact (mostStatsBeaten) follows the history.
  */
 export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> {
   const db = adminDb();
@@ -178,22 +210,20 @@ export async function recomputeMuscles(uid: string): Promise<RecomputeResponse> 
 
     const now = Date.now();
     const state = stateSnap.exists ? (stateSnap.data() as GameState) : newGameState(now, DEFAULT_TIME_ZONE);
-    const profile = profileOf(state);
     const history = workouts.docs.map((d) => ({ id: d.id, ...d.data() }) as ClaimableWorkout);
     const lookup = buildExerciseLookup(custom.docs.map(customExercise));
-    const freeze = freezeFor(state);
-    const replay = replayMuscles(history, lookup, profile, state.timeZone, now, freeze);
+    const replay = replayMuscles(history, lookup, state.timeZone, now);
 
     tx.set(r.muscles, { muscles: replay.muscles, updatedAt: now } satisfies MusclesDoc);
     const keep = new Set(replay.snapshots.map((s) => s.weekId));
     for (const d of snapshots.docs) if (!keep.has(d.id)) tx.delete(d.ref);
     for (const s of replay.snapshots) tx.set(r.snapshots.doc(s.weekId), s satisfies Snapshot);
     const peakPower = recomputedPeak(state, replay.peakPower);
-    if (stateSnap.exists && peakPower !== state.peakPower) tx.update(r.state, { peakPower, updatedAt: now });
+    if (stateSnap.exists && (peakPower !== state.peakPower || replay.mostStatsBeaten !== state.mostStatsBeaten)) {
+      tx.update(r.state, { peakPower, mostStatsBeaten: replay.mostStatsBeaten, updatedAt: now });
+    }
 
-    const shown = roundStats(
-      displayStats(computeStats(replay.muscles, profile, now, state.timeZone, freeze), state.calibration, now),
-    );
-    return { stats: shown, power: Math.round(power(shown) * 10) / 10, calibrating: !calibrationDone(state.calibration, now) };
+    const stats = roundStats(computeStats(replay.muscles));
+    return { stats, power: Math.round(power(stats) * 10) / 10 };
   });
 }

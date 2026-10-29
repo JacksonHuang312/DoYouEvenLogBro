@@ -1,157 +1,80 @@
-import {
-  AGE_FACTOR,
-  DECAY,
-  DEFAULT_BODYWEIGHT_KG,
-  FREQUENCY_WEEKS,
-  WEEKS_KEPT,
-  ONE_RM_BONUS_CAP,
-  POWER_MULTIPLIERS,
-  STANDARD_SEX_FACTOR,
-  STAT_MUSCLES,
-  STATS,
-  STRENGTH_SHARE,
-  STRENGTH_STANDARDS,
-  SUB_MUSCLES,
-  type Sex,
-  type Stat,
-  type SubMuscle,
-} from "./config";
+import { POWER_MULTIPLIERS, RUST, STAT_MUSCLES, STAT_POINTS, STATS, SUB_MUSCLES, type Stat, type SubMuscle } from "./config";
 import type { MuscleFacts, MusclesFacts } from "./facts";
-import { frozenMs, intervalsFor, type Freeze, type Interval } from "./freeze";
-import { addDays, dayStartMs, recentWeekIds } from "./time";
+import { frozenMs, statIntervals, type Freeze } from "./freeze";
+
+/*
+ * Stats come from training effort (the stat rework, GAME_DESIGN.md section 10): every counted
+ * working set earns points for its stat, and a stat is its points ÷ STAT_POINTS.perStat. Stats
+ * never go down; rust only weakens a stat in fights while it goes untrained.
+ */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The user's inputs that strength is normalized against. Missing ones use defaults. */
-export interface BodyProfile {
-  bodyweightKg: number | null;
-  age: number | null;
-  sex: Sex | null;
-}
-
-/** How the strength standards scale for this person's age. */
-export function ageFactor(age: number | null): number {
-  if (age == null) return 1;
-  if (age < AGE_FACTOR.youthAge) return AGE_FACTOR.youth;
-  if (age <= AGE_FACTOR.peakAgeEnd) return 1;
-  return Math.max(AGE_FACTOR.min, 1 - (age - AGE_FACTOR.peakAgeEnd) * AGE_FACTOR.perYearAfterPeak);
-}
-
-/**
- * Strength: estimated 1RM relative to bodyweight, against the standard for sex and age. The
- * standard scores 100; stronger lifts keep scaling past it (stats have no cap).
- */
-export function strengthScore(muscle: SubMuscle, est1RMKg: number | null, profile: BodyProfile): number {
-  if (est1RMKg == null || est1RMKg <= 0) return 0;
-  const bodyweight = profile.bodyweightKg ?? DEFAULT_BODYWEIGHT_KG;
-  const standard = STRENGTH_STANDARDS[muscle] * STANDARD_SEX_FACTOR[profile.sex ?? "unknown"] * ageFactor(profile.age);
-  return Math.max(0, (100 * est1RMKg) / bodyweight / standard);
-}
-
-/** A week with this many frozen days (a pause or injury) does not count against the frequency. */
-const FROZEN_WEEK_DAYS = 4;
-
-/**
- * Frequency 0–100: the share of the last FREQUENCY_WEEKS weeks (this one included) it was
- * trained. Weeks mostly spent frozen are skipped and older weeks stand in, so a pause or an
- * injury does not cost the frequency part.
- */
-export function frequencyScore(weeks: string[], now: number, timeZone: string, frozen: readonly Interval[] = []): number {
-  const window = recentWeekIds(now, timeZone, WEEKS_KEPT)
-    .filter((w) => {
-      if (frozen.length === 0) return true;
-      const start = dayStartMs(w, timeZone);
-      const days = frozenMs(frozen, start, Math.min(now, dayStartMs(addDays(w, 7), timeZone))) / DAY_MS;
-      return Math.round(days) < FROZEN_WEEK_DAYS;
-    })
-    .slice(0, FREQUENCY_WEEKS);
-  return (100 * window.filter((w) => weeks.includes(w)).length) / FREQUENCY_WEEKS;
-}
-
-/**
- * Multiplier on the strength part: 1 within the grace period, then compounding down to the
- * floor. `frozen` is the time since lastTrained that does not count (pauses, injuries).
- */
-export function decayFactor(lastTrained: number | null, now: number, frozen = 0): number {
-  if (lastTrained == null) return 1;
-  const days = Math.max(0, now - lastTrained - frozen) / DAY_MS;
-  if (days <= DECAY.graceDays) return 1;
-  return Math.max(DECAY.floor, (1 - DECAY.perDay) ** (days - DECAY.graceDays));
-}
-
-/** The calculated 1RM: the rep-based estimate, or the heaviest single for someone who only does singles. */
-export function calculated1RM(facts: MuscleFacts): number | null {
-  return facts.repEst1RMKg ?? facts.maxLoadKg;
-}
-
-/** Sub-muscle score: decayed strength blended with frequency (0–100). Untrained is 0; no upper cap. */
-export function subMuscleScore(
-  muscle: SubMuscle,
-  facts: MuscleFacts | undefined,
-  profile: BodyProfile,
-  now: number,
-  timeZone: string,
-  freeze: Freeze,
-): number {
+/** A sub-muscle's points: each counted set, progressed sets worth a little more. */
+export function musclePoints(facts: MuscleFacts | undefined): number {
   if (!facts) return 0;
-  const intervals = intervalsFor(freeze, muscle);
-  const frozen = facts.lastTrained == null ? 0 : frozenMs(intervals, facts.lastTrained, now);
-  const strength = strengthScore(muscle, calculated1RM(facts), profile) * decayFactor(facts.lastTrained, now, frozen);
-  return STRENGTH_SHARE * strength + (1 - STRENGTH_SHARE) * frequencyScore(facts.weeks, now, timeZone, intervals);
-}
-
-/** How far an actual lift beat the calculated 1RM (0.04 = 4% heavier), or 0. */
-export function oneRMBonusRatio(facts: MuscleFacts | undefined): number {
-  if (!facts?.repEst1RMKg || facts.maxLoadKg == null) return 0;
-  return Math.max(0, facts.maxLoadKg / facts.repEst1RMKg - 1);
+  const sets = facts.sets ?? 0;
+  const progressed = facts.progressed ?? 0;
+  return (sets - progressed) * STAT_POINTS.perSet + progressed * STAT_POINTS.progressedSet;
 }
 
 export type SubMuscleScores = Record<SubMuscle, number>;
 
-export function subMuscleScores(
-  muscles: MusclesFacts,
-  profile: BodyProfile,
-  now: number,
-  timeZone: string,
-  freeze: Freeze,
-): SubMuscleScores {
-  return Object.fromEntries(
-    SUB_MUSCLES.map((m) => [m, subMuscleScore(m, muscles[m], profile, now, timeZone, freeze)]),
-  ) as SubMuscleScores;
+/** Each sub-muscle's share of its stat: its points ÷ STAT_POINTS.perStat. */
+export function subMuscleScores(muscles: MusclesFacts): SubMuscleScores {
+  return Object.fromEntries(SUB_MUSCLES.map((m) => [m, musclePoints(muscles[m]) / STAT_POINTS.perStat])) as SubMuscleScores;
 }
 
-const weightsOf = (stat: Stat) => Object.entries(STAT_MUSCLES[stat]) as [SubMuscle, number][];
+/** The six stats. No cap. */
+export type StatLine = Record<Stat, number>;
 
-/** A stat is the weighted average of its sub-muscle scores. */
+const musclesOf = (stat: Stat) => Object.keys(STAT_MUSCLES[stat]) as SubMuscle[];
+
+/** A stat is the sum of its sub-muscles' scores. */
 export function statScore(stat: Stat, scores: SubMuscleScores): number {
-  return weightsOf(stat).reduce((sum, [m, w]) => sum + w * scores[m], 0);
+  return musclesOf(stat).reduce((sum, m) => sum + scores[m], 0);
+}
+
+export function computeStats(muscles: MusclesFacts): StatLine {
+  const scores = subMuscleScores(muscles);
+  return Object.fromEntries(STATS.map((s) => [s, statScore(s, scores)])) as StatLine;
+}
+
+/** Body power = Σ(stat × multiplier). Gear and titles count only in battle power. */
+export function power(stats: StatLine): number {
+  return STATS.reduce((sum, s) => sum + stats[s] * POWER_MULTIPLIERS[s], 0);
+}
+
+/** When any of the stat's sub-muscles was last trained, or null. */
+export function statLastTrained(muscles: MusclesFacts, stat: Stat): number | null {
+  const times = musclesOf(stat).flatMap((m) => (muscles[m]?.lastTrained != null ? [muscles[m]!.lastTrained!] : []));
+  return times.length ? Math.max(...times) : null;
 }
 
 /**
- * The 1RM bonus on a stat: each sub-muscle's score × how far its actual lift beat its calculated
- * 1RM, weighted like the stat, and capped at ONE_RM_BONUS_CAP of the stat.
+ * Rust as a share of the stat (0.05 = fights at 95%): nothing for RUST.graceDays untrained days,
+ * then RUST.perDay for each day from then on, at most RUST.max. Frozen time (pauses, and injury
+ * flags on this stat) doesn't count. A stat never trained has nothing to rust.
  */
-export function statBonus(stat: Stat, scores: SubMuscleScores, muscles: MusclesFacts): number {
-  const raw = weightsOf(stat).reduce((sum, [m, w]) => sum + w * scores[m] * oneRMBonusRatio(muscles[m]), 0);
-  return Math.min(raw, ONE_RM_BONUS_CAP * statScore(stat, scores));
+export function rustOf(lastTrained: number | null, now: number, frozen = 0): number {
+  if (lastTrained == null) return 0;
+  const days = Math.floor(Math.max(0, now - lastTrained - frozen) / DAY_MS);
+  if (days < RUST.graceDays) return 0;
+  return Math.min(RUST.max, (days - RUST.graceDays + 1) * RUST.perDay);
 }
 
-export type StatLine = Record<Stat, { value: number; bonus: number }>;
-
-export function computeStats(
-  muscles: MusclesFacts,
-  profile: BodyProfile,
-  now: number,
-  timeZone: string,
-  freeze: Freeze,
-): StatLine {
-  const scores = subMuscleScores(muscles, profile, now, timeZone, freeze);
+/** Rust on every stat at `now`. */
+export function statRust(muscles: MusclesFacts, now: number, freeze: Freeze): StatLine {
   return Object.fromEntries(
-    STATS.map((s) => [s, { value: statScore(s, scores), bonus: statBonus(s, scores, muscles) }]),
+    STATS.map((s) => {
+      const last = statLastTrained(muscles, s);
+      const frozen = last == null ? 0 : frozenMs(statIntervals(freeze, s), last, now);
+      return [s, rustOf(last, now, frozen)];
+    }),
   ) as StatLine;
 }
 
-/** Power = Σ((stat + bonus) × multiplier). Gear and title bonuses come in later phases. */
-export function power(stats: StatLine): number {
-  return STATS.reduce((sum, s) => sum + (stats[s].value + stats[s].bonus) * POWER_MULTIPLIERS[s], 0);
+/** The stats as they fight: each reduced by its rust. */
+export function rustedStats(stats: StatLine, rust: StatLine): StatLine {
+  return Object.fromEntries(STATS.map((s) => [s, stats[s] * (1 - rust[s])])) as StatLine;
 }

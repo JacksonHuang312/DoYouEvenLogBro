@@ -91,7 +91,7 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
   async function start() {
     const ok = await confirmRpgDialog({
       title: `Pause for ${days} days?`,
-      message: `Decay and your schedule freeze until ${plan.backOn}. You can end it early after ${PAUSE.minDays} days, and the next pause can't start for ${PAUSE.cooldownDays} days after this one.`,
+      message: `Rust and your schedule freeze until ${plan.backOn}. You can end it early after ${PAUSE.minDays} days, and the next pause can't start for ${PAUSE.cooldownDays} days after this one.`,
       confirmLabel: "Start pause",
     });
     if (ok) await run("Couldn't start the pause", () => startPause(days), `Paused until ${plan.backOn}.`);
@@ -100,7 +100,7 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
   async function end() {
     const ok = await confirmRpgDialog({
       title: "End your pause?",
-      message: `Decay and your schedule start again today. The next pause can't start for ${PAUSE.cooldownDays} days.`,
+      message: `Rust and your schedule start again today. The next pause can't start for ${PAUSE.cooldownDays} days.`,
       confirmLabel: "End pause",
     });
     if (ok) await run("Couldn't end the pause", endPause, "Pause ended.");
@@ -113,13 +113,13 @@ function PausePart({ state, now, timeZone, off, run }: PartProps) {
         <InfoButton info={info} label="pausing" />
       </div>
       <InfoText info={info}>
-        Away for a while? A pause freezes decay and your schedule. {PAUSE.minDays} to {PAUSE.maxDays} days.
+        Away for a while? A pause freezes rust and your schedule. {PAUSE.minDays} to {PAUSE.maxDays} days.
       </InfoText>
       {view.active ? (
         <>
           <p className="text-xs leading-relaxed text-rpg-text-2">
             Paused until {view.active.backOn} ({view.active.daysLeft} {view.active.daysLeft === 1 ? "day" : "days"} left).
-            Decay and your schedule are frozen. You can still log workouts.
+            Rust and your schedule are frozen. You can still log workouts.
           </p>
           <button onClick={() => void end()} disabled={off || !view.active.canEndNow} className={SECONDARY}>
             End pause early
@@ -190,7 +190,7 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
   async function clear(s: Stat, label: string) {
     const ok = await confirmRpgDialog({
       title: `Clear the ${label} flag?`,
-      message: "Decay and quests for that stat count again from now.",
+      message: "Rust and quests for that stat count again from now.",
       confirmLabel: "Clear flag",
     });
     if (ok) await run("Couldn't clear the flag", () => clearInjury(s), `${label} flag cleared.`);
@@ -203,7 +203,7 @@ function InjuryPart({ state, now, timeZone, off, run }: PartProps) {
         <InfoButton info={info} label="injuries" />
       </div>
       <InfoText info={info}>
-        Flag up to {INJURY.maxStats} stats you&apos;re resting. Quests skip them and their decay freezes. A flag lapses after{" "}
+        Flag up to {INJURY.maxStats} stats you&apos;re resting. Quests skip them and their rust freezes. A flag lapses after{" "}
         {INJURY.expiryWeeks} weeks unless you renew it.
       </InfoText>
 

@@ -1,6 +1,5 @@
 import type { Transaction } from "firebase-admin/firestore";
-import { freezeFor } from "../game/breaks";
-import { profileOf, type GameState, type MusclesDoc } from "../game/claim";
+import type { GameState, MusclesDoc } from "../game/claim";
 import { DEFAULT_TIME_ZONE } from "../game/config";
 import type { MusclesFacts } from "../game/facts";
 import type { QuestsDoc } from "../game/quests";
@@ -49,7 +48,7 @@ export async function readTitleFacts(
     now,
     timeZone,
     state,
-    stats: computeStats(muscles, profileOf(state), now, timeZone, freezeFor(state)),
+    stats: computeStats(muscles),
     muscles,
     schedule,
     claimTimes: [...recent.docs.map((d) => d.get("claimedAt") as number), ...(pending ? [pending.claimedAt] : [])],

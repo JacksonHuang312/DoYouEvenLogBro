@@ -303,11 +303,11 @@ export function setProgress(equipped: Pick<OwnedItem, "baseId">[]): SetProgress[
 }
 
 export interface PowerView {
-  /** Null while calibrating: body power is not known yet. */
+  /** Null until body power has loaded. */
   body: number | null;
   gear: { counted: number; cap: number; raw: number; setPct: number; capped: boolean } | null;
   bonus: { total: number; cap: number; titles: number; capped: boolean } | null;
-  /** Body + counted gear, times the bonus bucket. Null while calibrating. */
+  /** Body + counted gear, times the bonus bucket. Null until body power has loaded. */
   battle: number | null;
 }
 

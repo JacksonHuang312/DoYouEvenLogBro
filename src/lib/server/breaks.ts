@@ -44,7 +44,7 @@ function unwrap<T>(result: Result<T>): T {
 
 export type PauseAction = { action: "start"; days: number } | { action: "end" };
 
-/** Starts or ends a vacation pause (GAME_DESIGN.md 3.6). Decay and the schedule freeze while it runs. */
+/** Starts or ends a vacation pause (GAME_DESIGN.md 3.6). Rust and the schedule freeze while it runs. */
 export async function pauseAction(uid: string, input: PauseAction, timeZone?: string): Promise<BreaksResponse> {
   const db = adminDb();
   const r = gameRefs(db, uid);

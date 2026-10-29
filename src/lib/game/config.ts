@@ -7,8 +7,9 @@ export const STATS = ["chest", "back", "shoulders", "arms", "legs", "core"] as c
 export type Stat = (typeof STATS)[number];
 
 /**
- * The 17 sub-muscles (the `muscle` values in src/data/exercises.json), grouped by stat, with each
- * one's weight in its stat's weighted average. Each stat's weights sum to 1. Section 2.1.
+ * The 17 sub-muscles (the `muscle` values in src/data/exercises.json), grouped by stat. A stat is
+ * the sum of its sub-muscles' points; the numbers are each sub-muscle's share of a typical stat,
+ * used only to pick quest targets (minMuscleWeight). Section 2.1.
  */
 export const STAT_MUSCLES = {
   chest: { chest: 1 },
@@ -24,94 +25,40 @@ export type SubMuscle = ValuesOf<{ [S in Stat]: keyof (typeof STAT_MUSCLES)[S] }
 
 export const SUB_MUSCLES = STATS.flatMap((s) => Object.keys(STAT_MUSCLES[s])) as SubMuscle[];
 
-/** Power = Σ(stat × multiplier). Section 2.5. */
+/** Power = Σ(stat × multiplier). Legs and Back are the largest muscle groups; Core counts half. Section 2.5. */
 export const POWER_MULTIPLIERS: Record<Stat, number> = {
   chest: 1,
-  back: 1,
+  back: 1.2,
   shoulders: 1,
   arms: 1,
-  legs: 1,
+  legs: 1.2,
   core: 0.5,
 };
 
-// ---- Sub-muscle score (section 2.2) ----
+// ---- Stat points (stat rework, section 10) ----
 
-/** Share of a sub-muscle's score from strength; the rest is training frequency. */
-export const STRENGTH_SHARE = 0.8;
-
-/** Frequency: how many of the last N weeks (this one included) the sub-muscle was trained. */
-export const FREQUENCY_WEEKS = 4;
+export const STAT_POINTS = {
+  /** Points for a working set. */
+  perSet: 1,
+  /** Points for a working set of an exercise that beat your last session of it. */
+  progressedSet: 1.25,
+  /** A stat is its points divided by this. No cap. */
+  perStat: 10,
+  /** At most this many working sets per stat (muscle group) count in one workout; progressed sets first. */
+  maxSetsPerStat: 8,
+  /**
+   * The weight step for "beat your last session". Workouts don't store the routine's rep range or
+   * step, so stats use a fixed step (just under 5 lb) and a minimum of 1 rep: a replay of the
+   * history always gives the same answer.
+   */
+  stepKg: 2.25,
+};
 
 /**
- * Training weeks kept per sub-muscle in game/muscles. Must be at least FREQUENCY_WEEKS plus the
- * longest freeze (an injury flag, INJURY.expiryWeeks), since frozen weeks are skipped when counting.
+ * Training weeks kept per sub-muscle in game/muscles (for Iron Habit). Must cover
+ * ACHIEVEMENTS.ironHabit.outOf.
  */
 export const WEEKS_KEPT = 16;
-
-/**
- * Estimated 1RM ÷ bodyweight that scores 100 for an adult male (placeholder strength standards;
- * see "Open questions"). Scaled by STANDARD_SEX_FACTOR and the age factor below.
- */
-export const STRENGTH_STANDARDS: Record<SubMuscle, number> = {
-  chest: 1.75,
-  lats: 1.5,
-  "middle back": 1.6,
-  "lower back": 2.5,
-  shoulders: 1.1,
-  traps: 2.5,
-  neck: 0.5,
-  triceps: 1.0,
-  biceps: 0.9,
-  forearms: 0.8,
-  quadriceps: 2.5,
-  hamstrings: 2.0,
-  calves: 2.5,
-  glutes: 2.5,
-  adductors: 1.5,
-  abductors: 1.5,
-  abdominals: 1.5,
-};
-
-export type Sex = "male" | "female";
-
-/** Multiplies the standards above. Unknown sex uses the average. */
-export const STANDARD_SEX_FACTOR: Record<Sex | "unknown", number> = {
-  male: 1,
-  female: 0.65,
-  unknown: 0.825,
-};
-
-/** Age adjustment of the standards: `youth` under `youthAge`, 1 up to `peakAgeEnd`, then down each year to `min`. */
-export const AGE_FACTOR = {
-  youthAge: 20,
-  youth: 0.9,
-  peakAgeEnd: 39,
-  perYearAfterPeak: 0.01,
-  min: 0.6,
-};
-
-/** Used until the user enters their bodyweight (onboarding is Phase 2). */
-export const DEFAULT_BODYWEIGHT_KG = 75;
-
-/**
- * Bodyweight exercises: the load is bodyweight × a factor (plus any added weight logged on a
- * "body only" exercise). DEFAULT applies unless the exercise has its own factor.
- */
-export const BODYWEIGHT_FACTOR = {
-  default: 0.65,
-  byExercise: {
-    Pullups: 1,
-    "Chin-Up": 1,
-    "V-Bar_Pullup": 1,
-    "Dips_-_Chest_Version": 0.95,
-    "Dips_-_Triceps_Version": 0.95,
-    "Handstand_Push-Ups": 0.9,
-    Bench_Dips: 0.6,
-  } as Record<string, number>,
-};
-
-/** Epley gets wild at high reps, so the estimate uses at most this many. */
-export const EPLEY_MAX_REPS = 12;
 
 /** Sets beyond these are treated as typos and ignored by the game. */
 export const SANITY = { maxLoadKg: 600, maxReps: 100 };
@@ -130,28 +77,18 @@ export const PROGRESSION = {
   sameWeightKg: 0.01,
 };
 
-// ---- 1RM bonus (section 2.3) ----
+// ---- Rust (stat rework, replaces decay) ----
 
-/** The bonus from beating your calculated 1RM is at most this fraction of the stat. */
-export const ONE_RM_BONUS_CAP = 0.05;
-
-// ---- Decay (section 2.4) ----
-
-export const DECAY = {
-  /** Days without training before the strength part starts to decay. */
-  graceDays: 7,
-  /** Fraction lost per day after the grace period, compounding. */
+/**
+ * Stats never lose points. A stat untrained for `graceDays` days fights at reduced strength:
+ * −perDay for each day from then on, at most `max`. Training any of its sub-muscles once clears it.
+ * Pauses, and injury flags on that stat, stop the clock.
+ */
+export const RUST = {
+  graceDays: 14,
   perDay: 0.01,
-  /** Decay never takes the strength part below this fraction of its undecayed value. */
-  floor: 0.5,
+  max: 0.3,
 };
-
-// ---- Calibration and starting stats (section 2.6) ----
-
-export const CALIBRATION = { days: 14, workouts: 6 };
-
-/** Sub-muscle score shown during calibration ("population average"; scores are already normalized by sex/age). */
-export const POPULATION_AVERAGE_SCORE = 30;
 
 // ---- Workouts, coins and XP (section 3) ----
 
@@ -184,7 +121,7 @@ export const XP = {
   workoutCooldownHours: 12,
   /** Per point of power above the highest power reached before. */
   perPowerPoint: 10,
-  /** Flat, uncapped levels. */
+  /** Flat, uncapped levels. Tuned so level 35 comes at about 2 years of 4 workouts a week (npm run pacing-table). */
   perLevel: 500,
 };
 
@@ -243,7 +180,7 @@ export const PAUSE = {
   maxDays: 28,
   /** Days between the end of one pause and the start of the next. */
   cooldownDays: 14,
-  /** Ended pauses are kept this long (decay needs them to stay frozen). */
+  /** Ended pauses are kept this long (rust needs them to stay frozen). */
   historyDays: 365,
 };
 
@@ -422,13 +359,13 @@ export const TITLES = {
 
 /** What each achievement asks for, and its title's bonus (a share of battle power, in the bonus bucket). */
 export const ACHIEVEMENTS = {
-  /** Finish calibration. */
-  calibrated: { bonus: 0.02 },
+  /** This many counted workouts in all. */
+  firstSteps: { workouts: 6, bonus: 0.02 },
   /** This many counted workouts in each of `weeks` weeks in a row. */
   regular: { weeks: 4, workoutsPerWeek: 3, bonus: 0.03 },
   /** No skipped scheduled workout for `days` days, with at least `minSlots` scheduled in that time. */
   unbroken: { days: 28, minSlots: 8, bonus: 0.05 },
-  /** A 1RM bonus (section 2.3) on this many stats at once. */
+  /** Beat your last session on exercises of this many different stats in one workout. */
   recordBreaker: { stats: 3, bonus: 0.03 },
   /** Claim every quest of one week. */
   questmaster: { bonus: 0.03 },

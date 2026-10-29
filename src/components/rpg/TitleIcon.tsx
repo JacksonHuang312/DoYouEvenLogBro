@@ -3,7 +3,7 @@ import type { TitleId } from "@/lib/game/titles";
 
 /** One line-art icon per title, so no two look alike. */
 const ICONS: Record<TitleId, LucideIcon> = {
-  calibrated: Target,
+  firstSteps: Target,
   regular: CalendarCheck,
   unbroken: Link2,
   recordBreaker: Trophy,

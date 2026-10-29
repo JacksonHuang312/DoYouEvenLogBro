@@ -88,7 +88,7 @@ function useGameDoc<T>(uid: string, name: "state" | "muscles" | "schedule", empt
   );
 }
 
-/** game/state: coins, XP, calibration, body inputs, time zone. data is null once the server confirms there is none yet. */
+/** game/state: coins, XP, breaks, items, titles, time zone. data is null once the server confirms there is none yet. */
 export function useGameState(uid: string): Live<GameState | null> {
   return useGameDoc<GameState | null>(uid, "state", null, (d) => d as GameState);
 }

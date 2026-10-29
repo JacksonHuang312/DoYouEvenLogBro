@@ -1,6 +1,6 @@
 import { BASE_ITEMS, baseItem } from "../src/lib/game/catalog";
 import { newGameState, type GameState } from "../src/lib/game/claim";
-import { SUB_MUSCLES } from "../src/lib/game/config";
+import { STAT_MUSCLES, STAT_POINTS, STATS } from "../src/lib/game/config";
 import type { MusclesFacts } from "../src/lib/game/facts";
 import { newItem, type Item } from "../src/lib/game/items";
 import { emptyShop } from "../src/lib/game/shop";
@@ -63,12 +63,20 @@ function assertEmulator() {
   if (!project.startsWith("demo-")) throw new Error(`Refusing to seed project "${project}": e2e only uses demo-* projects.`);
 }
 
-/** Real-looking strength in every sub-muscle, so calibration is over and Body power is a number. */
+/** About 30 in every stat (300 working sets each, split like a typical stat), trained yesterday. */
 function muscles(now: number): MusclesFacts {
   return Object.fromEntries(
-    SUB_MUSCLES.map((m) => [m, { repEst1RMKg: 100, maxLoadKg: 90, lastTrained: now - 86_400_000, weeks: [] as string[] }]),
+    STATS.flatMap((stat) =>
+      Object.entries(STAT_MUSCLES[stat]).map(([m, share]) => [
+        m,
+        { sets: Math.round(30 * STAT_POINTS.perStat * share), progressed: 0, lastTrained: now - 86_400_000, weeks: [] as string[] },
+      ]),
+    ),
   ) as MusclesFacts;
 }
+
+/** Counted workouts already claimed: enough for First Steps. */
+const CLAIMS = 6;
 
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
@@ -102,15 +110,15 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     // 500 XP per level (GAME_DESIGN.md 3): high enough to equip anything below Mythic.
     xp: (level - 1) * 500,
     level,
-    calibration: { startedAt: now - 30 * 86_400_000, workouts: 6, done: true },
-    bodyweightKg: 80,
-    age: 25,
-    sex: "male",
     materials: { scrap },
     updatedAt: now,
   };
   await user.collection("game").doc("state").set(state);
   await user.collection("game").doc("muscles").set({ muscles: muscles(now), updatedAt: now });
+  // Only claimedAt is read from these (title progress); the workouts behind them aren't seeded.
+  for (let i = 0; i < CLAIMS; i++) {
+    await user.collection("claims").doc(`e2e-claim-${i}`).set({ workoutId: `e2e-claim-${i}`, claimedAt: now - (i + 2) * 86_400_000 });
+  }
 
   for (const key of gear) {
     const base = baseItem(GEAR[key]);

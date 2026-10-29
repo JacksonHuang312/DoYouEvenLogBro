@@ -1,100 +1,87 @@
 import { describe, expect, test } from "vitest";
-import { averageStats } from "./calibration";
 import {
   applyClaim,
   backfillHistory,
   newGameState,
-  profileOf,
   recomputedPeak,
   replayMuscles,
+  reworkGame,
   roundStats,
   type ClaimableWorkout,
   type GameState,
 } from "./claim";
-import { CALIBRATION, COINS, MAX_FUTURE_MS, XP } from "./config";
-import type { MusclesFacts } from "./facts";
-import { NO_FREEZE } from "./freeze";
-import { BENCH, benchDay, CRUNCH, DAY, lookup, set, SQUAT, T0, workout } from "./test-helpers";
+import { COINS, MAX_FUTURE_MS, POWER_MULTIPLIERS, STAT_POINTS, XP } from "./config";
+import type { MusclesFacts, PreviousSession } from "./facts";
+import { BENCH, benchDay, CRUNCH, CURL, DAY, lookup, set, SQUAT, T0, workout } from "./test-helpers";
 
 const UTC = "UTC";
-const noProfile = { bodyweightKg: null, age: null, sex: null };
+const none: PreviousSession = () => undefined;
+/** Four sets of bench (chest) give 4 points: 0.4 Chest, 0.4 body power. */
+const BENCH_POWER = (4 * STAT_POINTS.perSet) / STAT_POINTS.perStat;
 
-/** Claims workouts in order (each at its own end time unless `at` is given), returning the last outcome. */
+/** Claims workouts in order (each at its own end time unless `at` is given), with the replay's session rule. */
 function claimAll(workouts: ClaimableWorkout[], { at, state = newGameState(T0, UTC) }: { at?: number; state?: GameState } = {}) {
   let muscles: MusclesFacts = {};
   const results = [];
+  const last = new Map<string, ClaimableWorkout["exercises"][number]["sets"]>();
   for (const w of workouts) {
-    const outcome = applyClaim({ state, muscles, workout: w, lookup, now: at ?? w.endedAt, timeZone: UTC, freeze: NO_FREEZE });
+    const previous: PreviousSession = (id) => last.get(id);
+    const outcome = applyClaim({ state, muscles, workout: w, lookup, previous, now: at ?? w.endedAt, timeZone: UTC });
     if (!outcome.counted) throw new Error(`not counted: ${outcome.reason}`);
     ({ state, muscles } = outcome);
     results.push(outcome.result);
+    for (const e of w.exercises) last.set(e.exerciseId, e.sets);
   }
   return { state, muscles, results };
 }
 
-/** A user who finished calibration with six bench days at 80 kg. */
-function calibrated() {
-  return claimAll(Array.from({ length: CALIBRATION.workouts }, (_, i) => benchDay(T0 + i * DAY)));
-}
+const claim = (w: ClaimableWorkout, extra: Partial<Parameters<typeof applyClaim>[0]> = {}) =>
+  applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: w, lookup, previous: none, now: T0, timeZone: UTC, ...extra });
 
 describe("game state helpers", () => {
   test("a new state starts at level 1 with nothing earned", () => {
     expect(newGameState(T0, UTC)).toMatchObject({ coins: 0, xp: 0, level: 1, peakPower: 0, timeZone: UTC, createdAt: T0 });
   });
 
-  test("profileOf picks the body inputs", () => {
-    const state = { ...newGameState(T0, UTC), bodyweightKg: 82, age: 41, sex: "female" as const };
-    expect(profileOf(state)).toEqual({ bodyweightKg: 82, age: 41, sex: "female" });
-  });
-
   test("roundStats rounds to one decimal", () => {
-    const stats = { ...averageStats(), chest: { value: 61.96, bonus: 2.04 } };
-    expect(roundStats(stats).chest).toEqual({ value: 62, bonus: 2 });
+    const stats = { chest: 61.96, back: 0.04, shoulders: 1, arms: 2.25, legs: 0, core: 0 };
+    expect(roundStats(stats)).toEqual({ chest: 62, back: 0, shoulders: 1, arms: 2.3, legs: 0, core: 0 });
   });
 });
 
 describe("applyClaim", () => {
   test("a workout needs 4 working sets", () => {
     const w = workout(T0, [[SQUAT, [set(60, 5, "warmup"), set(100, 5), set(100, 5), set(100, 5)]]]);
-    const outcome = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: w, lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
-    expect(outcome).toEqual({ counted: false, reason: "too-few-sets", workingSets: 3 });
+    expect(claim(w)).toEqual({ counted: false, reason: "too-few-sets", workingSets: 3 });
   });
 
   test("rejects workouts from the future", () => {
-    const outcome = applyClaim({
-      state: newGameState(T0, UTC),
-      muscles: {},
-      workout: benchDay(T0 + MAX_FUTURE_MS + DAY),
-      lookup,
-      now: T0,
-      timeZone: UTC, freeze: NO_FREEZE,
-    });
-    expect(outcome).toMatchObject({ counted: false, reason: "future" });
+    expect(claim(benchDay(T0 + MAX_FUTURE_MS + DAY))).toMatchObject({ counted: false, reason: "future" });
   });
 
-  test("the first claim pays base coins and workout XP, and starts calibration", () => {
-    const outcome = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0, 80, "w1"), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+  test("the first claim pays coins, workout XP and stat XP from 0", () => {
+    const outcome = claim(benchDay(T0, 80, "w1"));
     if (!outcome.counted) throw new Error();
+    const statXp = Math.round(BENCH_POWER * XP.perPowerPoint);
     expect(outcome.result).toMatchObject({
       workoutId: "w1",
       claimedAt: T0,
       coins: { base: COINS.base, scheduledBonus: 0, capped: 0, total: COINS.base, balance: COINS.base },
-      xp: { workout: XP.perWorkout, stats: 0, total: XP.perWorkout, balance: XP.perWorkout },
+      xp: { workout: XP.perWorkout, stats: statXp, total: XP.perWorkout + statXp },
       level: { before: 1, after: 1 },
-      calibrating: true,
+      progressed: [],
     });
-    // Calibrating: averages are shown, but the real facts are stored.
-    expect(outcome.result.stats.after).toEqual(averageStats());
-    expect(outcome.muscles.chest?.maxLoadKg).toBe(80);
-    expect(outcome.state.calibration).toEqual({ startedAt: T0, workouts: 1, done: false });
-    expect(outcome.snapshot.weekId).toBe("2026-10-11");
-    expect(outcome.snapshot.stats.chest.value).toBeGreaterThan(0);
+    expect(outcome.result.stats.before.chest).toBe(0);
+    expect(outcome.result.stats.after.chest).toBe(0.4);
+    expect(outcome.muscles.chest).toMatchObject({ sets: 4, progressed: 0, lastTrained: T0 });
+    expect(outcome.state.peakPower).toBeCloseTo(BENCH_POWER);
+    expect(outcome.snapshot).toMatchObject({ weekId: "2026-10-11", power: 0.4 });
   });
 
   test("doesn't mutate the state or muscles it's given", () => {
     const state = newGameState(T0, UTC);
     const muscles: MusclesFacts = {};
-    applyClaim({ state, muscles, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+    applyClaim({ state, muscles, workout: benchDay(T0), lookup, previous: none, now: T0, timeZone: UTC });
     expect(state).toEqual(newGameState(T0, UTC));
     expect(muscles).toEqual({});
   });
@@ -106,7 +93,7 @@ describe("applyClaim", () => {
     expect(results[3].coins.capped).toBe(COINS.base);
     expect(state.coins).toBe(COINS.dailyCap);
 
-    const next = applyClaim({ state, muscles: {}, workout: benchDay(T0 + DAY), lookup, now: T0 + DAY, timeZone: UTC, freeze: NO_FREEZE });
+    const next = claim(benchDay(T0 + DAY), { state, now: T0 + DAY });
     expect(next.counted && next.result.coins.total).toBe(COINS.base);
   });
 
@@ -114,85 +101,89 @@ describe("applyClaim", () => {
     // 23:30 and 00:30 UTC are the same evening in Los Angeles, so the cap carries over.
     const state = { ...newGameState(T0, UTC), coinDay: "2026-10-14", coinsToday: COINS.dailyCap };
     const at = Date.UTC(2026, 9, 15, 0, 30);
-    const la = applyClaim({ state, muscles: {}, workout: benchDay(T0), lookup, now: at, timeZone: "America/Los_Angeles", freeze: NO_FREEZE });
-    const utc = applyClaim({ state, muscles: {}, workout: benchDay(T0), lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
+    const la = claim(benchDay(T0), { state, now: at, timeZone: "America/Los_Angeles" });
+    const utc = claim(benchDay(T0), { state, now: at });
     expect(la.counted && la.result.coins.total).toBe(0);
     expect(utc.counted && utc.result.coins.total).toBe(COINS.base);
   });
 
   test("backdated workouts are paid at claim time, under that day's cap", () => {
     const state = { ...newGameState(T0, UTC), coinDay: "2026-10-14", coinsToday: COINS.dailyCap };
-    const outcome = applyClaim({ state, muscles: {}, workout: benchDay(T0 - 5 * DAY), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+    const outcome = claim(benchDay(T0 - 5 * DAY), { state });
     expect(outcome.counted && outcome.result.coins.total).toBe(0);
   });
 
   test("a scheduled workout adds the off-day bonus", () => {
-    const outcome = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE, daysOff: 1 });
+    const outcome = claim(benchDay(T0), { daysOff: 1 });
     expect(outcome.counted && outcome.result.coins).toMatchObject({ scheduledBonus: 20, total: COINS.base + 20 });
   });
 
   test("payCoins: false pays XP but no coins", () => {
-    const outcome = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE, payCoins: false });
+    const outcome = claim(benchDay(T0), { payCoins: false });
     if (!outcome.counted) throw new Error();
     expect(outcome.result.coins.total).toBe(0);
-    expect(outcome.state).toMatchObject({ coins: 0, coinDay: null, coinsToday: 0, xp: XP.perWorkout });
+    expect(outcome.state).toMatchObject({ coins: 0, coinDay: null, coinsToday: 0 });
+    expect(outcome.state.xp).toBeGreaterThan(0);
   });
 
-  test("workout XP pays at most once per 12 hours of claim time; stats still count", () => {
-    const first = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+  test("workout XP pays at most once per 12 hours of claim time; stat XP still counts", () => {
+    const first = claim(benchDay(T0));
     if (!first.counted) throw new Error();
     expect(first.state.workoutXpAt).toBe(T0);
     const soon = T0 + (XP.workoutCooldownHours - 1) * 60 * 60 * 1000;
-    const second = applyClaim({ state: first.state, muscles: first.muscles, workout: benchDay(soon, 90), lookup, now: soon, timeZone: UTC, freeze: NO_FREEZE });
+    const second = claim(benchDay(soon), { state: first.state, muscles: first.muscles, now: soon });
     if (!second.counted) throw new Error();
     expect(second.result.xp.workout).toBe(0);
+    expect(second.result.xp.stats).toBeGreaterThan(0);
     expect(second.state.workoutXpAt).toBe(T0);
-    expect(second.muscles.chest!.repEst1RMKg).toBeGreaterThan(first.muscles.chest!.repEst1RMKg!);
     const later = T0 + XP.workoutCooldownHours * 60 * 60 * 1000;
-    const third = applyClaim({ state: second.state, muscles: second.muscles, workout: benchDay(later), lookup, now: later, timeZone: UTC, freeze: NO_FREEZE });
+    const third = claim(benchDay(later), { state: second.state, muscles: second.muscles, now: later });
     expect(third.counted && third.result.xp.workout).toBe(XP.perWorkout);
   });
 
   test("a state from before the 12-hour rule still pays workout XP", () => {
     const old: GameState = newGameState(T0, UTC);
     delete old.workoutXpAt;
-    const outcome = applyClaim({ state: old, muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+    const outcome = claim(benchDay(T0), { state: old });
     expect(outcome.counted && outcome.result.xp.workout).toBe(XP.perWorkout);
   });
 
-  test("no stat XP during calibration; the last calibration workout sets the peak", () => {
-    const { state, results } = calibrated();
-    expect(results.every((r) => r.xp.stats === 0)).toBe(true);
-    expect(results.at(-1)!.calibrating).toBe(false);
-    expect(state.calibration.done).toBe(true);
-    expect(state.peakPower).toBeGreaterThan(0);
-    expect(state.xp).toBe(CALIBRATION.workouts * XP.perWorkout);
+  test("every workout adds points, so stats only grow", () => {
+    const { results } = claimAll([benchDay(T0), benchDay(T0 + 2 * DAY, 70), benchDay(T0 + 4 * DAY, 60)]);
+    expect(results.map((r) => r.stats.after.chest)).toEqual([0.4, 0.8, 1.2]);
+    expect(results.every((r) => r.xp.stats > 0)).toBe(true);
   });
 
-  test("after calibration, stat gains pay XP and stats show for real", () => {
-    const { state, muscles } = calibrated();
-    const at = T0 + 7 * DAY;
-    const outcome = applyClaim({ state, muscles, workout: benchDay(at, 100), lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
-    if (!outcome.counted) throw new Error();
-    expect(outcome.result.xp.stats).toBeGreaterThan(0);
-    expect(outcome.result.xp.total).toBe(XP.perWorkout + outcome.result.xp.stats);
-    expect(outcome.result.stats.after.chest.value).toBeGreaterThan(outcome.result.stats.before.chest.value);
-    expect(outcome.state.peakPower).toBeGreaterThan(state.peakPower);
+  test("beating the last session makes every set of that exercise worth more", () => {
+    const { results, muscles } = claimAll([benchDay(T0, 80), benchDay(T0 + 2 * DAY, 82.5)]);
+    expect(results[1].progressed).toEqual([{ exerciseId: BENCH, stat: "chest" }]);
+    expect(muscles.chest).toMatchObject({ sets: 8, progressed: 4 });
+    const extra = (4 * STAT_POINTS.progressedSet) / STAT_POINTS.perStat;
+    expect(results[1].stats.after.chest).toBeCloseTo(BENCH_POWER + extra);
   });
 
-  test("regaining decayed stats doesn't pay stat XP again", () => {
-    const { state, muscles } = calibrated();
-    // Two months off, then the same 80 kg bench: power recovers but doesn't pass the old peak.
-    const at = T0 + 70 * DAY;
-    const outcome = applyClaim({ state, muscles, workout: benchDay(at, 80), lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
+  test("Legs and Back count more in power, so their stat XP is bigger", () => {
+    const squat = workout(T0, [[SQUAT, [set(100, 5), set(100, 5), set(100, 5), set(100, 5)]]]);
+    const outcome = claim(squat);
     if (!outcome.counted) throw new Error();
-    expect(outcome.result.xp.stats).toBe(0);
-    expect(outcome.state.peakPower).toBe(state.peakPower);
+    expect(outcome.state.peakPower).toBeCloseTo(BENCH_POWER * POWER_MULTIPLIERS.legs);
+    expect(outcome.result.xp.stats).toBe(Math.round(BENCH_POWER * POWER_MULTIPLIERS.legs * XP.perPowerPoint));
+  });
+
+  test("tracks the most stats beaten in one workout (Record Breaker)", () => {
+    const day = (at: number, kg: number) =>
+      workout(at, [
+        [BENCH, [set(kg, 5), set(kg, 5)]],
+        [SQUAT, [set(kg, 5), set(kg, 5)]],
+        [CURL, [set(kg / 2, 8), set(kg / 2, 8)]],
+      ]);
+    const { state } = claimAll([day(T0, 60), day(T0 + 2 * DAY, 65)]);
+    expect(state.mostStatsBeaten).toBe(3);
   });
 
   test("levels up when XP crosses a level", () => {
     const state = { ...newGameState(T0, UTC), xp: XP.perLevel - 5 };
-    const outcome = applyClaim({ state, muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
+    const outcome = claim(benchDay(T0), { state });
     expect(outcome.counted && outcome.result.level).toEqual({ before: 1, after: 2 });
   });
 });
@@ -202,19 +193,28 @@ describe("replayMuscles", () => {
 
   test("matches the facts live claims built", () => {
     const { muscles } = claimAll(history);
-    expect(replayMuscles(history, lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE).muscles).toEqual(muscles);
+    expect(replayMuscles(history, lookup, UTC, T0 + 30 * DAY).muscles).toEqual(muscles);
   });
 
-  test("a fixed typo or deleted workout no longer counts", () => {
+  test("a fixed typo no longer counts as beating the last session", () => {
     const typo = benchDay(T0 + DAY, 300); // meant 30
-    const inflated = replayMuscles([...history, typo], lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE);
-    const fixed = replayMuscles([...history, benchDay(T0 + DAY, 80, typo.id)], lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE);
-    expect(inflated.muscles.chest?.maxLoadKg).toBe(300);
-    expect(fixed.muscles.chest?.maxLoadKg).toBe(90);
+    const inflated = replayMuscles([...history, typo], lookup, UTC, T0 + 30 * DAY);
+    const fixed = replayMuscles([...history, benchDay(T0 + DAY, 30, typo.id)], lookup, UTC, T0 + 30 * DAY);
+    expect(inflated.muscles.chest?.progressed).toBe(4);
+    expect(fixed.muscles.chest?.progressed).toBe(4);
+    // 80 -> 300 -> 90 beats once; 80 -> 30 -> 90 beats once too, but on the 90 kg day, not the typo.
+    expect(fixed.peakPower).toBeCloseTo(inflated.peakPower);
+  });
+
+  test("an uncounted workout still sets the last session", () => {
+    const short = workout(T0 + DAY, [[BENCH, [set(100, 5)]]]);
+    const { muscles } = replayMuscles([benchDay(T0, 80), short, benchDay(T0 + 2 * DAY, 90)], lookup, UTC, T0 + 30 * DAY);
+    // 90 doesn't beat the 100 kg single, so nothing progressed; the short workout earns nothing itself.
+    expect(muscles.chest).toMatchObject({ sets: 8, progressed: 0 });
   });
 
   test("writes one snapshot per week, as of that week's last workout", () => {
-    const { snapshots } = replayMuscles(history, lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE);
+    const { snapshots } = replayMuscles(history, lookup, UTC, T0 + 30 * DAY);
     expect(snapshots.map((s) => s.weekId)).toEqual(["2026-10-11", "2026-10-18"]);
     expect(snapshots[0].takenAt).toBe(history[1].endedAt);
   });
@@ -222,66 +222,37 @@ describe("replayMuscles", () => {
   test("skips workouts that don't count or are in the future", () => {
     const short = workout(T0, [[SQUAT, [set(300, 5)]]]);
     const future = workout(T0 + 100 * DAY, [[CRUNCH, [set(null, 20), set(null, 20), set(null, 20), set(null, 20)]]]);
-    const { muscles } = replayMuscles([...history, short, future], lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE);
+    const { muscles } = replayMuscles([...history, short, future], lookup, UTC, T0 + 30 * DAY);
     expect(muscles.quadriceps).toBeUndefined();
     expect(muscles.abdominals).toBeUndefined();
   });
 
   test("reports the highest power the history reached", () => {
-    const { peakPower } = replayMuscles(history, lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE);
-    const { state } = claimAll(Array.from({ length: CALIBRATION.workouts }, (_, i) => benchDay(T0 + i * DAY, 90)));
-    expect(peakPower).toBeGreaterThan(0);
-    // Same 90 kg best, so the same peak a live user reached.
-    expect(replayMuscles([benchDay(T0, 90)], lookup, noProfile, UTC, T0 + DAY, NO_FREEZE).peakPower).toBeLessThanOrEqual(state.peakPower + 1e-9);
-    expect(replayMuscles([], lookup, noProfile, UTC, T0, NO_FREEZE).peakPower).toBe(0);
+    const { state } = claimAll(history);
+    expect(replayMuscles(history, lookup, UTC, T0 + 30 * DAY).peakPower).toBeCloseTo(state.peakPower);
+    expect(replayMuscles([], lookup, UTC, T0).peakPower).toBe(0);
   });
 
   test("order of the input doesn't matter", () => {
-    expect(replayMuscles([...history].reverse(), lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE)).toEqual(
-      replayMuscles(history, lookup, noProfile, UTC, T0 + 30 * DAY, NO_FREEZE),
-    );
+    expect(replayMuscles([...history].reverse(), lookup, UTC, T0 + 30 * DAY)).toEqual(replayMuscles(history, lookup, UTC, T0 + 30 * DAY));
   });
 });
 
 describe("recomputedPeak", () => {
-  test("a fixed typo lowers the peak, so real gains pay XP again", () => {
-    const { state, muscles } = calibrated();
-    // A 300 kg typo (meant 30) inflates the peak...
-    const typo = benchDay(T0 + 7 * DAY, 300, "typo");
-    const inflated = applyClaim({ state, muscles, workout: typo, lookup, now: typo.endedAt, timeZone: UTC, freeze: NO_FREEZE });
-    if (!inflated.counted) throw new Error();
-    expect(inflated.state.peakPower).toBeGreaterThan(state.peakPower);
-
-    // ...the fix is recomputed...
-    const history = [
-      ...Array.from({ length: CALIBRATION.workouts }, (_, i) => benchDay(T0 + i * DAY)),
-      benchDay(T0 + 7 * DAY, 30, "typo"),
-    ];
-    const replay = replayMuscles(history, lookup, noProfile, UTC, T0 + 8 * DAY, NO_FREEZE);
-    const peakPower = recomputedPeak(inflated.state, replay.peakPower);
-    expect(peakPower).toBeLessThan(inflated.state.peakPower);
-
-    // ...and a real PR afterwards earns stat XP again.
-    const at = T0 + 9 * DAY;
-    const pr = applyClaim({
-      state: { ...inflated.state, peakPower },
-      muscles: replay.muscles,
-      workout: benchDay(at, 100),
-      lookup,
-      now: at,
-      timeZone: UTC, freeze: NO_FREEZE,
-    });
-    expect(pr.counted && pr.result.xp.stats).toBeGreaterThan(0);
+  test("a deleted workout lowers the peak, so new training pays XP again", () => {
+    const { state } = claimAll([benchDay(T0), benchDay(T0 + DAY), benchDay(T0 + 2 * DAY)]);
+    const replay = replayMuscles([benchDay(T0), benchDay(T0 + DAY)], lookup, UTC, T0 + 3 * DAY);
+    const peakPower = recomputedPeak(state, replay.peakPower);
+    expect(peakPower).toBeLessThan(state.peakPower);
+    const at = T0 + 4 * DAY;
+    const next = claim(benchDay(at), { state: { ...state, peakPower }, muscles: replay.muscles, now: at });
+    expect(next.counted && next.result.xp.stats).toBe(Math.round(BENCH_POWER * XP.perPowerPoint));
   });
 
   test("never raises the peak", () => {
-    const state = { ...newGameState(T0, UTC), peakPower: 50, calibration: { startedAt: T0, workouts: 6, done: true } };
+    const state = { ...newGameState(T0, UTC), peakPower: 50 };
     expect(recomputedPeak(state, 80)).toBe(50);
     expect(recomputedPeak(state, 30)).toBe(30);
-  });
-
-  test("leaves it alone during calibration", () => {
-    expect(recomputedPeak(newGameState(T0, UTC), 30)).toBe(0);
   });
 });
 
@@ -289,22 +260,22 @@ describe("backfillHistory", () => {
   const history = Array.from({ length: 8 }, (_, i) => benchDay(T0 + i * 2 * DAY, 80 + i * 5));
   const now = T0 + 30 * DAY;
 
-  test("replays XP and stats, pays the welcome bonus instead of coins", () => {
+  test("replays XP and stats from 0, pays the welcome bonus instead of coins", () => {
     const { state, claims } = backfillHistory(history, lookup, UTC, now);
     expect(state.coins).toBe(COINS.welcomeBonus);
     expect(state.welcomeBonus).toBe(true);
     expect(claims).toHaveLength(8);
     expect(claims.every((c) => c.backfilled && c.coins.total === 0)).toBe(true);
     expect(state.xp).toBe(claims.reduce((sum, c) => sum + c.xp.total, 0));
-    // Calibration ended at the 6th workout; the two heavier ones after it earned stat XP.
-    expect(state.calibration.done).toBe(true);
-    expect(claims[6].xp.stats).toBeGreaterThan(0);
+    expect(claims.every((c) => c.xp.stats > 0)).toBe(true);
+    // The first session has nothing to beat; the seven heavier ones after it do.
+    expect(claims.filter((c) => c.progressed!.length > 0)).toHaveLength(7);
     expect(state.level).toBe(1 + Math.floor(state.xp / XP.perLevel));
   });
 
   test("builds the same muscles as a recompute", () => {
     const { muscles } = backfillHistory(history, lookup, UTC, now);
-    expect(muscles).toEqual(replayMuscles(history, lookup, noProfile, UTC, now, NO_FREEZE).muscles);
+    expect(muscles).toEqual(replayMuscles(history, lookup, UTC, now).muscles);
   });
 
   test("skips workouts that don't count", () => {
@@ -320,33 +291,36 @@ describe("backfillHistory", () => {
   });
 });
 
-describe("claim result details (Rewards screen)", () => {
-  test("reports how much of the daily cap is used", () => {
-    const first = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: benchDay(T0), lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
-    if (!first.counted) throw new Error();
-    expect(first.result.coins).toMatchObject({ usedToday: COINS.base, dailyCap: COINS.dailyCap });
-    const second = applyClaim({ state: first.state, muscles: first.muscles, workout: benchDay(T0 + 1000), lookup, now: T0 + 1000, timeZone: UTC, freeze: NO_FREEZE, daysOff: 0 });
-    if (!second.counted) throw new Error();
-    expect(second.result.coins.usedToday).toBe(COINS.base * 2 + COINS.scheduledBonus);
+describe("reworkGame", () => {
+  const history = Array.from({ length: 6 }, (_, i) => benchDay(T0 + i * 2 * DAY, 80 + i * 5));
+  const now = T0 + 30 * DAY;
+  /** A game from before the rework: old XP and peak, retired fields, items and coins. 75 XP came from quests. */
+  const old = {
+    ...newGameState(T0, UTC),
+    coins: 1234,
+    xp: 575,
+    level: 2,
+    peakPower: 310,
+    calibration: { startedAt: T0, workouts: 6, done: true },
+    bodyweightKg: 80,
+    age: 30,
+    sex: "male",
+    equipped: { helmet: "i1" },
+  } as GameState;
+
+  test("replays stats, peak, workout XP and level; keeps quest XP and everything else", () => {
+    const { state } = reworkGame({ state: old, workouts: history, lookup, now, questXp: 75 });
+    const replayed = backfillHistory(history, lookup, UTC, now).state;
+    expect(state.xp).toBe(75 + replayed.xp);
+    expect(state.level).toBe(1 + Math.floor(state.xp / XP.perLevel));
+    expect(state.peakPower).toBeCloseTo(replayed.peakPower);
+    expect(state).toMatchObject({ coins: 1234, equipped: { helmet: "i1" }, mostStatsBeaten: 1 });
+    for (const field of ["calibration", "bodyweightKg", "age", "sex"]) expect(state).not.toHaveProperty(field);
   });
 
-  test("a lift that beats the calculated 1RM shows up as a 1RM line once calibrated", () => {
-    const { state, muscles } = calibrated();
-    const at = T0 + 7 * DAY;
-    const w = workout(at, [[BENCH, [set(80, 5), set(80, 5), set(80, 5), set(100, 1)]]]);
-    const outcome = applyClaim({ state, muscles, workout: w, lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
-    if (!outcome.counted) throw new Error();
-    expect(outcome.result.oneRm).toHaveLength(1);
-    expect(outcome.result.oneRm![0]).toMatchObject({ stat: "chest", exerciseId: BENCH, weightKg: 100, reps: 1 });
-    expect(outcome.result.oneRm![0].bonusDelta).toBeGreaterThan(0);
-    // An ordinary day has none.
-    const plain = applyClaim({ state, muscles, workout: benchDay(at), lookup, now: at, timeZone: UTC, freeze: NO_FREEZE });
-    expect(plain.counted && plain.result.oneRm).toEqual([]);
-  });
-
-  test("no 1RM lines while calibrating", () => {
-    const w = workout(T0, [[BENCH, [set(80, 5), set(80, 5), set(80, 5), set(100, 1)]]]);
-    const outcome = applyClaim({ state: newGameState(T0, UTC), muscles: {}, workout: w, lookup, now: T0, timeZone: UTC, freeze: NO_FREEZE });
-    expect(outcome.counted && outcome.result.oneRm).toEqual([]);
+  test("is the same when run twice", () => {
+    const once = reworkGame({ state: old, workouts: history, lookup, now, questXp: 75 });
+    const twice = reworkGame({ state: once.state, workouts: history, lookup, now, questXp: 75 });
+    expect(twice).toEqual(once);
   });
 });

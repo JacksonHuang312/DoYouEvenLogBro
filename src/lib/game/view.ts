@@ -1,12 +1,11 @@
 import type { Workout } from "../types";
 import { freezeFor, injuredStats } from "./breaks";
-import { calibrationDone, displayStats, type Calibration } from "./calibration";
-import { newGameState, profileOf, roundStats, type GameState, type Snapshot } from "./claim";
-import { CALIBRATION, DEFAULT_TIME_ZONE, EXCLUDED_CATEGORIES, type Stat } from "./config";
+import { newGameState, roundStats, type GameState, type Snapshot } from "./claim";
+import { DEFAULT_TIME_ZONE, EXCLUDED_CATEGORIES, STATS, type Stat } from "./config";
 import { levelProgress } from "./economy";
 import type { MusclesFacts } from "./facts";
 import { statOf } from "./muscles";
-import { computeStats, power, subMuscleScores, type StatLine, type SubMuscleScores } from "./score";
+import { computeStats, power, rustedStats, statRust, subMuscleScores, type StatLine, type SubMuscleScores } from "./score";
 import { countsAsWorkout, type ExerciseLookup } from "./sets";
 import { dayId, daysBetween, isValidTimeZone, weekId } from "./time";
 
@@ -26,22 +25,23 @@ export function combineStatus(...statuses: LoadStatus[]): LoadStatus {
   return statuses.every((s) => s === "ready") ? "ready" : "loading";
 }
 
-/** The time zone for decay and week boundaries: the one stored in game/state, else the browser's. */
+/** The time zone for week boundaries: the one stored in game/state, else the browser's. */
 export function resolveTimeZone(state: Pick<GameState, "timeZone"> | null, browserTimeZone: string): string {
   if (state?.timeZone && isValidTimeZone(state.timeZone)) return state.timeZone;
   return isValidTimeZone(browserTimeZone) ? browserTimeZone : DEFAULT_TIME_ZONE;
 }
 
 export interface HeroView {
-  /** In the calibration period: `stats` are population averages. */
-  calibrating: boolean;
-  calibration: { workouts: number; needed: number; daysLeft: number | null };
-  /** As shown: averages while calibrating, real (decayed) stats after. Rounded to 1 decimal. */
+  /** Earned stats (rust not applied), rounded to 1 decimal. */
   stats: StatLine;
-  /** The real sub-muscle scores behind the stats. */
+  /** The sub-muscle scores behind the stats. */
   scores: SubMuscleScores;
-  /** Null while calibrating. */
-  power: number | null;
+  /** Body power from the earned stats. */
+  power: number;
+  /** Rust on each stat right now (0.12 = fights at 88%). */
+  rust: StatLine;
+  /** Body power as it fights: the stats with rust applied. Battle power starts from this. */
+  battleBody: number;
   level: { level: number; into: number; needed: number };
   coins: number;
   /** Stats you have flagged as injured right now (from your own game/state, whatever followers can see). */
@@ -53,23 +53,19 @@ const round1 = (x: number) => Math.round(x * 10) / 10;
 
 /**
  * Everything the Hero · Stats screen shows. A missing game/state (an account the server hasn't
- * touched yet) is a new account, exactly as the server treats it: default body inputs, empty
- * calibration. Decay is applied for `now`.
+ * touched yet) is a new account, exactly as the server treats it. Rust is applied for `now`.
  */
 export function heroView(state: GameState | null, muscles: MusclesFacts, now: number, browserTimeZone: string): HeroView {
   const timeZone = resolveTimeZone(state, browserTimeZone);
   const game = state ?? newGameState(now, timeZone);
-  const profile = profileOf(game);
-  const calibrating = !calibrationDone(game.calibration, now);
-  const freeze = freezeFor(game);
-  const real = computeStats(muscles, profile, now, timeZone, freeze);
-  const stats = roundStats(displayStats(real, game.calibration, now));
+  const earned = computeStats(muscles);
+  const rust = statRust(muscles, now, freezeFor(game));
   return {
-    calibrating,
-    calibration: calibrationProgress(game.calibration, now),
-    stats,
-    scores: subMuscleScores(muscles, profile, now, timeZone, freeze),
-    power: calibrating ? null : round1(power(stats)),
+    stats: roundStats(earned),
+    scores: subMuscleScores(muscles),
+    power: round1(power(earned)),
+    rust,
+    battleBody: round1(power(rustedStats(earned, rust))),
     level: levelProgress(game.xp),
     coins: game.coins,
     injured: injuredStats(game, now),
@@ -77,12 +73,24 @@ export function heroView(state: GameState | null, muscles: MusclesFacts, now: nu
   };
 }
 
-function calibrationProgress(c: Calibration, now: number) {
-  const daysLeft = c.startedAt == null ? null : Math.max(0, Math.ceil((c.startedAt + CALIBRATION.days * DAY_MS - now) / DAY_MS));
-  return { workouts: c.workouts, needed: CALIBRATION.workouts, daysLeft };
+/** "Rusty: Legs −12%, Core −3%", or null when nothing is rusty. */
+export function rustLine(rust: StatLine): string | null {
+  const rusty = STATS.filter((s) => rust[s] > 0).map((s) => `${STAT_LABELS[s]} −${Math.round(rust[s] * 100)}%`);
+  return rusty.length ? `Rusty: ${rusty.join(", ")}` : null;
+}
+
+/** A stat or sub-muscle score as shown: one decimal under 10 (early progress is small), whole above. */
+export function statNumber(x: number): string {
+  return Math.abs(x) < 10 ? String(round1(x)) : String(Math.round(x));
 }
 
 // ---- Comparison overlay ----
+
+/** A snapshot's stat. Snapshots from before the stat rework stored { value, bonus }. */
+export function snapshotStat(snapshot: Snapshot, stat: Stat): number {
+  const v = snapshot.stats[stat] as number | { value: number } | undefined;
+  return typeof v === "number" ? v : (v?.value ?? 0);
+}
 
 export const COMPARE_PERIODS = ["1W", "1M", "1Y"] as const;
 export type ComparePeriod = (typeof COMPARE_PERIODS)[number];

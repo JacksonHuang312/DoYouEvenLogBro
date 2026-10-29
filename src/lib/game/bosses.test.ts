@@ -17,7 +17,7 @@ import type { StatLine } from "./score";
 import { addDays } from "./time";
 
 const statLine = (value: number, over: Partial<Record<(typeof STATS)[number], number>> = {}): StatLine =>
-  Object.fromEntries(STATS.map((s) => [s, { value: over[s] ?? value, bonus: 0 }])) as StatLine;
+  Object.fromEntries(STATS.map((s) => [s, over[s] ?? value])) as StatLine;
 
 describe("the boss list", () => {
   const all = [...WEEKLY_BOSSES, ...TOWER_BOSSES, ...CAMPAIGN_CHAPTERS.map((c) => c.boss)];

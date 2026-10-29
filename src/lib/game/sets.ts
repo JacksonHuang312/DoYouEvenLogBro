@@ -1,13 +1,6 @@
 import library from "../../data/exercises.json";
 import type { LoggedSet, Workout } from "../types";
-import {
-  BODYWEIGHT_FACTOR,
-  EPLEY_MAX_REPS,
-  EXCLUDED_CATEGORIES,
-  MIN_WORKING_SETS,
-  SANITY,
-  type SubMuscle,
-} from "./config";
+import { EXCLUDED_CATEGORIES, MIN_WORKING_SETS, SANITY, type SubMuscle } from "./config";
 import { closestMuscle } from "./muscles";
 
 /** What the game needs to know about an exercise. */
@@ -38,12 +31,6 @@ export function buildExerciseLookup(custom: RawExercise[] = []): ExerciseLookup 
   return (id) => map.get(id);
 }
 
-/** Epley: weight × (1 + reps/30). A single is its own weight; reps past EPLEY_MAX_REPS add nothing. */
-export function epley(weightKg: number, reps: number): number {
-  if (reps <= 1) return weightKg;
-  return weightKg * (1 + Math.min(reps, EPLEY_MAX_REPS) / 30);
-}
-
 /** A set that counts: not a warm-up, has reps, and isn't an obvious typo. */
 export function isWorkingSet(set: LoggedSet): boolean {
   return (
@@ -52,16 +39,6 @@ export function isWorkingSet(set: LoggedSet): boolean {
     set.reps <= SANITY.maxReps &&
     (set.weightKg == null || (set.weightKg >= 0 && set.weightKg <= SANITY.maxLoadKg))
   );
-}
-
-/**
- * The weight moved in a set. No weight logged means bodyweight × the exercise's factor; on a
- * "body only" exercise a logged weight is added on top (weighted pull-ups, dips).
- */
-export function setLoadKg(set: LoggedSet, exerciseId: string, info: ExerciseInfo, bodyweightKg: number): number {
-  const bodyweight = bodyweightKg * (BODYWEIGHT_FACTOR.byExercise[exerciseId] ?? BODYWEIGHT_FACTOR.default);
-  if (set.weightKg == null) return bodyweight;
-  return info.equipment === "body only" ? bodyweight + set.weightKg : set.weightKg;
 }
 
 export interface WorkingSet {

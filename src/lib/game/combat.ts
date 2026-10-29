@@ -37,7 +37,7 @@ export interface Hero {
   mythic: MythicEffect[];
 }
 
-const statTotal = (stats: StatLine, s: Stat) => stats[s].value + stats[s].bonus;
+const statTotal = (stats: StatLine, s: Stat) => stats[s];
 
 /**
  * Combat attribute points before class weights: each stat's power points split by

@@ -22,7 +22,7 @@ export interface Pause {
   endedEarlyAt?: number;
 }
 
-/** An injured stat. Cleared flags are kept for a year so decay stays frozen over the period. */
+/** An injured stat. Cleared flags are kept for a year so rust stays frozen over the period. */
 export interface Injury {
   stat: Stat;
   since: number;
@@ -64,7 +64,7 @@ export function pausedOn(state: Pick<GameState, "pauses">, day: string): boolean
   return pausesOf(state).some((p) => day >= p.startDay && day < p.endDay);
 }
 
-/** What decay and the frequency count must skip. */
+/** What rust must skip. */
 export function freezeFor(state: Pick<GameState, "pauses" | "injuries">): Freeze {
   const byStat: Partial<Record<Stat, Interval[]>> = {};
   for (const i of injuriesOf(state)) (byStat[i.stat] ??= []).push([i.since, injuryEnd(i)]);

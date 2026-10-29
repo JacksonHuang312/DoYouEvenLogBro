@@ -67,9 +67,10 @@ describe("generateQuests", () => {
   });
 
   test("Core is picked less often: it has to be about half as strong to count as weakest", () => {
-    const coreModerate = scoresOf(50, { abdominals: 30, triceps: 20, biceps: 20, forearms: 20 });
+    // A stat is the sum of its sub-muscles: Arms 20 here, Core ranked as if 30 were 60.
+    const coreModerate = scoresOf(50, { abdominals: 30, triceps: 20, biceps: 0, forearms: 0 });
     expect(make({ scores: coreModerate }).quests[0].stat).toBe("arms");
-    const coreAwful = scoresOf(50, { abdominals: 5, triceps: 20, biceps: 20, forearms: 20 });
+    const coreAwful = scoresOf(50, { abdominals: 5, triceps: 20, biceps: 0, forearms: 0 });
     expect(make({ scores: coreAwful }).quests[0].stat).toBe("core");
   });
 

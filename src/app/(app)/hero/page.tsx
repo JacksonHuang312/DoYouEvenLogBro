@@ -11,7 +11,7 @@ import { RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
 import type { Snapshot } from "@/lib/game/claim";
 import { ownInjuryTag } from "@/lib/game/injuryLine";
-import { STAT_MUSCLES, type Stat } from "@/lib/game/config";
+import { RUST, STAT_MUSCLES, type Stat, type SubMuscle } from "@/lib/game/config";
 import type { MusclesFacts } from "@/lib/game/facts";
 import { powerView } from "@/lib/game/itemsView";
 import { RADAR_ORDER } from "@/lib/game/radar";
@@ -21,7 +21,10 @@ import {
   heroView,
   pickSnapshot,
   resolveTimeZone,
+  rustLine,
+  snapshotStat,
   STAT_LABELS,
+  statNumber,
   trainedLabel,
   type ComparePeriod,
   type HeroView,
@@ -36,11 +39,10 @@ type Tab = (typeof TABS)[number];
 
 const number = (n: number) => n.toLocaleString("en-US");
 
-/** "1,240 coins · Power 312 · Battle 391". Power and battle are left out while calibrating. */
+/** "1,240 coins · Power 312 · Battle 391". Battle waits for the inventory. */
 function headerLine(view: HeroView | null, battle: number | null): React.ReactNode {
   if (!view) return <Skeleton className="h-3 w-32" />;
-  const parts = [`${number(view.coins)} coins`];
-  if (view.power != null) parts.push(`Power ${number(Math.round(view.power))}`);
+  const parts = [`${number(view.coins)} coins`, `Power ${number(Math.round(view.power))}`];
   if (battle != null) parts.push(`Battle ${number(Math.round(battle))}`);
   return parts.join(" · ");
 }
@@ -59,7 +61,6 @@ export default function HeroPage() {
   // From game/state, so it shows as soon as that answers. Flags that have lapsed aren't listed.
   const injuryTag = ownInjuryTag(state.data, now);
 
-  // "Calibrating…" is only ever shown from a view built after both listeners have answered.
   const status = combineStatus(state.status, muscles.status);
   const view = useMemo(
     () =>
@@ -69,8 +70,9 @@ export default function HeroPage() {
     [status, state.data, muscles.data, now],
   );
 
-  // Battle power needs the equipped items; until they've loaded only body power is shown.
-  const battle = view && inventory.status === "ready" ? powerView(view.power, state.data, inventory.data).battle : null;
+  // Battle power needs the equipped items; until they've loaded only body power is shown. It
+  // starts from the rusted body power: rust weakens fights, never the stats.
+  const battle = view && inventory.status === "ready" ? powerView(view.battleBody, state.data, inventory.data).battle : null;
 
   return (
     <RpgScreen>
@@ -114,7 +116,7 @@ export default function HeroPage() {
             state={state.data}
             items={inventory.data}
             itemsStatus={combineStatus(inventory.status, status)}
-            bodyPower={view?.power ?? null}
+            bodyPower={view?.battleBody ?? null}
             now={now}
             online={online}
           />
@@ -205,16 +207,16 @@ function StatsPanel({
     );
   }
 
-  const compared = view.calibrating ? null : pickSnapshot(snapshots, now, period);
-  const values = Object.fromEntries(RADAR_ORDER.map((s) => [s, view.stats[s].value])) as Record<Stat, number>;
+  const compared = pickSnapshot(snapshots, now, period);
+  const values = Object.fromEntries(RADAR_ORDER.map((s) => [s, view.stats[s]])) as Record<Stat, number>;
   const previous = compared
-    ? (Object.fromEntries(RADAR_ORDER.map((s) => [s, compared.stats[s].value])) as Record<Stat, number>)
+    ? (Object.fromEntries(RADAR_ORDER.map((s) => [s, snapshotStat(compared, s)])) as Record<Stat, number>)
     : null;
+  const rusty = rustLine(view.rust);
   const previousLabel = compared ? `your snapshot from ${dateLabel(compared.takenAt, view.timeZone)}` : undefined;
 
   let note: string | null = null;
-  if (view.calibrating) note = "Comparing to the past starts after calibration.";
-  else if (!compared && snapshotsStatus === "loading") note = "Loading your history…";
+  if (!compared && snapshotsStatus === "loading") note = "Loading your history…";
   else if (!compared && snapshotsStatus === "unavailable") note = "History isn't available offline.";
   else if (!compared) {
     const oldest = snapshots.reduce<Snapshot | null>((o, s) => (!o || s.takenAt < o.takenAt ? s : o), null);
@@ -234,8 +236,7 @@ function StatsPanel({
                 key={p}
                 onClick={() => setPeriod(p)}
                 aria-pressed={period === p}
-                disabled={view.calibrating}
-                className={`min-h-11 min-w-11 text-xs disabled:opacity-40 ${
+                className={`min-h-11 min-w-11 text-xs ${
                   period === p ? "text-rpg-text underline underline-offset-[5px]" : "text-rpg-muted"
                 }`}
               >
@@ -245,11 +246,9 @@ function StatsPanel({
           </div>
         </div>
 
-        {view.calibrating && (
-          <p className="text-xs text-rpg-text-2">
-            Calibrating… {view.calibration.workouts} of {view.calibration.needed} workouts
-            {view.calibration.daysLeft != null && ` · ${view.calibration.daysLeft} ${view.calibration.daysLeft === 1 ? "day" : "days"} left`}.
-            These are average starting stats; your real ones replace them after that.
+        {rusty && (
+          <p className="text-xs text-rpg-warn">
+            {rusty}. Untrained for {RUST.graceDays}+ days, so it fights weaker. One workout clears it.
           </p>
         )}
 
@@ -258,7 +257,7 @@ function StatsPanel({
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-rpg-muted">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 border-t-2 border-rpg-accent" />
-            {view.calibrating ? "Average" : "Now"}
+            Now
           </span>
           {compared && (
             <span className="flex items-center gap-1.5">
@@ -277,7 +276,7 @@ function StatsPanel({
             stat={stat}
             view={view}
             muscles={muscles}
-            previous={compared ? compared.stats[stat].value : null}
+            previous={compared ? snapshotStat(compared, stat) : null}
             injured={view.injured.includes(stat)}
             open={open === stat}
             onToggle={() => setOpen(open === stat ? null : stat)}
@@ -308,10 +307,8 @@ function StatRow({
   onToggle: () => void;
   now: number;
 }) {
-  const { value, bonus } = view.stats[stat];
-  const shown = Math.round(value);
-  const bonusShown = Math.round(bonus);
-  const delta = previous == null ? null : shown - Math.round(previous);
+  const value = view.stats[stat];
+  const delta = previous == null ? null : Math.round((value - previous) * 10) / 10;
   const panelId = `breakdown-${stat}`;
 
   return (
@@ -327,35 +324,29 @@ function StatRow({
           {injured && <span className="text-[11px]">injured</span>}
           {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
         </span>
-        <span className="text-right font-semibold">
-          {shown}
-          {bonusShown >= 1 && <span className="font-normal text-rpg-accent"> +{bonusShown}</span>}
-        </span>
+        <span className="text-right font-semibold">{statNumber(value)}</span>
         <span
           className={`text-right ${delta == null || delta === 0 ? "text-rpg-muted" : delta > 0 ? "text-rpg-good" : "text-rpg-bad"}`}
         >
-          {delta == null ? "" : delta > 0 ? `+${delta}` : delta < 0 ? `−${-delta}` : "0"}
+          {delta == null ? "" : delta > 0 ? `+${statNumber(delta)}` : delta < 0 ? `−${statNumber(-delta)}` : "0"}
         </span>
       </button>
       {open && (
         <div id={panelId} className="pb-3 text-xs">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 pb-1 text-[11px] text-rpg-muted">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 pb-1 text-[11px] text-rpg-muted">
             <span>Muscle</span>
-            <span className="text-right">Weight</span>
-            <span className="w-8 text-right">Score</span>
+            <span className="w-10 text-right">Score</span>
             <span className="w-16 text-right">Trained</span>
           </div>
-          {(Object.entries(STAT_MUSCLES[stat]) as [keyof typeof view.scores, number][]).map(([muscle, weight]) => (
-            <div key={muscle} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1">
+          {(Object.keys(STAT_MUSCLES[stat]) as SubMuscle[]).map((muscle) => (
+            <div key={muscle} className="grid grid-cols-[1fr_auto_auto] gap-x-4 py-1">
               <span className="capitalize text-rpg-text-2">{muscle}</span>
-              <span className="text-right text-rpg-muted">{Math.round(weight * 100)}%</span>
-              <span className="w-8 text-right">{view.calibrating ? "–" : Math.round(view.scores[muscle])}</span>
+              <span className="w-10 text-right">{statNumber(view.scores[muscle])}</span>
               <span className="w-16 text-right text-rpg-muted">
                 {trainedLabel(muscles[muscle]?.lastTrained ?? null, now, view.timeZone)}
               </span>
             </div>
           ))}
-          {view.calibrating && <p className="pt-1 text-[11px] text-rpg-muted">Muscle scores show after calibration.</p>}
         </div>
       )}
     </div>

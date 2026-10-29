@@ -5,7 +5,7 @@ import { statOf } from "./muscles";
 export type Interval = readonly [start: number, end: number];
 
 /**
- * Time when decay and the frequency count stand still (section 3.6): pauses freeze every stat,
+ * Time when rust stands still (section 3.6): pauses freeze every stat,
  * injury flags freeze one. Built from the game state by breaks.ts#freezeFor.
  */
 export interface Freeze {
@@ -16,9 +16,14 @@ export interface Freeze {
 /** Nothing frozen: history replays and tests. Stat math takes a Freeze explicitly so no caller forgets one. */
 export const NO_FREEZE: Freeze = { all: [], byStat: {} };
 
-/** The intervals that apply to one sub-muscle: every pause plus its stat's injuries. */
+/** The intervals that apply to one stat: every pause plus that stat's injuries. */
+export function statIntervals(freeze: Freeze, stat: Stat): Interval[] {
+  return [...freeze.all, ...(freeze.byStat[stat] ?? [])];
+}
+
+/** The intervals that apply to one sub-muscle: those of its stat. */
 export function intervalsFor(freeze: Freeze, muscle: SubMuscle): Interval[] {
-  return [...freeze.all, ...(freeze.byStat[statOf(muscle)] ?? [])];
+  return statIntervals(freeze, statOf(muscle));
 }
 
 /** Milliseconds inside [from, to) covered by the intervals, counting overlaps once. */

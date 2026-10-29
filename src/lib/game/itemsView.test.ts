@@ -127,7 +127,7 @@ describe("setProgress", () => {
 });
 
 describe("powerView", () => {
-  test("calibrating: nothing is known yet", () => {
+  test("before body power loads, nothing is known yet", () => {
     expect(powerView(null, game(), [])).toEqual({ body: null, gear: null, bonus: null, battle: null });
   });
 
@@ -207,10 +207,10 @@ describe("titlesView", () => {
     ) as Record<TitleId, AchievementProgress>;
 
   test("eight rows; equipped and earned first, then closest to done", () => {
-    const state = game({ titles: { earned: { calibrated: T0, centurion: T0 }, equipped: ["centurion"], slots: 1 } });
+    const state = game({ titles: { earned: { firstSteps: T0, centurion: T0 }, equipped: ["centurion"], slots: 1 } });
     const v = titlesView(state, progress({ regular: [3, 4, false], questmaster: [1, 3, false] }));
     expect(v.rows).toHaveLength(8);
-    expect(v.rows.slice(0, 4).map((r) => r.id)).toEqual(["centurion", "calibrated", "regular", "questmaster"]);
+    expect(v.rows.slice(0, 4).map((r) => r.id)).toEqual(["centurion", "firstSteps", "regular", "questmaster"]);
     expect(v.rows[2]).toMatchObject({ progress: "3 / 4", earned: false, action: null });
     expect(v.rows[0]).toMatchObject({ equipped: true, progress: "Earned", action: { label: "Unequip", enabled: true } });
     expect(v.rows[1].action).toMatchObject({ label: "Equip", enabled: false, reason: "Slots full. Unequip one first" });
@@ -235,9 +235,9 @@ describe("titlesView", () => {
   });
 
   test("toggledTitles equips into a free slot, unequips, and refuses unearned or full", () => {
-    const state = game({ titles: { earned: { calibrated: T0, centurion: T0 }, equipped: ["calibrated"], slots: 2 } });
-    expect(toggledTitles(state, "centurion")).toEqual({ ok: true, titles: ["calibrated", "centurion"] });
-    expect(toggledTitles(state, "calibrated")).toEqual({ ok: true, titles: [] });
+    const state = game({ titles: { earned: { firstSteps: T0, centurion: T0 }, equipped: ["firstSteps"], slots: 2 } });
+    expect(toggledTitles(state, "centurion")).toEqual({ ok: true, titles: ["firstSteps", "centurion"] });
+    expect(toggledTitles(state, "firstSteps")).toEqual({ ok: true, titles: [] });
     expect(toggledTitles(state, "regular")).toEqual({ ok: false, reason: "Not earned yet" });
   });
 });

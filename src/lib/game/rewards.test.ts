@@ -1,16 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { ClaimResponse } from "../server/game";
-import { averageStats } from "./calibration";
 import type { ClaimResult } from "./claim";
-import { COINS, STATS } from "./config";
+import { COINS, STATS, type Stat } from "./config";
 import { durationLabel, rewardsView, summaryOf, type RewardsInput, type RewardsSummary } from "./rewards";
 import { BENCH, set, T0, workout } from "./test-helpers";
 
 const UTC = "UTC";
-const stats = (overrides: Record<string, number> = {}) => {
-  const base = averageStats();
-  return Object.fromEntries(STATS.map((s) => [s, { value: overrides[s] ?? base[s].value, bonus: 0 }])) as typeof base;
-};
+const stats = (overrides: Partial<Record<Stat, number>> = {}) =>
+  Object.fromEntries(STATS.map((s) => [s, overrides[s] ?? 30])) as Record<Stat, number>;
 
 /** T0 is a Wednesday, 12:00 UTC. */
 const summary: RewardsSummary = { name: "Push day", startedAt: T0, durationMs: 58 * 60_000, workingSets: 18, volumeKg: 6496 };
@@ -24,7 +21,6 @@ function result(over: Partial<ClaimResult> = {}): ClaimResult {
     level: { before: 14, after: 14 },
     stats: { before: stats(), after: stats() },
     power: { before: 100, after: 100 },
-    calibrating: false,
     ...over,
   };
 }
@@ -192,26 +188,25 @@ describe("stat changes", () => {
     expect(v.stats).toEqual([{ name: "Legs", from: "50", to: "49", delta: "−1" }]);
   });
 
-  test("calibrating shows no changes (the stats are averages)", () => {
-    const v = view(claimed({ calibrating: true, stats: { before: stats(), after: stats({ chest: 70 }) } }));
-    expect(v.calibrating).toBe(true);
-    expect(v.stats).toEqual([]);
+  test("reads claims from before the stat rework, which stored { value, bonus }", () => {
+    const old = (chest: number) => ({ ...stats(), chest: { value: chest, bonus: 1 } }) as unknown as Record<Stat, number>;
+    const v = view(claimed({ stats: { before: old(62), after: old(64.1) } }));
+    expect(v.stats).toEqual([{ name: "Chest", from: "62", to: "64.1", delta: "+2.1" }]);
   });
 });
 
-describe("1RM line", () => {
-  const oneRm = [{ stat: "chest" as const, exerciseId: BENCH, weightKg: 100, reps: 5, bonusDelta: 1 }];
-
-  test("is in the user's unit", () => {
-    expect(view(claimed({ oneRm })).oneRm).toEqual(["Bench Press 220.46 lb × 5 beat your estimate · Chest bonus +1"]);
-    expect(view(claimed({ oneRm }), { unit: "kg" }).oneRm).toEqual([
-      "Bench Press 100 kg × 5 beat your estimate · Chest bonus +1",
-    ]);
+describe("beat last time", () => {
+  test("names the exercises that beat their last session", () => {
+    const progressed = [
+      { exerciseId: BENCH, stat: "chest" as const },
+      { exerciseId: "gone", stat: "legs" as const },
+    ];
+    expect(view(claimed({ progressed })).progressed).toBe("Beat last time: Bench Press, Legs (+25% points)");
   });
 
-  test("falls back for an exercise it can't name, and is absent on old claims", () => {
-    expect(view(claimed({ oneRm: [{ ...oneRm[0], exerciseId: "gone" }] }), { unit: "kg" }).oneRm[0]).toMatch(/^Lift 100 kg/);
-    expect(view(claimed()).oneRm).toEqual([]);
+  test("is absent when nothing did, and on old claims", () => {
+    expect(view(claimed({ progressed: [] })).progressed).toBeNull();
+    expect(view(claimed()).progressed).toBeNull();
   });
 });
 

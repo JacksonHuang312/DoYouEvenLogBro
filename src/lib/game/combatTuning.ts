@@ -18,7 +18,7 @@ export function balancedHero(power: number, classId: ClassId, effects: GearEffec
   const pool = CLASSES[classId].bucketPct;
   const body = power / (1 + pool);
   const value = body / POWER_PER_EQUAL_STAT;
-  const stats = Object.fromEntries(STATS.map((s) => [s, { value, bonus: 0 }])) as StatLine;
+  const stats = Object.fromEntries(STATS.map((s) => [s, value])) as StatLine;
   const battle = battlePower({ body, equipped: [], level: 50, classPct: pool });
   return buildHero({ stats, battle, classId, effects });
 }

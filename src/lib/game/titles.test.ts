@@ -13,6 +13,7 @@ import {
   regularWindowStart,
   slotCost,
   titleBonusPct,
+  titlesOf,
   withEarnedTitles,
   type TitleFacts,
 } from "./titles";
@@ -20,8 +21,8 @@ import {
 const UTC = "UTC";
 const TODAY = dayId(T0, UTC); // Wednesday 2026-10-14
 
-const statLine = (value: number, bonus = 0, overrides: Partial<StatLine> = {}): StatLine =>
-  ({ ...Object.fromEntries(STATS.map((s) => [s, { value, bonus }])), ...overrides }) as StatLine;
+const statLine = (value: number, overrides: Partial<StatLine> = {}): StatLine =>
+  ({ ...Object.fromEntries(STATS.map((s) => [s, value])), ...overrides }) as StatLine;
 
 const facts = (patch: Partial<TitleFacts> = {}): TitleFacts => ({
   now: T0,
@@ -36,11 +37,18 @@ const facts = (patch: Partial<TitleFacts> = {}): TitleFacts => ({
   ...patch,
 });
 
+describe("titlesOf", () => {
+  test("a stored Calibrated title reads as First Steps", () => {
+    const state = { titles: { earned: { calibrated: T0 }, equipped: ["calibrated"], slots: 1 } } as unknown as GameState;
+    expect(titlesOf(state)).toEqual({ earned: { firstSteps: T0 }, equipped: ["firstSteps"], slots: 1 });
+    expect(titleBonusPct(state)).toBe(ACHIEVEMENTS.firstSteps.bonus);
+  });
+});
+
 describe("achievements", () => {
-  test("Calibrated: once calibration is done", () => {
-    expect(achievementProgress(facts()).calibrated.met).toBe(false);
-    const state = { ...newGameState(T0, UTC), calibration: { startedAt: T0 - 20 * DAY, workouts: 3, done: true } };
-    expect(achievementProgress(facts({ state })).calibrated.met).toBe(true);
+  test("First Steps: 6 counted workouts", () => {
+    expect(achievementProgress(facts({ claimCount: 5 })).firstSteps).toMatchObject({ progress: 5, met: false });
+    expect(achievementProgress(facts({ claimCount: ACHIEVEMENTS.firstSteps.workouts })).firstSteps.met).toBe(true);
   });
 
   test("Regular: 3+ workouts in each of 4 weeks in a row; an unfinished current week doesn't break it", () => {
@@ -94,10 +102,11 @@ describe("achievements", () => {
     });
   });
 
-  test("Record Breaker: a 1RM bonus on 3 stats at once", () => {
-    const two = statLine(50, 0, { chest: { value: 50, bonus: 1 }, back: { value: 50, bonus: 2 } });
-    expect(achievementProgress(facts({ stats: two })).recordBreaker).toMatchObject({ progress: 2, met: false });
-    expect(achievementProgress(facts({ stats: { ...two, arms: { value: 40, bonus: 0.4 } } })).recordBreaker.met).toBe(true);
+  test("Record Breaker: beat your last session on exercises of 3 stats in one workout", () => {
+    const beaten = (n: number) => ({ ...newGameState(T0, UTC), mostStatsBeaten: n });
+    expect(achievementProgress(facts()).recordBreaker).toMatchObject({ progress: 0, met: false });
+    expect(achievementProgress(facts({ state: beaten(2) })).recordBreaker).toMatchObject({ progress: 2, met: false });
+    expect(achievementProgress(facts({ state: beaten(3) })).recordBreaker.met).toBe(true);
   });
 
   test("Questmaster: every quest of one week claimed", () => {
@@ -109,13 +118,13 @@ describe("achievements", () => {
   });
 
   test("Well Rounded: every stat at 50+", () => {
-    expect(achievementProgress(facts({ stats: statLine(50, 0, { core: { value: 49.9, bonus: 0 } }) })).wellRounded).toMatchObject({ progress: 5, met: false });
+    expect(achievementProgress(facts({ stats: statLine(50, { core: 49.9 }) })).wellRounded).toMatchObject({ progress: 5, met: false });
     expect(achievementProgress(facts({ stats: statLine(ACHIEVEMENTS.wellRounded.minStat) })).wellRounded.met).toBe(true);
   });
 
   test("Iron Habit: trained in 12 of the last 16 weeks (any muscle)", () => {
     const weeks = recentWeekIds(T0, UTC, 16);
-    const fact = (w: string[]) => ({ repEst1RMKg: 100, maxLoadKg: 100, lastTrained: T0, weeks: w });
+    const fact = (w: string[]) => ({ sets: 10, progressed: 0, lastTrained: T0, weeks: w });
     const eleven = { chest: fact(weeks.slice(0, 6)), lats: fact(weeks.slice(5, 11)) };
     expect(achievementProgress(facts({ muscles: eleven })).ironHabit).toMatchObject({ progress: 11, met: false });
     expect(achievementProgress(facts({ muscles: { ...eleven, quadriceps: fact([weeks[15]]) } })).ironHabit.met).toBe(true);
@@ -130,17 +139,17 @@ describe("achievements", () => {
 describe("withEarnedTitles", () => {
   const met = (ids: string[]) =>
     Object.fromEntries(
-      ["calibrated", "regular", "unbroken", "recordBreaker", "questmaster", "wellRounded", "ironHabit", "centurion"].map((id) => [
+      ["firstSteps", "regular", "unbroken", "recordBreaker", "questmaster", "wellRounded", "ironHabit", "centurion"].map((id) => [
         id,
         { progress: 0, target: 1, met: ids.includes(id) },
       ]),
     ) as ReturnType<typeof achievementProgress>;
 
   test("records new titles once, and fills empty slots with them", () => {
-    const first = withEarnedTitles(newGameState(T0, UTC), met(["calibrated", "centurion"]), T0 + 1);
-    expect(first.earned).toEqual(["calibrated", "centurion"]);
-    expect(first.state.titles).toEqual({ earned: { calibrated: T0 + 1, centurion: T0 + 1 }, equipped: ["calibrated"], slots: 1 });
-    const again = withEarnedTitles(first.state, met(["calibrated", "centurion"]), T0 + 2);
+    const first = withEarnedTitles(newGameState(T0, UTC), met(["firstSteps", "centurion"]), T0 + 1);
+    expect(first.earned).toEqual(["firstSteps", "centurion"]);
+    expect(first.state.titles).toEqual({ earned: { firstSteps: T0 + 1, centurion: T0 + 1 }, equipped: ["firstSteps"], slots: 1 });
+    const again = withEarnedTitles(first.state, met(["firstSteps", "centurion"]), T0 + 2);
     expect(again.earned).toEqual([]);
     expect(again.state).toBe(first.state);
   });
@@ -155,7 +164,7 @@ describe("title slots and bonuses", () => {
   const earnedAll = (patch: Partial<GameState> = {}): GameState => ({
     ...newGameState(T0, UTC),
     coins: 5000,
-    titles: { earned: { calibrated: T0, unbroken: T0, wellRounded: T0, regular: T0 }, equipped: [], slots: 3 },
+    titles: { earned: { firstSteps: T0, unbroken: T0, wellRounded: T0, regular: T0 }, equipped: [], slots: 3 },
     ...patch,
   });
 
@@ -163,7 +172,7 @@ describe("title slots and bonuses", () => {
     expect(equipTitles(earnedAll(), ["unbroken", "wellRounded"], T0)).toMatchObject({ ok: true, value: { titles: { equipped: ["unbroken", "wellRounded"] } } });
     expect(equipTitles(earnedAll(), ["unbroken", "unbroken"], T0)).toMatchObject({ ok: false });
     expect(equipTitles(earnedAll(), ["centurion"], T0)).toMatchObject({ ok: false, error: "You haven't earned that title yet" });
-    expect(equipTitles(earnedAll(), ["calibrated", "unbroken", "wellRounded", "regular"], T0)).toMatchObject({ ok: false });
+    expect(equipTitles(earnedAll(), ["firstSteps", "unbroken", "wellRounded", "regular"], T0)).toMatchObject({ ok: false });
   });
 
   test("the bonus is the sum of the equipped titles", () => {

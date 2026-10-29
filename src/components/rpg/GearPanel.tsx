@@ -46,7 +46,7 @@ export function GearPanel({
   state: GameState | null;
   items: OwnedItem[];
   itemsStatus: LoadStatus;
-  /** Body power from the Stats tab; null while calibrating. */
+  /** Body power as it fights (rust applied), from the Stats tab; null until it has loaded. */
   bodyPower: number | null;
   now: number;
   online: boolean;
@@ -178,7 +178,7 @@ function PowerBlock({ power }: { power: ReturnType<typeof powerView> }) {
   if (power.body == null) {
     return (
       <p className="border-t border-rpg-line-soft py-2.5 text-xs leading-relaxed text-rpg-text-2">
-        Calibrating. Gear and titles count toward battle power once your real stats are in. You can still collect and equip gear.
+        Loading your power…
       </p>
     );
   }

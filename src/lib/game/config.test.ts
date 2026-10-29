@@ -4,9 +4,8 @@ import {
   POWER_MULTIPLIERS,
   STAT_MUSCLES,
   STATS,
-  STRENGTH_STANDARDS,
+  STAT_POINTS,
   SUB_MUSCLES,
-  FREQUENCY_WEEKS,
   WEEKS_KEPT,
   COINS,
   ACHIEVEMENTS,
@@ -41,14 +40,13 @@ describe("config", () => {
     }
   });
 
-  test("every sub-muscle has a strength standard and every stat a power multiplier", () => {
-    for (const m of SUB_MUSCLES) expect(STRENGTH_STANDARDS[m], m).toBeGreaterThan(0);
+  test("every stat has a power multiplier: Legs and Back 1.2, Core 0.5", () => {
     for (const s of STATS) expect(POWER_MULTIPLIERS[s], s).toBeGreaterThan(0);
-    expect(POWER_MULTIPLIERS.core).toBe(0.5);
+    expect([POWER_MULTIPLIERS.legs, POWER_MULTIPLIERS.back, POWER_MULTIPLIERS.core]).toEqual([1.2, 1.2, 0.5]);
   });
 
-  test("keeps enough weeks of history for the frequency score", () => {
-    expect(WEEKS_KEPT).toBeGreaterThanOrEqual(FREQUENCY_WEEKS);
+  test("a progressed set is worth more than a plain one", () => {
+    expect(STAT_POINTS.progressedSet).toBeGreaterThan(STAT_POINTS.perSet);
   });
 
   test("a single workout fits under the daily cap", () => {

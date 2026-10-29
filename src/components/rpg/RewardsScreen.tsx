@@ -83,11 +83,7 @@ export function RewardsScreen({ view, onDone }: { view: RewardsView; onDone: () 
         {view.counted && (
           <section className="flex flex-col px-5 pt-4">
             <h2 className={`${HEADING} pb-1.5`}>Stats</h2>
-            {view.calibrating ? (
-              <p className="border-t border-rpg-line-soft py-2.5 text-xs leading-relaxed text-rpg-text-2">
-                Calibrating. Your stats stay at the starting averages until calibration ends, then change for real.
-              </p>
-            ) : view.stats.length === 0 ? (
+            {view.stats.length === 0 ? (
               <p className="border-t border-rpg-line-soft py-2.5 text-xs text-rpg-muted">No stat changes this time.</p>
             ) : (
               view.stats.map((s) => (
@@ -105,11 +101,9 @@ export function RewardsScreen({ view, onDone }: { view: RewardsView; onDone: () 
                 </div>
               ))
             )}
-            {view.oneRm.map((line) => (
-              <div key={line} className="border-t border-rpg-line-soft py-[9px] text-xs text-rpg-warn">
-                {line}
-              </div>
-            ))}
+            {view.progressed && (
+              <div className="border-t border-rpg-line-soft py-[9px] text-xs text-rpg-warn">{view.progressed}</div>
+            )}
           </section>
         )}
 

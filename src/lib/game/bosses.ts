@@ -124,7 +124,7 @@ export function checkMinimums({
 }): MinimumCheck {
   const rows = STATS.filter((s) => minimums[s] != null).map((stat) => {
     const needed = Math.ceil((minimums[stat]! * power) / COMBAT.powerPerStat);
-    const have = Math.round(stats[stat].value + stats[stat].bonus);
+    const have = Math.round(stats[stat]);
     const waived = injured.includes(stat);
     return { stat, needed, have, met: have >= needed, waived };
   });

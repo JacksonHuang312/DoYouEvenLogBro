@@ -1,6 +1,6 @@
 import type { Workout } from "../types";
-import { freezeFor, injuredStats, type Result } from "./breaks";
-import { profileOf, type GameState } from "./claim";
+import { injuredStats, type Result } from "./breaks";
+import type { GameState } from "./claim";
 import { QUESTS, STAT_MUSCLES, STATS, SUB_MUSCLES, type Stat, type SubMuscle } from "./config";
 import { levelForXp } from "./economy";
 import type { MusclesFacts } from "./facts";
@@ -69,7 +69,7 @@ export interface QuestContext {
 }
 
 /**
- * What picking depends on at `now`: the real sub-muscle scores (decay and freezes applied), the
+ * What picking depends on at `now`: the sub-muscle scores, the
  * injured stats, and the scheduled days still open from today to the end of the week.
  */
 export function questContext({
@@ -94,7 +94,7 @@ export function questContext({
   return {
     uid,
     weekId,
-    scores: subMuscleScores(muscles, profileOf(state), now, timeZone, freezeFor(state)),
+    scores: subMuscleScores(muscles),
     injured: injuredStats(state, now),
     scheduledLeft: slotsBetween(schedule, state, today, weekEnd).filter((s) => !schedule.matched[s.day]).length,
   };
@@ -361,6 +361,11 @@ export function questsAfterWorkout(
 }
 
 /** Adds quest rewards to coins and XP, plus QUESTS.scrapPerQuest scrap each. Not counted toward the daily coin cap. */
+/** XP every claimed quest in these weeks paid. */
+export function questXpEarned(docs: Pick<QuestsDoc, "quests">[]): number {
+  return docs.reduce((sum, d) => sum + d.quests.reduce((n, q) => n + (q.claimedAt != null ? q.reward.xp : 0), 0), 0);
+}
+
 export function withQuestRewards(state: GameState, quests: Pick<Quest, "reward">[], now: number): GameState {
   if (quests.length === 0) return state;
   const coins = quests.reduce((n, q) => n + q.reward.coins, 0);

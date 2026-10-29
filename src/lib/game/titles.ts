@@ -1,5 +1,4 @@
 import type { GameState } from "./claim";
-import { calibrationDone } from "./calibration";
 import { ACHIEVEMENTS, QUESTS, SCHEDULE, STATS, TITLES } from "./config";
 import type { MusclesFacts } from "./facts";
 import { fail, ok, type GameResult } from "./items";
@@ -11,11 +10,11 @@ import { addDays, dayId, dayStartMs, daysBetween, recentWeekIds, weekId as weekI
 /*
  * Titles (GAME_DESIGN.md 5.1). Each is earned by an achievement computed from facts the game
  * already stores. Earning one is itself stored as a fact (titles.earned), because the facts
- * behind some achievements (recent schedule matches, decaying stats) don't last.
+ * behind some achievements (recent schedule matches, training weeks) don't last.
  */
 
 export const TITLE_IDS = [
-  "calibrated",
+  "firstSteps",
   "regular",
   "unbroken",
   "recordBreaker",
@@ -29,13 +28,16 @@ export type TitleId = (typeof TITLE_IDS)[number];
 const A = ACHIEVEMENTS;
 
 export const TITLE_INFO: Record<TitleId, { name: string; description: string }> = {
-  calibrated: { name: "Calibrated", description: "Finish calibration" },
+  firstSteps: { name: "First Steps", description: `${A.firstSteps.workouts} counted workouts` },
   regular: { name: "Regular", description: `${A.regular.workoutsPerWeek}+ workouts a week, ${A.regular.weeks} weeks in a row` },
   unbroken: {
     name: "Unbroken",
     description: `No skipped scheduled workout for ${A.unbroken.days} days, with ${A.unbroken.minSlots}+ scheduled`,
   },
-  recordBreaker: { name: "Record Breaker", description: `A 1RM bonus on ${A.recordBreaker.stats} stats at once` },
+  recordBreaker: {
+    name: "Record Breaker",
+    description: `Beat your last session on exercises for ${A.recordBreaker.stats} different stats in one workout`,
+  },
   questmaster: { name: "Questmaster", description: "Claim every quest in one week" },
   wellRounded: { name: "Well Rounded", description: `Every stat at ${A.wellRounded.minStat} or more at once` },
   ironHabit: { name: "Iron Habit", description: `Train in ${A.ironHabit.weeks} of the last ${A.ironHabit.outOf} weeks` },
@@ -53,9 +55,13 @@ export interface TitlesState {
   slots: number;
 }
 
+/** Ids renamed since they were stored: "calibrated" became First Steps with the stat rework. */
+const RENAMED: Record<string, TitleId> = { calibrated: "firstSteps" };
+const current = (id: string) => (RENAMED[id] ?? id) as TitleId;
+
 export const titlesOf = (s: Pick<GameState, "titles">): TitlesState => ({
-  earned: s.titles?.earned ?? {},
-  equipped: s.titles?.equipped ?? [],
+  earned: Object.fromEntries(Object.entries(s.titles?.earned ?? {}).map(([id, at]) => [current(id), at])),
+  equipped: (s.titles?.equipped ?? []).map(current),
   slots: s.titles?.slots ?? TITLES.defaultSlots,
 });
 
@@ -71,8 +77,7 @@ export function titleBonusPct(state: Pick<GameState, "titles">): number {
 export interface TitleFacts {
   now: number;
   timeZone: string;
-  state: Pick<GameState, "calibration" | "pauses">;
-  /** Real stats at `now` (decay applied, not the calibration averages). */
+  state: Pick<GameState, "pauses" | "mostStatsBeaten">;
   stats: StatLine;
   muscles: MusclesFacts;
   schedule: ScheduleDoc;
@@ -142,12 +147,12 @@ export function achievementProgress(f: TitleFacts): Record<TitleId, AchievementP
   const questWeeks = f.quests.filter((d) => d.quests.length === QUESTS.rewards.length);
   const mostClaimed = Math.max(0, ...questWeeks.map((d) => d.quests.filter((q) => q.claimedAt != null).length));
   return {
-    calibrated: measure(calibrationDone(f.state.calibration, f.now) ? 1 : 0, 1),
+    firstSteps: measure(f.claimCount, A.firstSteps.workouts),
     regular: measure(regularStreak(f), A.regular.weeks),
     unbroken: measure(unbroken.days, A.unbroken.days, unbroken.days >= A.unbroken.days && unbroken.done >= A.unbroken.minSlots),
-    recordBreaker: measure(STATS.filter((s) => f.stats[s].bonus > 0).length, A.recordBreaker.stats),
+    recordBreaker: measure(f.state.mostStatsBeaten ?? 0, A.recordBreaker.stats),
     questmaster: measure(mostClaimed, QUESTS.rewards.length),
-    wellRounded: measure(STATS.filter((s) => f.stats[s].value >= A.wellRounded.minStat).length, STATS.length),
+    wellRounded: measure(STATS.filter((s) => f.stats[s] >= A.wellRounded.minStat).length, STATS.length),
     ironHabit: measure(
       recentWeekIds(f.now, f.timeZone, A.ironHabit.outOf).filter((w) => trained.has(w)).length,
       A.ironHabit.weeks,
