@@ -80,6 +80,17 @@ export function RewardsScreen({ view, onDone }: { view: RewardsView; onDone: () 
           </section>
         )}
 
+        {view.levelUps && (
+          <section className={`${SECTION} rpg-reveal-big flex flex-col gap-1 text-rpg-accent`} aria-label="Level up">
+            <div className={HEADING}>{view.levelUps.headline}</div>
+            {view.levelUps.lines.map((line) => (
+              <p key={line} className="text-[13px] text-rpg-text-2">
+                {line}
+              </p>
+            ))}
+          </section>
+        )}
+
         {view.counted && (
           <section className="flex flex-col px-5 pt-4">
             <h2 className={`${HEADING} pb-1.5`}>Stats</h2>

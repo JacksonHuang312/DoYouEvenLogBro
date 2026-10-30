@@ -179,7 +179,8 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
       level: { ...outcome.result.level, after: nextState.level },
       schedule: match ? { day: match.day, daysOff: match.daysOff } : null,
       quests,
-      scrap: { earned: scrapAfter - scrapBefore, balance: scrapAfter },
+      // Quest scrap only: the level-up reward's scrap is reported with it (levelRewards).
+      scrap: { earned: scrapAfter - scrapBefore - (outcome.result.levelRewards?.scrap ?? 0), balance: scrapAfter },
       titles,
     };
 

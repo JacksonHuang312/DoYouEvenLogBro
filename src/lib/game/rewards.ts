@@ -1,7 +1,8 @@
 import type { ClaimResponse } from "../server/game";
 import { kgTo } from "../units";
 import type { Unit, Workout } from "../types";
-import { COINS, STAT_POINTS, STATS, XP, type Stat } from "./config";
+import type { ClaimResult } from "./claim";
+import { COINS, LEVEL_POINTS, STAT_POINTS, STATS, XP, type Stat } from "./config";
 import { levelProgress } from "./economy";
 import { isWorkingSet } from "./sets";
 import { dayId, daysBetween } from "./time";
@@ -88,6 +89,8 @@ export interface RewardsView {
   titles: string[];
   /** "+10 scrap" when finished quests paid scrap. */
   scrap: string | null;
+  /** The level-ups this claim reached: "Level 12 reached", what they paid and the stat points they gave. */
+  levelUps: { headline: string; lines: string[] } | null;
 }
 
 export interface RewardsInput {
@@ -161,6 +164,17 @@ function xpNote(input: RewardsInput): string {
   return next > input.now ? `${every} Next at ${timeLabel(next, input.now, input.timeZone)}.` : every;
 }
 
+/** Level-up rewards a claim paid: the level reached, coins and scrap, and the stat points to spend. */
+function levelUpsOf(r: ClaimResult): RewardsView["levelUps"] {
+  const paid = r.levelRewards;
+  if (!paid || paid.levels.length === 0) return null;
+  const top = paid.levels[paid.levels.length - 1];
+  const lines = [`+${paid.coins.toLocaleString("en-US")} coins, +${paid.scrap.toLocaleString("en-US")} scrap`];
+  const points = paid.levels.length * LEVEL_POINTS.perLevel;
+  lines.push(`+${points} stat ${points === 1 ? "point" : "points"} to spend in Battle`);
+  return { headline: `Level ${top} reached`, lines };
+}
+
 export function rewardsView(input: RewardsInput): RewardsView {
   const { response, summary, unit, timeZone } = input;
   const meta = metaOf(summary, unit);
@@ -189,6 +203,7 @@ export function rewardsView(input: RewardsInput): RewardsView {
       quests: [],
       titles: [],
       scrap: null,
+      levelUps: null,
     };
   }
 
@@ -244,6 +259,7 @@ export function rewardsView(input: RewardsInput): RewardsView {
     progressed,
     titles: (r.titles ?? []).map((id) => `Title earned: ${TITLE_INFO[id].name} (+${Math.round(titleBonus(id) * 100)}% battle power)`),
     scrap: r.scrap && r.scrap.earned > 0 ? `+${r.scrap.earned} scrap` : null,
+    levelUps: levelUpsOf(r),
     quests: quests.map((q) => ({
       id: q.id,
       title: q.title,

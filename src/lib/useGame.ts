@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PublicInjury } from "./game/breaks";
 import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
+import type { BattleDoc } from "./game/fights";
 import type { OwnedItem } from "./game/items";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc } from "./game/schedule";
@@ -71,7 +72,7 @@ function report(what: string, err: { code?: string }) {
 const NO_MUSCLES: MusclesFacts = {};
 const NO_SNAPSHOTS: Snapshot[] = [];
 
-function useGameDoc<T>(uid: string, name: "state" | "muscles" | "schedule", empty: T, pick: (data: unknown) => T): Live<T> {
+function useGameDoc<T>(uid: string, name: "state" | "muscles" | "schedule" | "battle", empty: T, pick: (data: unknown) => T): Live<T> {
   return useLive(`${uid}/game/${name}`, empty, (settle, fail) =>
     onSnapshot(
       doc(firebase().db, "users", uid, "game", name),
@@ -91,6 +92,11 @@ function useGameDoc<T>(uid: string, name: "state" | "muscles" | "schedule", empt
 /** game/state: coins, XP, breaks, items, titles, time zone. data is null once the server confirms there is none yet. */
 export function useGameState(uid: string): Live<GameState | null> {
   return useGameDoc<GameState | null>(uid, "state", null, (d) => d as GameState);
+}
+
+/** game/battle: progress in each fight mode. data is null once the server confirms there is none yet (no fight so far). */
+export function useBattleDoc(uid: string): Live<BattleDoc | null> {
+  return useGameDoc<BattleDoc | null>(uid, "battle", null, (d) => d as BattleDoc);
 }
 
 /** game/muscles: the stored per-sub-muscle facts. Empty once the server confirms there are none yet. */

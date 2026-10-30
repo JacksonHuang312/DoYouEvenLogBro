@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { GearPanel } from "@/components/rpg/GearPanel";
@@ -81,6 +82,12 @@ export default function HeroPage() {
         title={profile.username}
       />
       <LevelStrip view={view} />
+      {state.status === "ready" && !state.data?.classId && (
+        <Link href="/battle" className="flex min-h-11 items-center justify-between gap-3 border-b border-rpg-line px-5 py-2.5 text-xs text-rpg-accent">
+          <span>Pick your class to start fighting</span>
+          <ChevronRight size={16} aria-hidden />
+        </Link>
+      )}
       {injuryTag && (
         <p className="border-b border-rpg-line px-5 py-2.5 text-xs text-rpg-warn">{injuryTag}</p>
       )}

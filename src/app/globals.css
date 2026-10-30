@@ -135,6 +135,44 @@ textarea,
   }
 }
 
+/*
+ * Loot reveals (GAME_DESIGN.md 13.9): a dropped item settles into place once, and an Epic or better
+ * drop sends one ring out in its rarity color (the text color of the element). The one deliberate
+ * exception to 7.1's no-glow rule; nothing loops, and reduced motion turns both off.
+ */
+@keyframes rpg-settle {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes rpg-ring {
+  from {
+    box-shadow: 0 0 28px 4px color-mix(in srgb, currentColor 60%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.rpg-reveal {
+  animation: rpg-settle 0.35s ease-out 1 both;
+}
+.rpg-reveal-big {
+  animation:
+    rpg-settle 0.35s ease-out 1 both,
+    rpg-ring 1.1s ease-out 0.2s 1 both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rpg-reveal,
+  .rpg-reveal-big {
+    animation: none;
+  }
+}
+
 /* iOS Safari zooms the page when focusing a field under 16px; keep fields at 16px on touch screens. */
 @media (pointer: coarse) {
   input,

@@ -100,13 +100,12 @@ export function focusLabel(focus: Focus): string {
     .join(" / ");
 }
 
-/** An accessory's effect at the item's rarity, or a Mythic's unique effect. Fight effects stay "not active yet" until the Battle screens; the salvage and reroll charms already work. */
+/** An accessory's effect at the item's rarity, or a Mythic's unique effect. Every effect is live now: fights use them, and the salvage and reroll charms work outside fights. */
 function effectLabel(base: BaseItem | undefined, rarity: Rarity): string | null {
   if (!base?.effect) return null;
   const known = base.effect in ACCESSORY_EFFECTS ? (base.effect as AccessoryEffect) : null;
   const text = known ? `${ACCESSORY_EFFECTS[known].label} +${Math.round(effectValue(known, rarity) * 1000) / 10}%` : "Unique effect";
-  const active = known === "salvageYield" || known === "rerollDiscount";
-  return active ? text : `${text} (not active yet)`;
+  return text;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;

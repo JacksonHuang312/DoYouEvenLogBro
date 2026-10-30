@@ -237,6 +237,18 @@ describe("quests", () => {
   });
 });
 
+describe("level-ups", () => {
+  test("a claim that reached levels says what they paid and the stat points they gave", () => {
+    const paid = { levels: [11, 12], coins: 50, scrap: 10 };
+    expect(view(claimed({ levelRewards: paid })).levelUps).toEqual({
+      headline: "Level 12 reached",
+      lines: ["+50 coins, +10 scrap", "+2 stat points to spend in Battle"],
+    });
+    expect(view(claimed({ levelRewards: { levels: [2], coins: 25, scrap: 5 } })).levelUps!.lines[1]).toBe("+1 stat point to spend in Battle");
+    expect(view(claimed()).levelUps).toBeNull();
+  });
+});
+
 describe("titles and scrap", () => {
   test("a title this claim earned gets a line with its bonus", () => {
     expect(view(claimed({ titles: ["regular", "unbroken"] })).titles).toEqual([

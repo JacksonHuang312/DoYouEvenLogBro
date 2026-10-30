@@ -607,7 +607,7 @@ Agreed in conversation after Phase 5 piece 2. Numbers marked *draft* get tuned w
 
 ### 13.1 Build order
 1. ~~**Levels 1-100 and level rewards** (13.2, 13.3), plus fight energy from workouts (13.7) and the anti-farming guard (13.8)~~ (built 2026-10-30, see 13.13).
-2. **Battle screens** (Phase 5 piece 3) on the current items, with the loot moments of 13.9.
+2. ~~**Battle screens** (Phase 5 piece 3) on the current items, with the loot moments of 13.9~~ (built 2026-10-30, see 13.14).
 3. **Two weeks of real use**, then retune from real fight records (13.11).
 4. **Item rework:** item level + rarity (13.5), weapons (13.6). One or two sessions; the Gear and Shop tabs are reworked with it.
 5. **Phase 6:** party raids (13.10) and friend leaderboards.
@@ -686,3 +686,17 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 - **Fight energy:** a counted workout gives 3, up to 9; new players start with 3 (`ENERGY`, `game/state.energy`). A Campaign or endless tower request spends 1, an auto-climb included; the weekly boss and Boss Tower don't use it. The fight route returns `energy`.
 - **Daily limit:** at most 2 counted workouts per workout day in the user's zone (`DAILY_WORKOUTS`, `game/state.countedDays`, kept 30 days). Counting by the workout's own day means a week of offline workouts syncing at once still counts. A third is "daily-limit": saved, no claim record, and the Rewards screen says so. Recompute and the backfill skip the same workouts.
 - `e2e/seed.ts` sets XP with `xpToReach` (default level 80, everything equippable) and marks the seeded levels' rewards as paid.
+
+### 13.14 Step 2 (built 2026-10-30): the Battle screens
+- **Battle tab** (`src/app/(app)/battle/page.tsx`), on the existing routes. Header: class, energy and battle power. Without a class it shows the **class picker** (three cards: what it does, skill and ultimate; the first pick is free, confirmed). With one: a strip with **Points** (free count) and **Class** buttons, then one card per mode.
+- **Fight cards** (`FightCard`): the next enemy (boss name, type, epithet), your power against its recommended power as a percentage, facts (tier locked for the week and wins, floor or stage, cooldowns), the **stat minimums** table (have / needed, met, short or injured), and the Fight button. Endless tower adds "Climb up to 5"; the Boss Tower adds a floor picker (cleared floors say "pays gold only"). A disabled button says why, in the server's own words: `battleView` dry-runs `runFight` on the same state. Weekly and Boss Tower fights confirm first.
+- **Result screen** (`FightResultScreen`, full screen like Rewards): Victory/Defeat (a climb says "Climbed", "Climb stopped"), each round (foe, seconds, power against power, how it ended), coins, scrap and Mythic Cores, drops, duplicates turned to scrap, energy left, and a collapsed **log** per round with timestamped lines (`logLines`).
+- **Loot reveal** (13.9): a drop settles into place once; Epic, Legendary and Mythic also send out one ring in their rarity color (`.rpg-reveal`, `.rpg-reveal-big` in `globals.css`; nothing loops; reduced motion turns both off). A guaranteed drop is labelled. This and the level-up block are the deliberate exceptions to 7.1.
+- **Level-ups** show on the workout Rewards screen: "Level 12 reached", the coins and scrap paid, and the stat points to spend. The Rewards scrap line now counts quest scrap only.
+- **Stat points sheet** (`PointsSheet`): plus and minus on a draft, "+1% in fights" per stat, Apply, and Reset all for 500 coins (confirmed).
+- **Class sheet:** switch cost, the wait ("Next switch in ..."), and the same picker.
+- **Class pick for existing and new accounts:** the Hero tab shows "Pick your class to start fighting" (a link to Battle) until a class is chosen, and the Battle tab opens on the picker. **Not at sign-up:** the sign-up form stays as it is; new accounts meet the picker on their first Hero or Battle visit. Say if it should move into onboarding.
+- Gear effects no longer read "(not active yet)": fights use them.
+- Retried fights: the client keeps one request id per fight until it comes back, so a dropped connection returns the same stored fight.
+- Not built (piece for later): fight history (the stored `fights/{id}` records have it), an animated replay, a skip-the-confirm setting.
+- `e2e/battle.e2e.ts`: class pick from the Hero nudge, a Campaign fight to the result and log, energy and the once-a-day weekly boss, stat points draft/apply/reset, the class switch sheet; all at 390px with overflow and tap-target checks.
