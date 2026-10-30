@@ -16,6 +16,12 @@ const SPEEDS = [1, 2, 4];
 /** Real seconds a finished round holds, showing how it ended, before the next one (or the result) starts. */
 const HOLD_SEC = 1.3;
 
+/**
+ * A health bar that shows what just happened. A hit leaves a red chunk where the health was, which
+ * then slides left to the new value; a heal shows a green chunk ahead of the bar that the bar
+ * slides right to fill. Which one is worked out when the value changes (React's "previous value in
+ * state" pattern), and the sliding is CSS, so it costs nothing per frame.
+ */
 function Bar({
   label,
   value,
@@ -27,7 +33,14 @@ function Bar({
   max: number;
   tone: string;
 }) {
+  const [seen, setSeen] = useState<{
+    value: number;
+    dir: "hit" | "heal" | null;
+  }>({ value, dir: null });
+  if (seen.value !== value)
+    setSeen({ value, dir: value < seen.value ? "hit" : "heal" });
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
+  const layer = "absolute inset-y-0 left-0 motion-reduce:transition-none";
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between text-xs text-rpg-text-2">
@@ -42,9 +55,19 @@ function Bar({
         aria-valuemin={0}
         aria-valuemax={max}
         aria-valuenow={value}
-        className="h-2 bg-rpg-line"
+        className="relative h-2 bg-rpg-line"
       >
-        <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+        {/* Red: where the health was, catching down after a short beat. A heal moves it straight up. */}
+        <div
+          className={`${layer} bg-rpg-bad ${seen.dir === "hit" ? "transition-[width] duration-[450ms] delay-200 ease-out" : ""}`}
+          style={{ width: `${pct}%` }}
+        />
+        {/* Green: the new health after a heal, shown ahead of the bar while it slides over. */}
+        <div className={`${layer} bg-rpg-good`} style={{ width: `${pct}%` }} />
+        <div
+          className={`${layer} ${tone} ${seen.dir === "heal" ? "transition-[width] duration-300 ease-out" : ""}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -180,12 +203,14 @@ export function FightReplay({
           aria-label="Health"
         >
           <Bar
+            key={`you-${index}`}
             label="You"
             value={now.hh}
             max={round.heroMax}
             tone="bg-rpg-accent"
           />
           <Bar
+            key={`foe-${index}`}
             label={round.foe}
             value={now.fh}
             max={round.foeMax}
