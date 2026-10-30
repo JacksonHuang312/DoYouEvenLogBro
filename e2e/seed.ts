@@ -1,6 +1,11 @@
 import { BASE_ITEMS, baseItem } from "../src/lib/game/catalog";
 import { newGameState, type GameState } from "../src/lib/game/claim";
-import { STAT_MUSCLES, STAT_POINTS, STATS, type ClassId } from "../src/lib/game/config";
+import {
+  STAT_MUSCLES,
+  STAT_POINTS,
+  STATS,
+  type ClassId,
+} from "../src/lib/game/config";
 import { xpToReach } from "../src/lib/game/economy";
 import type { MusclesFacts } from "../src/lib/game/facts";
 import { newItem, type Item } from "../src/lib/game/items";
@@ -14,7 +19,20 @@ import { adminAuth, adminDb } from "../src/lib/server/admin";
  * project.
  */
 
-export const HERO = { uid: "e2e-hero", email: "hero@test.dev", password: "password123", username: "hero" } as const;
+export const HERO = {
+  uid: "e2e-hero",
+  email: "hero@test.dev",
+  password: "password123",
+  username: "hero",
+} as const;
+
+/** Who a seed creates: the e2e hero, or any other emulator-only test account (`npm run seed:har`). */
+export interface Identity {
+  uid: string;
+  email: string;
+  password: string;
+  username: string;
+}
 
 /** Named inventory ids, so tests can say which copy they mean. */
 export const ITEM_IDS = {
@@ -55,26 +73,43 @@ export interface SeedOptions {
   trainedDaysAgo?: number;
   /** The hero's class. Default none (a player who hasn't picked one yet). */
   classId?: ClassId;
+  /** About this much in every stat. Default 30. */
+  statLevel?: number;
+  /** The account to create. Default the e2e hero. */
+  who?: Identity;
 }
 
 export const ROUTINE_ID = "e2e-routine";
 export const BENCH_ID = "Barbell_Bench_Press_-_Medium_Grip";
 
 function assertEmulator() {
-  if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-    throw new Error("e2e seeding only runs against the Firebase emulators (FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST are not set).");
+  if (
+    !process.env.FIRESTORE_EMULATOR_HOST ||
+    !process.env.FIREBASE_AUTH_EMULATOR_HOST
+  ) {
+    throw new Error(
+      "e2e seeding only runs against the Firebase emulators (FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST are not set).",
+    );
   }
   const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "";
-  if (!project.startsWith("demo-")) throw new Error(`Refusing to seed project "${project}": e2e only uses demo-* projects.`);
+  if (!project.startsWith("demo-"))
+    throw new Error(
+      `Refusing to seed project "${project}": e2e only uses demo-* projects.`,
+    );
 }
 
 /** About 30 in every stat (300 working sets each, split like a typical stat), trained `daysAgo` days ago. */
-function muscles(now: number, daysAgo: number): MusclesFacts {
+function muscles(now: number, daysAgo: number, statLevel = 30): MusclesFacts {
   return Object.fromEntries(
     STATS.flatMap((stat) =>
       Object.entries(STAT_MUSCLES[stat]).map(([m, share]) => [
         m,
-        { sets: Math.round(30 * STAT_POINTS.perStat * share), progressed: 0, lastTrained: now - daysAgo * 86_400_000, weeks: [] as string[] },
+        {
+          sets: Math.round(statLevel * STAT_POINTS.perStat * share),
+          progressed: 0,
+          lastTrained: now - daysAgo * 86_400_000,
+          weeks: [] as string[],
+        },
       ]),
     ),
   ) as MusclesFacts;
@@ -90,7 +125,11 @@ export async function resetSignedUpHero(): Promise<string> {
   try {
     await adminAuth().getUser(HERO.uid);
   } catch {
-    await adminAuth().createUser({ uid: HERO.uid, email: HERO.email, password: HERO.password });
+    await adminAuth().createUser({
+      uid: HERO.uid,
+      email: HERO.email,
+      password: HERO.password,
+    });
   }
   await db.recursiveDelete(db.collection("users").doc(HERO.uid));
   await db.collection("usernames").doc(HERO.username).delete();
@@ -100,28 +139,47 @@ export async function resetSignedUpHero(): Promise<string> {
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 80, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench, trainedDaysAgo = 1, classId } = options;
+  const {
+    coins = 5000,
+    scrap = 300,
+    level = 80,
+    gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter(
+      (k) => k !== "pot",
+    ),
+    shopDoc = false,
+    routine = false,
+    unit = "lb",
+    lastBench,
+    trainedDaysAgo = 1,
+    classId,
+    statLevel = 30,
+    who = HERO,
+  } = options;
   const db = adminDb();
   const now = Date.now();
 
   try {
-    await adminAuth().getUser(HERO.uid);
+    await adminAuth().getUser(who.uid);
   } catch {
-    await adminAuth().createUser({ uid: HERO.uid, email: HERO.email, password: HERO.password });
+    await adminAuth().createUser({
+      uid: who.uid,
+      email: who.email,
+      password: who.password,
+    });
   }
-  await db.recursiveDelete(db.collection("users").doc(HERO.uid));
+  await db.recursiveDelete(db.collection("users").doc(who.uid));
 
-  const user = db.collection("users").doc(HERO.uid);
+  const user = db.collection("users").doc(who.uid);
   await user.set({
-    username: HERO.username,
+    username: who.username,
     usernameChangedAt: new Date(now - 30 * 86_400_000),
-    displayName: HERO.username,
+    displayName: who.username,
     photoURL: null,
     unit,
     isPrivate: false,
     createdAt: now - 30 * 86_400_000,
   });
-  await db.collection("usernames").doc(HERO.username).set({ uid: HERO.uid });
+  await db.collection("usernames").doc(who.username).set({ uid: who.uid });
 
   const state: GameState = {
     ...newGameState(now - 30 * 86_400_000, "America/Toronto"),
@@ -136,10 +194,19 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     updatedAt: now,
   };
   await user.collection("game").doc("state").set(state);
-  await user.collection("game").doc("muscles").set({ muscles: muscles(now, trainedDaysAgo), updatedAt: now });
+  await user
+    .collection("game")
+    .doc("muscles")
+    .set({ muscles: muscles(now, trainedDaysAgo, statLevel), updatedAt: now });
   // Only claimedAt is read from these (title progress); the workouts behind them aren't seeded.
   for (let i = 0; i < CLAIMS; i++) {
-    await user.collection("claims").doc(`e2e-claim-${i}`).set({ workoutId: `e2e-claim-${i}`, claimedAt: now - (i + 2) * 86_400_000 });
+    await user
+      .collection("claims")
+      .doc(`e2e-claim-${i}`)
+      .set({
+        workoutId: `e2e-claim-${i}`,
+        claimedAt: now - (i + 2) * 86_400_000,
+      });
   }
 
   for (const key of gear) {
@@ -147,40 +214,65 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     if (!base) throw new Error(`Unknown base item ${GEAR[key]}`);
     const made = newItem(base, "admin", now);
     if (!made.ok) throw new Error(made.error);
-    await user.collection("inventory").doc(ITEM_IDS[key]).set(made.value satisfies Item);
+    await user
+      .collection("inventory")
+      .doc(ITEM_IDS[key])
+      .set(made.value satisfies Item);
   }
   if (shopDoc) {
     const week = weekId(now, "America/Toronto");
-    await user.collection("shop").doc(week).set(emptyShop(week, "America/Toronto", now));
+    await user
+      .collection("shop")
+      .doc(week)
+      .set(emptyShop(week, "America/Toronto", now));
   }
   if (routine) {
-    await user.collection("routines").doc(ROUTINE_ID).set({
-      name: "Push day",
-      exercises: [
-        {
-          exerciseId: BENCH_ID,
-          name: "Barbell Bench Press - Medium Grip",
-          sets: 3,
-          restSec: 90,
-          ...(typeof routine === "object" ? routine : {}),
-        },
-      ],
-      updatedAt: now,
-    });
+    await user
+      .collection("routines")
+      .doc(ROUTINE_ID)
+      .set({
+        name: "Push day",
+        exercises: [
+          {
+            exerciseId: BENCH_ID,
+            name: "Barbell Bench Press - Medium Grip",
+            sets: 3,
+            restSec: 90,
+            ...(typeof routine === "object" ? routine : {}),
+          },
+        ],
+        updatedAt: now,
+      });
   }
   if (lastBench) {
-    const sets = lastBench.reps.map((reps) => ({ type: "normal", weightKg: lastBench.weightKg, reps }));
-    await user.collection("workouts").doc("e2e-last-bench").set({
-      name: "Push day",
-      startedAt: now - 7 * 86_400_000,
-      endedAt: now - 7 * 86_400_000 + 3_600_000,
-      exercises: [{ exerciseId: BENCH_ID, name: "Barbell Bench Press - Medium Grip", sets }],
-      exerciseIds: [BENCH_ID],
-      volumeKg: lastBench.reps.reduce((n, r) => n + r * lastBench.weightKg, 0),
-      setCount: sets.length,
-    });
+    const sets = lastBench.reps.map((reps) => ({
+      type: "normal",
+      weightKg: lastBench.weightKg,
+      reps,
+    }));
+    await user
+      .collection("workouts")
+      .doc("e2e-last-bench")
+      .set({
+        name: "Push day",
+        startedAt: now - 7 * 86_400_000,
+        endedAt: now - 7 * 86_400_000 + 3_600_000,
+        exercises: [
+          {
+            exerciseId: BENCH_ID,
+            name: "Barbell Bench Press - Medium Grip",
+            sets,
+          },
+        ],
+        exerciseIds: [BENCH_ID],
+        volumeKg: lastBench.reps.reduce(
+          (n, r) => n + r * lastBench.weightKg,
+          0,
+        ),
+        setCount: sets.length,
+      });
   }
-  return HERO.uid;
+  return who.uid;
 }
 
 /** Every catalog base id, for tests that want to check a lot of items at once. */
@@ -195,7 +287,8 @@ if (process.argv[1]?.endsWith("seed.ts")) {
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: "demo-dyelb",
   });
   resetHero().then(
-    (uid) => console.log(`Seeded ${HERO.email} / ${HERO.password} (uid ${uid})`),
+    (uid) =>
+      console.log(`Seeded ${HERO.email} / ${HERO.password} (uid ${uid})`),
     (err) => {
       console.error(err);
       process.exitCode = 1;

@@ -27,6 +27,8 @@ npm run e2e:headed   # same, with a visible browser
 Output goes to `e2e/.output/` (gitignored): `screens/` has the 390px screenshots, `report/` the HTML
 report, `results/` the traces of failed tests. Open a report with `npx playwright show-report e2e/.output/report`.
 
+For a playable account with real-looking stats and no logged workouts, `npm run seed:har` (emulators running) creates `har@test.dev` / `password123` at level 40 with about 40 in every stat, coins, scrap and gear and no class yet (`-- --level 60 --stat 60 --class striker` to change it). It refuses anything but the local emulators, and the data is gone when they stop, so run it again after a restart.
+
 To click around by hand as the test user: `npm run emulators`, then `npm run e2e:seed`, then
 `NEXT_PUBLIC_FIREBASE_EMULATOR=1 npm run dev` and sign in through the emulator hook
 (`window.__emulatorSignIn("hero@test.dev", "password123")` in the browser console).
