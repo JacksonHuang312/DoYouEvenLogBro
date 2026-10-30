@@ -19,10 +19,10 @@ export default function EnemyContactSheet() {
           <h2 className="font-rpg-head text-xl font-semibold uppercase">
             {group}
           </h2>
-          <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
+          <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
             {ENEMIES.filter((e) => e.group === group).map((e) => (
               <li key={e.id} className="flex items-center gap-3">
-                <EnemyIcon name={e.name} size={48} />
+                <EnemyIcon name={e.name} size={72} />
                 <span className="min-w-0 text-[13px] leading-tight">
                   {e.name}
                   <span className="block text-xs text-rpg-muted">
