@@ -1,6 +1,6 @@
 import { bossTowerDropTier } from "./bosses";
-import { BASE_ITEMS } from "./catalog";
-import { BOSS_DROPS, BOSS_TOWER, CAMPAIGN, ENDLESS_TOWER, RARITIES, WEEKLY_BOSS, type Rarity } from "./config";
+import { basesFor, type BaseKind } from "./catalog";
+import { BOSS_DROPS, BOSS_TOWER, CAMPAIGN, ENDLESS_TOWER, ITEM_LEVEL, LOOT, RARITIES, WEEKLY_BOSS, type Rarity } from "./config";
 
 /*
  * What fights pay (GAME_DESIGN.md 10, Phase 5): coins and scrap, gear drops and Mythic Cores, and the
@@ -24,9 +24,11 @@ export interface Pity {
 export const NO_PITY: Pity = { sinceLegendary: 0, sinceMythic: 0 };
 
 export interface Drop {
-  /** The base item that dropped, or null. Its rarity is the base's own (a new copy, +0). */
+  /** The base item that dropped, or null. A new copy at `rarity` and `itemLevel`, +0. */
   baseId: string | null;
   rarity: Rarity | null;
+  /** 0 when nothing dropped. */
+  itemLevel: number;
   mythicCore: boolean;
   /** True when a guarantee forced it. */
   guaranteed: boolean;
@@ -46,16 +48,39 @@ function pickRarity(weights: Partial<Record<Rarity, number>>, rand: () => number
   return entries[entries.length - 1];
 }
 
-/** A random base item that starts at `rarity` (armor or accessory alike). */
-export function pickBase(rarity: Rarity, rand: () => number): string | null {
-  const bases = BASE_ITEMS.filter((b) => b.rarity === rarity);
-  return bases.length ? bases[Math.floor(rand() * bases.length)].id : null;
+const KINDS = Object.keys(LOOT.kindWeights) as (keyof typeof LOOT.kindWeights)[];
+
+/**
+ * A random base for a drop at `rarity` and item level `level` (13.5): a unique Mythic for a Mythic,
+ * otherwise a kind by LOOT.kindWeights (set piece, loose armor, accessory or weapon), then a base of
+ * that kind that fits the level.
+ */
+export function pickBase(rarity: Rarity, level: number, rand: () => number): string | null {
+  const pick = <T>(list: T[]) => (list.length ? list[Math.floor(rand() * list.length)] : null);
+  if (rarity === "mythic") return pick(basesFor("mythic", level))?.id ?? null;
+  const open = KINDS.filter((k) => basesFor(k as BaseKind, level).length > 0);
+  const total = open.reduce((n, k) => n + LOOT.kindWeights[k], 0);
+  let roll = rand() * total;
+  const kind = open.find((k) => (roll -= LOOT.kindWeights[k]) < 0) ?? open[open.length - 1];
+  return kind ? (pick(basesFor(kind as BaseKind, level))?.id ?? null) : null;
 }
+
+/** A drop's item level: up to LOOT.levelsBelow under `maxLevel` (the lower of the player's level and the source's), at least 1. */
+export const dropLevel = (maxLevel: number, rand: () => number): number =>
+  Math.max(ITEM_LEVEL.min, Math.min(ITEM_LEVEL.max, Math.floor(maxLevel)) - Math.floor(rand() * (LOOT.levelsBelow + 1)));
+
+/** The highest item level each source gives (LOOT.sourceLevel). */
+export const SOURCE_LEVEL = {
+  campaign: (stage: number) => Math.max(ITEM_LEVEL.min, Math.round(stage * LOOT.sourceLevel.campaignPerStage)),
+  endless: (floor: number) => LOOT.sourceLevel.endlessBase + floor,
+  weekly: (tier: number) => LOOT.sourceLevel.weeklyTier[Math.min(Math.max(tier, 1), LOOT.sourceLevel.weeklyTier.length) - 1],
+  bossTower: (floor: number) => Math.round(LOOT.sourceLevel.bossTowerBase + LOOT.sourceLevel.bossTowerPerFloor * floor),
+};
 
 /**
  * Rolls a drop from `table` and applies the guarantees. A guarantee only counts wins whose table
  * could have dropped that rarity, and a forced Mythic also brings a Mythic Core. `coreChance` is an
- * extra, separate chance of a Core.
+ * extra, separate chance of a Core. `maxLevel` caps the item level (your level and the source's).
  */
 export function rollDrop({
   table,
@@ -63,6 +88,7 @@ export function rollDrop({
   pity,
   coreChance = 0,
   usePity = true,
+  maxLevel = ITEM_LEVEL.max,
 }: {
   table: DropTable;
   rand: () => number;
@@ -70,6 +96,7 @@ export function rollDrop({
   coreChance?: number;
   /** False for tables outside the guarantees (Campaign, endless tower). */
   usePity?: boolean;
+  maxLevel?: number;
 }): Drop {
   let rarity: Rarity | null = rand() < table.chance ? pickRarity(table.weights, rand) : null;
   let mythicCore = coreChance > 0 && rand() < coreChance;
@@ -90,8 +117,9 @@ export function rollDrop({
     sinceLegendary: rarity === "legendary" || rarity === "mythic" ? 0 : pity.sinceLegendary + (legendaryCounts ? 1 : 0),
     sinceMythic: rarity === "mythic" ? 0 : pity.sinceMythic + (mythicCounts ? 1 : 0),
   };
-  const baseId = rarity ? pickBase(rarity, rand) : null;
-  return { baseId, rarity: baseId ? rarity : null, mythicCore, guaranteed, pity: next };
+  const itemLevel = rarity ? dropLevel(maxLevel, rand) : 0;
+  const baseId = rarity ? pickBase(rarity, itemLevel, rand) : null;
+  return { baseId, rarity: baseId ? rarity : null, itemLevel: baseId ? itemLevel : 0, mythicCore, guaranteed, pity: next };
 }
 
 // ---- What each kind of fight pays ----
@@ -111,8 +139,14 @@ export function weeklyPay(tier: number, firstWinThisWeek: boolean): Pay {
 }
 
 /** A weekly boss win's drop: the tier's table, a Core chance from BOSS_DROPS.mythicCore.fromTier, and the guarantees. */
-export const weeklyDrop = (tier: number, rand: () => number, pity: Pity): Drop =>
-  rollDrop({ table: weeklyTable(tier), rand, pity, coreChance: tier >= BOSS_DROPS.mythicCore.fromTier ? BOSS_DROPS.mythicCore.chance : 0 });
+export const weeklyDrop = (tier: number, rand: () => number, pity: Pity, level: number = ITEM_LEVEL.max): Drop =>
+  rollDrop({
+    table: weeklyTable(tier),
+    rand,
+    pity,
+    coreChance: tier >= BOSS_DROPS.mythicCore.fromTier ? BOSS_DROPS.mythicCore.chance : 0,
+    maxLevel: Math.min(level, SOURCE_LEVEL.weekly(tier)),
+  });
 
 /** A Boss Tower floor: a first clear pays coins and scrap; a reclear pays BOSS_TOWER.reclearCoinShare of the coins, nothing else. */
 export function bossTowerPay(floor: number, firstClear: boolean): Pay {
@@ -122,10 +156,10 @@ export function bossTowerPay(floor: number, firstClear: boolean): Pay {
 }
 
 /** A Boss Tower first clear's drop: BOSS_TOWER.gearChance at the floor's tier split, a Core chance every 10th floor. Reclears drop nothing. */
-export function bossTowerDrop(floor: number, rand: () => number, pity: Pity): Drop {
+export function bossTowerDrop(floor: number, rand: () => number, pity: Pity, level: number = ITEM_LEVEL.max): Drop {
   const table = { chance: BOSS_TOWER.gearChance, weights: weeklyTable(bossTowerDropTier(floor)).weights };
   const coreChance = floor % BOSS_TOWER.coreEvery === 0 ? BOSS_TOWER.coreChance : 0;
-  return rollDrop({ table, rand, pity, coreChance });
+  return rollDrop({ table, rand, pity, coreChance, maxLevel: Math.min(level, SOURCE_LEVEL.bossTower(floor)) });
 }
 
 /** A Campaign stage's first clear. */
@@ -136,7 +170,8 @@ export function campaignPay(stage: number): Pay {
   };
 }
 
-export const campaignDrop = (rand: () => number): Drop => rollDrop({ table: CAMPAIGN.gear, rand, pity: NO_PITY, usePity: false });
+export const campaignDrop = (rand: () => number, stage = 1, level: number = ITEM_LEVEL.max): Drop =>
+  rollDrop({ table: CAMPAIGN.gear, rand, pity: NO_PITY, usePity: false, maxLevel: Math.min(level, SOURCE_LEVEL.campaign(stage)) });
 
 /** An endless tower floor's first clear: base plus one coin per two floors, capped, and more every 10th floor. */
 export function towerPay(floor: number): Pay {
@@ -145,4 +180,5 @@ export function towerPay(floor: number): Pay {
   return { coins, scrap: ENDLESS_TOWER.scrap.base + Math.floor(floor / 10) * ENDLESS_TOWER.scrap.perTenFloors };
 }
 
-export const towerDrop = (rand: () => number): Drop => rollDrop({ table: ENDLESS_TOWER.gear, rand, pity: NO_PITY, usePity: false });
+export const towerDrop = (rand: () => number, floor = 1, level: number = ITEM_LEVEL.max): Drop =>
+  rollDrop({ table: ENDLESS_TOWER.gear, rand, pity: NO_PITY, usePity: false, maxLevel: Math.min(level, SOURCE_LEVEL.endless(floor)) });

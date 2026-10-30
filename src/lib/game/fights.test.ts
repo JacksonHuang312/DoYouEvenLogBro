@@ -171,13 +171,13 @@ describe("fight energy", () => {
     // The weekly boss and the Boss Tower don't use it.
     expect(won({ mode: "weekly", state: state({ energy: 0 }) }).energySpent).toBe(0);
     expect(won({ mode: "bossTower", state: state({ energy: 0 }) }).energySpent).toBe(0);
-    const paid = applyFightRewards({ state: state({ energy: 4 }), outcome: { ...won({ mode: "campaign" }) }, owned: [], fightId: "e", now: T0 });
+    const paid = applyFightRewards({ state: state({ energy: 4 }), outcome: { ...won({ mode: "campaign" }) }, fightId: "e", now: T0 });
     expect(paid.state.energy).toBe(3);
   });
 });
 
 describe("fight rewards and the hero", () => {
-  test("coins, scrap and cores are paid; a duplicate drop becomes scrap; ids come from the fight", () => {
+  test("coins, scrap and cores are paid; every drop becomes an item at its rarity and level, copies too; ids come from the fight", () => {
     const r = applyFightRewards({
       state: state({ coins: 10, materials: { scrap: 1 } }),
       outcome: {
@@ -185,20 +185,24 @@ describe("fight rewards and the hero", () => {
         scrap: 5,
         mythicCores: 1,
         drops: [
-          { baseId: "ironbound-boots", rarity: "common", guaranteed: false },
-          { baseId: "ironbound-boots", rarity: "common", guaranteed: false },
-          { baseId: "wayfarer-boots", rarity: "uncommon", guaranteed: false },
+          { baseId: "ironbound-boots", rarity: "common", itemLevel: 12, guaranteed: false },
+          { baseId: "ironbound-boots", rarity: "common", itemLevel: 12, guaranteed: false },
+          { baseId: "wayfarer-boots", rarity: "legendary", itemLevel: 30, guaranteed: true },
         ],
       },
-      owned: [{ baseId: "wayfarer-boots", removed: null }],
       fightId: "abc",
       now: T0,
     });
-    expect(r.items.map((i) => i.id)).toEqual(["fight-abc-0"]);
-    expect(r.items[0].item).toMatchObject({ baseId: "ironbound-boots", source: "boss", plus: 0 });
-    expect(r.salvaged.map((s) => s.baseId)).toEqual(["ironbound-boots", "wayfarer-boots"]);
-    const extra = r.salvaged.reduce((n, s) => n + s.scrap, 0);
-    expect(r.state).toMatchObject({ coins: 60, materials: { scrap: 1 + 5 + extra, mythicCore: 1 } });
+    expect(r.items.map((i) => i.id)).toEqual(["fight-abc-0", "fight-abc-1", "fight-abc-2"]);
+    expect(r.items[0].item).toMatchObject({ baseId: "ironbound-boots", source: "boss", plus: 0, rarity: "common", itemLevel: 12 });
+    expect(r.items[2].item).toMatchObject({ baseId: "wayfarer-boots", rarity: "legendary", itemLevel: 30 });
+    expect(r.state).toMatchObject({ coins: 60, materials: { scrap: 1 + 5, mythicCore: 1 } });
+  });
+
+  test("drops come at or a little below the lower of your level and the source's", () => {
+    // A level-5 hero clearing Campaign stage 1 (source level 1) gets level-1 items; the weekly boss caps at tier 1's 34.
+    const lows = Array.from({ length: 30 }, (_, i) => won({ mode: "campaign", seed: `s${i}` }).drops).flat();
+    for (const d of lows) expect(d.itemLevel).toBe(1);
   });
 
   test("a hero needs a class, and fights with rusted stats", () => {

@@ -1,18 +1,20 @@
 import { describe, expect, test } from "vitest";
 import { BASE_ITEMS, baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { ARMOR_SLOTS, EQUIP_LEVEL, GEAR, SALVAGE, type Rarity } from "./config";
+import { ARMOR_SLOTS, GEAR, MYTHIC_PROMOTION, RARITIES, REFORGE_SCRAP_PER_LEVEL, SALVAGE, type Rarity } from "./config";
 import {
+  applyReforge,
   applyUpgrade,
-  dropOutcome,
   defaultPosition,
   effectValue,
   equipItem,
   equippedItems,
   equippedPosition,
-  isAscended,
+  itemLevelOf,
+  levelPower,
   newItem,
   piecePower,
+  reforgeCost,
   removeItem,
   salvageYield,
   sellPrice,
@@ -25,9 +27,10 @@ import { T0 } from "./test-helpers";
 
 const UTC = "UTC";
 
-/** An owned item of a base, at a rarity and plus an upgrade could reach. */
+/** An owned item of a base: Common at level 1 unless the patch says otherwise (unique Mythics are Mythic). */
 function owned(baseId: string, patch: Partial<OwnedItem> = {}, id = `i-${baseId}`): OwnedItem {
-  const made = newItem(baseItem(baseId)!, "shop", T0);
+  const base = baseItem(baseId)!;
+  const made = newItem(base, "shop", T0, { rarity: base.mythic ? "mythic" : "common", itemLevel: 1 });
   if (!made.ok) throw new Error(made.error);
   return { ...made.value, id, ...patch };
 }
@@ -41,73 +44,70 @@ const rich = (patch: Partial<GameState> = {}): GameState => ({
 });
 
 describe("piecePower", () => {
-  const at = (rarity: Rarity, plus: number, originRarity: Rarity = rarity) => piecePower({ rarity, plus, originRarity });
+  const at = (rarity: Rarity, plus: number, itemLevel = 50, slot?: "ring" | "weapon") => piecePower({ rarity, plus, itemLevel, slot });
 
-  test("base power by rarity, plus 4% of it per step", () => {
-    expect(at("common", 0)).toBe(3);
-    expect(at("rare", 1)).toBeCloseTo(10.4);
-    expect(at("epic", 2)).toBeCloseTo(16.2);
-    expect(at("mythic", 0)).toBe(30);
+  test("an armor piece's power climbs with item level on a curve: about 1.5 at 20, 4 at 50, 10.5 at 100", () => {
+    expect(levelPower(1)).toBeCloseTo(0.5406);
+    expect(levelPower(20)).toBeCloseTo(1.54);
+    expect(levelPower(50)).toBeCloseTo(4);
+    expect(levelPower(100)).toBeCloseTo(10.5);
+    expect(at("common", 0, 50)).toBeCloseTo(4);
   });
 
-  test("full sets: Epic 75, Legendary 110; a Mythic is one piece of 30", () => {
-    expect(5 * at("epic", 0)).toBe(75);
-    expect(5 * at("legendary", 0)).toBe(110);
-    expect(at("mythic", 0)).toBe(30);
+  test("rarity multiplies it: Common 1, Uncommon 1.15, Rare 1.3, Epic 1.5, Legendary 1.75, Mythic 2", () => {
+    expect(RARITIES.map((r) => at(r, 0) / at("common", 0))).toEqual(RARITIES.map((r) => GEAR.rarityMultiplier[r]));
+    expect(RARITIES.map((r) => GEAR.rarityMultiplier[r])).toEqual([1, 1.15, 1.3, 1.5, 1.75, 2]);
   });
 
-  test("an ascended Legendary is 85% of native at +0 and 92% at +2, so a maxed one loses to a fresh native", () => {
-    expect(at("legendary", 0, "epic")).toBeCloseTo(0.85 * 22);
-    expect(at("legendary", 2, "epic")).toBeCloseTo(0.92 * 22 * 1.08);
-    expect(at("legendary", 2, "epic")).toBeLessThan(at("legendary", 0));
+  test("a Legendary is worth roughly a Common about 20 levels higher", () => {
+    const legendary = at("legendary", 0, 50);
+    expect(legendary).toBeGreaterThan(at("common", 0, 65));
+    expect(legendary).toBeLessThan(at("common", 0, 80));
   });
 
-  test("the penalty also applies to a named Legendary promoted to Mythic", () => {
-    expect(isAscended({ rarity: "mythic", originRarity: "legendary" })).toBe(true);
-    expect(at("mythic", 2, "legendary")).toBeLessThan(at("mythic", 0));
-    expect(at("mythic", 0, "legendary")).toBeGreaterThan(at("legendary", 2));
+  test("each plus adds 4%; accessories are 40% of armor, the weapon twice it", () => {
+    expect(at("rare", 1)).toBeCloseTo(at("rare", 0) * 1.04);
+    expect(at("epic", 2)).toBeCloseTo(at("epic", 0) * 1.08);
+    expect(at("rare", 0, 50, "ring")).toBeCloseTo(at("rare", 0) * 0.4);
+    expect(at("rare", 0, 50, "weapon")).toBeCloseTo(at("rare", 0) * 2);
   });
 
-  test("climbing within the unnamed tiers has no penalty", () => {
-    expect(isAscended({ rarity: "epic", originRarity: "common" })).toBe(false);
-    expect(at("epic", 1, "common")).toBe(at("epic", 1));
+  test("an item from before item levels counts as level 1", () => {
+    expect(itemLevelOf({})).toBe(1);
+    expect(piecePower({ rarity: "rare", plus: 0 })).toBeCloseTo(levelPower(1) * 1.3);
   });
 
   test("every upgrade step raises power, from any start to the top", () => {
     for (const base of BASE_ITEMS) {
-      let item = owned(base.id);
-      let steps = 0;
-      for (let step = upgradeStep(item); step.ok; step = upgradeStep(item)) {
-        const next = { ...item, ...step.value.to };
-        expect(piecePower(next), `${base.id} → ${next.rarity} +${next.plus}`).toBeGreaterThan(piecePower(item));
-        item = next;
-        steps++;
+      for (const rarity of base.mythic ? (["mythic"] as Rarity[]) : (["common", "legendary"] as Rarity[])) {
+        let item = owned(base.id, { rarity, itemLevel: 40 });
+        let steps = 0;
+        for (let step = upgradeStep(item); step.ok; step = upgradeStep(item)) {
+          const next = { ...item, ...step.value.to };
+          expect(piecePower(next), `${base.id} → ${next.rarity} +${next.plus}`).toBeGreaterThan(piecePower(item));
+          item = next;
+          steps++;
+        }
+        // A Legendary tops out as a Mythic +2; everything else at its own rarity +2.
+        expect(item.rarity, base.id).toBe(rarity === "legendary" ? "mythic" : rarity);
+        expect(item.plus).toBe(GEAR.maxPlus);
+        expect(steps).toBeGreaterThan(0);
       }
-      // Unnamed gear tops out at Legendary +2, named gear at Mythic +2.
-      expect(item.rarity, base.id).toBe(base.rarity === "legendary" || base.rarity === "mythic" ? "mythic" : "legendary");
-      expect(item.plus).toBe(GEAR.maxPlus);
-      expect(steps).toBeGreaterThan(0);
     }
   });
 });
 
 describe("upgradeStep", () => {
-  test("+0 → +1 → +2, then the next rarity at +0", () => {
-    const rare = owned("steelguard-gloves");
+  test("+0 → +1 → +2, and rarity never changes below Legendary", () => {
+    const rare = owned("steelguard-gloves", { rarity: "rare" });
     expect(upgradeStep(rare)).toMatchObject({ ok: true, value: { kind: "plus", to: { rarity: "rare", plus: 1 } } });
-    expect(upgradeStep({ ...rare, plus: 2 })).toMatchObject({ ok: true, value: { kind: "promote", to: { rarity: "epic", plus: 0 } } });
+    expect(upgradeStep({ ...rare, plus: 2 })).toMatchObject({ ok: false, error: "Already maxed" });
+    expect(upgradeStep(owned("warden-boots", { rarity: "epic", plus: 2 }))).toMatchObject({ ok: false });
   });
 
-  test("unnamed Epic +2 becomes an ascended Legendary, which stops at +2", () => {
-    const epic = owned("warden-boots", { plus: 2 });
-    expect(upgradeStep(epic)).toMatchObject({ ok: true, value: { to: { rarity: "legendary", plus: 0 } } });
-    expect(upgradeStep({ ...epic, rarity: "legendary", plus: 2 })).toMatchObject({ ok: false, error: "Unnamed gear stops at Legendary +2" });
-  });
-
-  test("named Legendary +2 → Mythic needs a Mythic Core; Mythic +2 is the top", () => {
-    const named = owned("titans-vow-helmet", { plus: 2 });
-    const step = upgradeStep(named);
-    expect(step).toMatchObject({ ok: true, value: { to: { rarity: "mythic", plus: 0 } } });
+  test("a Legendary +2 → Mythic needs a Mythic Core; Mythic +2 is the top", () => {
+    const step = upgradeStep(owned("titans-vow-helmet", { rarity: "legendary", plus: 2 }));
+    expect(step).toMatchObject({ ok: true, value: { kind: "promote", to: { rarity: "mythic", plus: 0 }, cost: MYTHIC_PROMOTION } });
     expect(step.ok && step.value.cost.mythicCore).toBe(1);
     expect(upgradeStep(owned("unbroken-helmet", { plus: 2 }))).toMatchObject({ ok: false });
   });
@@ -131,24 +131,17 @@ describe("applyUpgrade", () => {
   test("short on coins, scrap or a Mythic Core is a 402", () => {
     expect(applyUpgrade({ state: rich({ coins: 39 }), item, expected, now: T0 })).toMatchObject({ ok: false, status: 402, error: "Not enough coins" });
     expect(applyUpgrade({ state: rich({ materials: { scrap: 1 } }), item, expected, now: T0 })).toMatchObject({ ok: false, status: 402, error: "Not enough scrap" });
-    const named = owned("titans-vow-boots", { plus: 2 });
+    const legendary = owned("titans-vow-boots", { rarity: "legendary", plus: 2 });
     expect(
-      applyUpgrade({ state: rich({ materials: { scrap: 999 } }), item: named, expected: { rarity: "legendary", plus: 2 }, now: T0 }),
+      applyUpgrade({ state: rich({ materials: { scrap: 999 } }), item: legendary, expected: { rarity: "legendary", plus: 2 }, now: T0 }),
     ).toMatchObject({ ok: false, status: 402, error: "Needs a Mythic Core (boss drop)" });
   });
 
-  test("promoting a named Legendary spends the Mythic Core", () => {
-    const named = owned("titans-vow-boots", { plus: 2 });
-    const r = applyUpgrade({ state: rich(), item: named, expected: { rarity: "legendary", plus: 2 }, now: T0 });
-    expect(r).toMatchObject({ ok: true, value: { state: { materials: { mythicCore: 4 } }, item: { rarity: "mythic", plus: 0, originRarity: "legendary" } } });
-  });
-
-  test("an equipped item can't be upgraded into a rarity the level can't equip; an unequipped one can", () => {
-    const rare = owned("steelguard-boots", { plus: 2 });
-    const expectedRare = { rarity: "rare" as const, plus: 2 };
-    const equipped = rich({ level: EQUIP_LEVEL.epic - 1, equipped: { boots: rare.id } });
-    expect(applyUpgrade({ state: equipped, item: rare, expected: expectedRare, now: T0 })).toMatchObject({ ok: false, status: 409 });
-    expect(applyUpgrade({ state: { ...equipped, equipped: {} }, item: rare, expected: expectedRare, now: T0 })).toMatchObject({ ok: true });
+  test("promoting a Legendary spends the Mythic Core, and an equipped one can be upgraded at any level", () => {
+    const legendary = owned("titans-vow-boots", { rarity: "legendary", plus: 2, itemLevel: 10 });
+    const state = rich({ level: 10, equipped: { boots: legendary.id } });
+    const r = applyUpgrade({ state, item: legendary, expected: { rarity: "legendary", plus: 2 }, now: T0 });
+    expect(r).toMatchObject({ ok: true, value: { state: { materials: { mythicCore: 4 } }, item: { rarity: "mythic", plus: 0, itemLevel: 10 } } });
   });
 
   test("a removed item can't be upgraded", () => {
@@ -157,20 +150,51 @@ describe("applyUpgrade", () => {
   });
 });
 
+describe("reforging", () => {
+  const item = owned("steelguard-helmet", { rarity: "epic", plus: 1, itemLevel: 20 });
+
+  test("raises the item to the user's level for scrap per level by rarity, keeping rarity and plus", () => {
+    const state = rich({ level: 30, materials: { scrap: 100 } });
+    const cost = 10 * REFORGE_SCRAP_PER_LEVEL.epic;
+    expect(reforgeCost(item, 30)).toBe(cost);
+    const r = applyReforge({ state, item, expectedLevel: 20, now: T0 + 1 });
+    expect(r).toMatchObject({ ok: true, value: { scrap: cost, to: 30, state: { materials: { scrap: 100 - cost } }, item: { itemLevel: 30, rarity: "epic", plus: 1 } } });
+  });
+
+  test("an item at the user's level or above can't be reforged; a retry with the old level is refused", () => {
+    expect(applyReforge({ state: rich({ level: 20 }), item, expectedLevel: 20, now: T0 })).toMatchObject({ ok: false, error: "Already at your level" });
+    expect(applyReforge({ state: rich({ level: 30 }), item: { ...item, itemLevel: 30 }, expectedLevel: 20, now: T0 })).toMatchObject({
+      ok: false,
+      status: 409,
+    });
+  });
+
+  test("short on scrap is a 402; a removed item is a 404", () => {
+    expect(applyReforge({ state: rich({ level: 30, materials: { scrap: 1 } }), item, expectedLevel: 20, now: T0 })).toMatchObject({ ok: false, status: 402 });
+    const gone = { ...item, removed: { reason: "sold" as const, at: T0, coins: 0, scrap: 0 } };
+    expect(applyReforge({ state: rich({ level: 30 }), item: gone, expectedLevel: 20, now: T0 })).toMatchObject({ ok: false, status: 404 });
+  });
+
+  test("an item from before item levels reforges from level 1", () => {
+    const old = { ...item, itemLevel: undefined as unknown as number };
+    expect(applyReforge({ state: rich({ level: 5 }), item: old, expectedLevel: 1, now: T0 })).toMatchObject({ ok: true, value: { to: 5 } });
+  });
+});
+
 describe("equipping", () => {
-  test("level gates by current rarity: Epic 35, Legendary 55, Mythic 80", () => {
-    const cases: [string, Rarity, number][] = [
-      ["warden-helmet", "epic", 35],
-      ["titans-vow-helmet", "legendary", 55],
-      ["unbroken-helmet", "mythic", 80],
-    ];
-    for (const [baseId, rarity, level] of cases) {
-      const item = owned(baseId);
-      expect(item.rarity).toBe(rarity);
-      expect(equipItem(rich({ level: level - 1 }), item, T0), rarity).toMatchObject({ ok: false, error: `${rarity[0].toUpperCase()}${rarity.slice(1)} gear needs level ${level}` });
-      expect(equipItem(rich({ level }), item, T0), rarity).toMatchObject({ ok: true, value: { equipped: { helmet: item.id } } });
+  test("you can't wear an item above your level, whatever its rarity", () => {
+    for (const rarity of ["common", "legendary", "mythic"] as Rarity[]) {
+      const item = owned("titans-vow-helmet", { rarity, itemLevel: 30 });
+      expect(equipItem(rich({ level: 29 }), item, T0), rarity).toMatchObject({ ok: false, error: "Needs level 30" });
+      expect(equipItem(rich({ level: 30 }), item, T0), rarity).toMatchObject({ ok: true, value: { equipped: { helmet: item.id } } });
     }
-    expect(equipItem(rich({ level: 1 }), owned("steelguard-helmet"), T0)).toMatchObject({ ok: true });
+  });
+
+  test("a weapon goes in the weapon position only", () => {
+    const sword = owned("recruits-blade", {}, "w");
+    expect(equipItem(rich(), sword, T0)).toMatchObject({ ok: true, value: { equipped: { weapon: "w" } } });
+    expect(equipItem(rich(), sword, T0, "gloves")).toMatchObject({ ok: false });
+    expect(equipItem(rich(), owned("ironbound-gloves"), T0, "weapon")).toMatchObject({ ok: false });
   });
 
   test("equipping replaces the slot's item; equipping again changes nothing", () => {
@@ -198,20 +222,6 @@ describe("equipping", () => {
 });
 
 describe("accessories", () => {
-  test("they have their own, lower base power: Common 1, Uncommon 2.5, Rare 4, Epic 6, Legendary 9, Mythic 12", () => {
-    const power = (rarity: Rarity) => piecePower({ rarity, plus: 0, originRarity: rarity, slot: "ring" });
-    expect(["common", "uncommon", "rare", "epic", "legendary", "mythic"].map((r) => power(r as Rarity))).toEqual([1, 2.5, 4, 6, 9, 12]);
-    expect(piecePower({ rarity: "rare", plus: 2, originRarity: "rare", slot: "belt" })).toBeCloseTo(4.32);
-    expect(piecePower({ rarity: "rare", plus: 0, originRarity: "rare" })).toBe(10);
-  });
-
-  test("an accessory item records its slot and follows the same rarity rules as armor", () => {
-    const ring = newItem(baseItem("sunforged-ring")!, "admin", T0);
-    expect(ring).toMatchObject({ ok: true, value: { slot: "ring", rarity: "legendary", named: true } });
-    expect(newItem(baseItem("copper-band")!, "admin", T0, { rarity: "mythic" })).toMatchObject({ ok: false });
-    expect(newItem(baseItem("copper-band")!, "admin", T0, { rarity: "legendary", plus: 2 })).toMatchObject({ ok: true });
-  });
-
   test("a ring goes in a ring position only, and one ring is never in two positions", () => {
     const ring = owned("copper-band", {}, "r1");
     const other = owned("bronze-signet", {}, "r2");
@@ -222,7 +232,6 @@ describe("accessories", () => {
     expect(equipItem(rich(), owned("ironbound-helmet"), T0, "ring1")).toMatchObject({ ok: false });
     const state = first.ok ? first.value : rich();
     expect(equipItem(state, ring, T0, "ring2")).toMatchObject({ ok: false, error: expect.stringContaining("another position") });
-    // A second ring fills the other position; the same ring again changes nothing.
     const both = equipItem(state, other, T0, "ring2");
     expect(both).toMatchObject({ ok: true, value: { equipped: { ring1: "r1", ring2: "r2" } } });
     expect(equipItem(state, ring, T0, "ring1")).toMatchObject({ ok: true, value: { equipped: { ring1: "r1" } } });
@@ -241,27 +250,6 @@ describe("accessories", () => {
     expect(equippedPosition(state, "zzz")).toBeNull();
   });
 
-  test("they need the same levels, and an equipped one can not be upgraded past the user's level", () => {
-    const epic = owned("gold-seal", {}, "e");
-    expect(equipItem(rich({ level: 34 }), epic, T0, "ring1")).toMatchObject({ ok: false });
-    expect(equipItem(rich({ level: 35 }), epic, T0, "ring1")).toMatchObject({ ok: true });
-    const wornEpic = owned("gold-seal", { plus: 2 }, "e2");
-    const state = rich({ level: 54, equipped: { ring2: "e2" } });
-    expect(applyUpgrade({ state, item: wornEpic, expected: { rarity: "epic", plus: 2 }, now: T0 })).toMatchObject({ ok: false });
-    const rare = owned("silver-loop", { plus: 1 }, "r");
-    const rareState = rich({ level: 5, equipped: { ring1: "r" } });
-    expect(applyUpgrade({ state: rareState, item: rare, expected: { rarity: "rare", plus: 1 }, now: T0 })).toMatchObject({ ok: true });
-  });
-
-  test("an equipped accessory can not be sold or salvaged; free ones sell by origin rarity and salvage by rarity", () => {
-    const ring = owned("silver-loop", {}, "r");
-    expect(removeItem(rich({ equipped: { ring2: "r" } }), ring, "sold", T0)).toMatchObject({ ok: false, error: "Unequip it first" });
-    expect(removeItem(rich({ equipped: { ring2: "r" } }), ring, "salvaged", T0)).toMatchObject({ ok: false });
-    expect(sellPrice(ring)).toBe(250);
-    expect(removeItem(rich({ materials: {} }), ring, "salvaged", T0)).toMatchObject({ ok: true, value: { removal: { scrap: SALVAGE.rare } } });
-    expect(sellPrice(owned("sunforged-ring"))).toBeNull();
-  });
-
   test("equippedItems finds accessories in their positions, once each, and ignores misplaced ids", () => {
     const ring = owned("copper-band", {}, "r");
     const charm = owned("lucky-pebble", {}, "c");
@@ -277,40 +265,39 @@ describe("accessories", () => {
 });
 
 describe("selling and salvage", () => {
-  test("sell price is 25% of the origin rarity's value, rounded to 5", () => {
+  test("Common to Epic sell for 25% of their rarity's value, rounded to 5, whatever the level or plus", () => {
     expect(sellPrice(owned("ironbound-helmet"))).toBe(40);
-    expect(sellPrice(owned("wayfarer-helmet"))).toBe(115);
-    expect(sellPrice(owned("steelguard-helmet"))).toBe(250);
-    expect(sellPrice(owned("warden-helmet"))).toBe(625);
-    // An upgraded item still sells by where it started, so upgrading then selling never profits.
-    expect(sellPrice(owned("ironbound-helmet", { rarity: "epic", plus: 2 }))).toBe(40);
-    expect(sellPrice(owned("warden-helmet", { rarity: "legendary" }))).toBe(625);
+    expect(sellPrice(owned("wayfarer-helmet", { rarity: "uncommon" }))).toBe(115);
+    expect(sellPrice(owned("steelguard-helmet", { rarity: "rare", itemLevel: 80 }))).toBe(250);
+    expect(sellPrice(owned("warden-helmet", { rarity: "epic", plus: 2 }))).toBe(625);
   });
 
-  test("named items can't be sold, only salvaged", () => {
-    const named = owned("titans-vow-gloves");
-    expect(sellPrice(named)).toBeNull();
-    expect(removeItem(rich(), named, "sold", T0)).toMatchObject({ ok: false, status: 409 });
-    expect(removeItem(rich({ materials: {} }), named, "salvaged", T0)).toMatchObject({
+  test("Legendary and Mythic can't be sold, only salvaged", () => {
+    const legendary = owned("titans-vow-gloves", { rarity: "legendary", itemLevel: 50 });
+    expect(sellPrice(legendary)).toBeNull();
+    expect(sellPrice(owned("unbroken-gloves"))).toBeNull();
+    expect(removeItem(rich(), legendary, "sold", T0)).toMatchObject({ ok: false, status: 409 });
+    expect(removeItem(rich({ materials: {} }), legendary, "salvaged", T0)).toMatchObject({
       ok: true,
       value: { state: { materials: { scrap: SALVAGE.legendary } }, removal: { reason: "salvaged", scrap: 150, coins: 0 } },
     });
   });
 
   test("selling pays coins and marks the item removed", () => {
-    const r = removeItem(rich({ coins: 10 }), owned("steelguard-boots"), "sold", T0 + 5);
+    const r = removeItem(rich({ coins: 10 }), owned("steelguard-boots", { rarity: "rare" }), "sold", T0 + 5);
     expect(r).toMatchObject({ ok: true, value: { state: { coins: 260 }, item: { removed: { reason: "sold", at: T0 + 5, coins: 250 } } } });
   });
 
-  test("salvage yield goes by current rarity", () => {
-    const r = removeItem(rich({ materials: { scrap: 1 } }), owned("ironbound-boots", { rarity: "rare", plus: 1 }), "salvaged", T0);
-    expect(r).toMatchObject({ ok: true, value: { state: { materials: { scrap: 1 + SALVAGE.rare } } } });
+  test("salvage pays by rarity and item level: half at level 1, 1.5 times at level 100", () => {
+    expect(salvageYield({ rarity: "rare", itemLevel: 50 })).toBe(SALVAGE.rare);
+    expect(salvageYield({ rarity: "rare", itemLevel: 1 })).toBe(Math.round(SALVAGE.rare * 0.51));
+    expect(salvageYield({ rarity: "legendary", itemLevel: 100 })).toBe(Math.round(SALVAGE.legendary * 1.5));
+    expect(salvageYield({ rarity: "common", itemLevel: 1 })).toBeGreaterThanOrEqual(1);
   });
 
   test("a salvage charm adds its share of the scrap, rounded", () => {
-    const r = removeItem(rich({ materials: {} }), owned("ironbound-boots", { rarity: "rare" }), "salvaged", T0, 0.1);
+    const r = removeItem(rich({ materials: {} }), owned("ironbound-boots", { rarity: "rare", itemLevel: 50 }), "salvaged", T0, 0.1);
     expect(r).toMatchObject({ ok: true, value: { removal: { scrap: Math.round(SALVAGE.rare * 1.1) } } });
-    expect(salvageYield({ rarity: "common" }, 0.5)).toBe(Math.round(SALVAGE.common * 1.5));
     // Selling never pays scrap, charm or not.
     expect(removeItem(rich(), owned("ironbound-boots"), "sold", T0, 0.5)).toMatchObject({ value: { removal: { scrap: 0 } } });
   });
@@ -326,19 +313,6 @@ describe("selling and salvage", () => {
   });
 });
 
-describe("dropOutcome (Phase 5 boss drops)", () => {
-  test("a base you already own turns into scrap, never coins", () => {
-    const have = [owned("titans-vow-helmet")];
-    expect(dropOutcome({ baseId: "titans-vow-helmet", rarity: "legendary" }, have)).toEqual({ kind: "salvage", scrap: SALVAGE.legendary });
-    expect(dropOutcome({ baseId: "titans-vow-boots", rarity: "legendary" }, have)).toEqual({ kind: "item" });
-  });
-
-  test("a sold or salvaged copy doesn't count as owned", () => {
-    const gone = [owned("titans-vow-helmet", { removed: { reason: "salvaged", at: T0, coins: 0, scrap: 150 } })];
-    expect(dropOutcome({ baseId: "titans-vow-helmet", rarity: "legendary" }, gone)).toEqual({ kind: "item" });
-  });
-});
-
 describe("sets", () => {
   const pieces = (setId: string, n: number) => ARMOR_SLOTS.slice(0, n).map((slot) => ({ baseId: `${setId}-${slot}` }));
 
@@ -351,7 +325,6 @@ describe("sets", () => {
 
   test("pieces of different sets don't add up, and unknown bases belong to no set", () => {
     expect(setBonusPct([...pieces("warden", 2), { baseId: "steelguard-leggings" }, { baseId: "steelguard-boots" }])).toBe(0);
-    // Loose items (Common, Uncommon, Mythic) are in no set however many are worn.
     expect(setBonusPct(ARMOR_SLOTS.map((s) => ({ baseId: `ironbound-${s}` })))).toBe(0);
     expect(setBonusPct(ARMOR_SLOTS.map((s) => ({ baseId: `unbroken-${s}` })))).toBe(0);
     expect(setBonusPct([{ baseId: "gone-1" }, { baseId: "gone-2" }, { baseId: "gone-3" }])).toBe(0);
@@ -359,16 +332,22 @@ describe("sets", () => {
 });
 
 describe("newItem", () => {
-  test("starts at the base's rarity, +0, named when it starts at Legendary or Mythic", () => {
-    expect(newItem(baseItem("warden-gloves")!, "shop", T0)).toMatchObject({ ok: true, value: { originRarity: "epic", rarity: "epic", plus: 0, named: false, removed: null, slot: "gloves" } });
-    expect(newItem(baseItem("unbroken-gloves")!, "boss", T0)).toMatchObject({ ok: true, value: { named: true, originRarity: "mythic" } });
+  test("any base at any rarity and item level, +0", () => {
+    expect(newItem(baseItem("warden-gloves")!, "shop", T0, { rarity: "common", itemLevel: 45 })).toMatchObject({
+      ok: true,
+      value: { rarity: "common", itemLevel: 45, plus: 0, removed: null, slot: "gloves" },
+    });
+    expect(newItem(baseItem("copper-band")!, "boss", T0, { rarity: "legendary", itemLevel: 3 })).toMatchObject({ ok: true });
   });
 
-  test("a higher rarity or plus (the admin script) must be reachable by upgrading", () => {
+  test("a unique Mythic is always Mythic; levels are 1 to 100; plus is 0 to 2", () => {
     const iron = baseItem("ironbound-helmet")!;
-    expect(newItem(iron, "admin", T0, { rarity: "legendary", plus: 2 })).toMatchObject({ ok: true, value: { originRarity: "common", rarity: "legendary" } });
-    expect(newItem(iron, "admin", T0, { rarity: "mythic" })).toMatchObject({ ok: false });
-    expect(newItem(baseItem("unbroken-helmet")!, "admin", T0, { rarity: "legendary" })).toMatchObject({ ok: false });
-    expect(newItem(iron, "admin", T0, { plus: 3 })).toMatchObject({ ok: false });
+    expect(newItem(baseItem("unbroken-helmet")!, "admin", T0, { rarity: "legendary", itemLevel: 80 })).toMatchObject({ ok: false });
+    expect(newItem(baseItem("unbroken-helmet")!, "admin", T0, { rarity: "mythic", itemLevel: 80 })).toMatchObject({ ok: true });
+    expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 0 })).toMatchObject({ ok: false });
+    expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 101 })).toMatchObject({ ok: false });
+    expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 2.5 })).toMatchObject({ ok: false });
+    expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 5, plus: 2 })).toMatchObject({ ok: true });
+    expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 5, plus: 3 })).toMatchObject({ ok: false });
   });
 });

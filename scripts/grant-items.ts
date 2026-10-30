@@ -2,8 +2,8 @@
 // (Phase 5). A developer tool: there is deliberately no API route for this. Granted items are
 // marked source "admin".
 //
-//   npm run grant-items -- --uid <uid> --all --dry-run          # one of every catalog item, at its own rarity
-//   npm run grant-items -- --uid <uid> --base warden-chestplate --rarity legendary --plus 2
+//   npm run grant-items -- --uid <uid> --all --dry-run          # one of every catalog item, Rare (unique Mythics Mythic)
+//   npm run grant-items -- --uid <uid> --base warden-chestplate --rarity legendary --level 45 --plus 2
 //   npm run grant-items -- --uid <uid> --base titans-vow-helmet --base unbroken-boots --base sunforged-ring
 //   npm run grant-items -- --uid <uid> --materials scrap=300,mythicCore=1
 //   npm run grant-items -- --uid <uid> --coins 5000
@@ -14,8 +14,8 @@ import { randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import { BASE_ITEMS, baseItem } from "../src/lib/game/catalog";
 import { newGameState, type GameState } from "../src/lib/game/claim";
-import { DEFAULT_TIME_ZONE, MATERIALS, RARITIES, type Material, type Rarity } from "../src/lib/game/config";
-import { newItem, piecePower, type Item } from "../src/lib/game/items";
+import { DEFAULT_TIME_ZONE, ITEM_LEVEL, MATERIALS, RARITIES, type Material, type Rarity } from "../src/lib/game/config";
+import { isItemLevel, newItem, piecePower, type Item } from "../src/lib/game/items";
 import { adminDb } from "../src/lib/server/admin";
 
 try {
@@ -30,6 +30,7 @@ const { values: args } = parseArgs({
     all: { type: "boolean", default: false },
     base: { type: "string", multiple: true, default: [] },
     rarity: { type: "string" },
+    level: { type: "string" },
     plus: { type: "string", default: "0" },
     materials: { type: "string" },
     coins: { type: "string" },
@@ -53,6 +54,8 @@ if (!emulator && !dryRun && args.confirm !== projectId) {
 }
 
 if (args.rarity && !RARITIES.includes(args.rarity as Rarity)) fail(`--rarity must be one of ${RARITIES.join(", ")}`);
+const itemLevel = args.level === undefined ? 1 : Number(args.level);
+if (!isItemLevel(itemLevel)) fail(`--level must be a whole number from ${ITEM_LEVEL.min} to ${ITEM_LEVEL.max}`);
 const plus = Number(args.plus);
 
 function parseMaterials(text: string | undefined): Partial<Record<Material, number>> {
@@ -77,8 +80,9 @@ const now = Date.now();
 const baseIds = args.all ? BASE_ITEMS.map((b) => b.id) : args.base;
 const items: { id: string; item: Item }[] = baseIds.map((id) => {
   const base = baseItem(id) ?? fail(`Unknown base item "${id}". Known: ${BASE_ITEMS.map((b) => b.id).join(", ")}`);
-  // --all keeps each item at its own rarity; --rarity applies to the --base items.
-  const made = newItem(base, "admin", now, { rarity: args.all ? base.rarity : ((args.rarity as Rarity) ?? base.rarity), plus });
+  // A unique Mythic is always Mythic; anything else takes --rarity (default Rare).
+  const rarity: Rarity = base.mythic ? "mythic" : ((args.rarity as Rarity) ?? "rare");
+  const made = newItem(base, "admin", now, { rarity, itemLevel, plus });
   if (!made.ok) fail(`${id}: ${made.error}`);
   return { id: `admin-${randomUUID()}`, item: made.value };
 });
@@ -92,7 +96,7 @@ async function main() {
   console.log(`${dryRun ? "DRY RUN: " : ""}granting to ${uid} in ${emulator ? "the emulator" : projectId}`);
   for (const { id, item } of items) {
     const focus = Object.entries(baseItem(item.baseId)?.focus ?? {}).map(([k, v]) => `${k.toUpperCase()} ${v}`).join(" / ");
-    console.log(`  ${id}  ${item.baseId}  ${item.slot}  ${item.rarity} +${item.plus}${item.named ? " (named)" : ""}  power ${piecePower(item).toFixed(1)}  ${focus}`);
+    console.log(`  ${id}  ${item.baseId}  ${item.slot}  ${item.rarity} +${item.plus}  level ${item.itemLevel}  power ${piecePower(item).toFixed(1)}  ${focus}`);
   }
   for (const [name, n] of Object.entries(materials)) console.log(`  +${n} ${name}`);
   if (coins > 0) console.log(`  +${coins} coins`);

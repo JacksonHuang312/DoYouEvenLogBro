@@ -1,4 +1,4 @@
-import { battlePower, type BattlePower } from "./battle";
+import { battlePower, type BattlePower, type GearPiece } from "./battle";
 import { activePause, freezeFor, injuredStats } from "./breaks";
 import { baseItem } from "./catalog";
 import { energyOf, type GameState } from "./claim";
@@ -18,7 +18,7 @@ import {
 import { gearEffects } from "./effects";
 import { classBonusPct } from "./heroClass";
 import { boosted } from "./levels";
-import { dropOutcome, fail, materialsOf, newItem, ok, type GameResult, type Item, type OwnedItem } from "./items";
+import { fail, materialsOf, newItem, ok, type GameResult, type Item } from "./items";
 import {
   bossTowerDrop,
   bossTowerPay,
@@ -124,7 +124,7 @@ export function fightHero({
 }: {
   state: GameState;
   muscles: MusclesFacts;
-  worn: Pick<Item, "slot" | "rarity" | "plus" | "originRarity" | "baseId">[];
+  worn: GearPiece[];
   now: number;
 }): GameResult<FightHero> {
   if (!state.classId) return fail("Pick a class first");
@@ -135,6 +135,7 @@ export function fightHero({
     body: power(fighting),
     equipped: worn,
     level: state.level,
+    classId: state.classId,
     titlePct: titleBonusPct(state),
     classPct: classBonusPct(state),
   });
@@ -163,8 +164,8 @@ export interface FightOutcome {
   mythicCores: number;
   /** Fight energy this request spent (Campaign and endless tower: 1). */
   energySpent: number;
-  /** Gear won, before duplicates turn into scrap (`applyFightRewards`). */
-  drops: { baseId: string; rarity: Rarity; guaranteed: boolean }[];
+  /** Gear won: each becomes a new item (`applyFightRewards`). */
+  drops: { baseId: string; rarity: Rarity; itemLevel: number; guaranteed: boolean }[];
   /** For a Boss Tower win: whether it was the floor's first clear. */
   firstClear?: boolean;
 }
@@ -212,7 +213,8 @@ function round(encounter: Encounter, key: number, f: FightHero, seed: string, mi
   };
 }
 
-const dropOf = (d: Drop) => (d.baseId && d.rarity ? [{ baseId: d.baseId, rarity: d.rarity, guaranteed: d.guaranteed }] : []);
+const dropOf = (d: Drop) =>
+  d.baseId && d.rarity ? [{ baseId: d.baseId, rarity: d.rarity, itemLevel: d.itemLevel, guaranteed: d.guaranteed }] : [];
 
 /** Runs one fight request: checks the mode's rules, fights, and works out what it pays. */
 export function runFight(input: FightInput): GameResult<FightOutcome> {
@@ -239,7 +241,7 @@ export function runFight(input: FightInput): GameResult<FightOutcome> {
       const out = { ...base, rounds: [r] };
       if (r.result.won) {
         const pay = weeklyPay(weekly.tier, weekly.wins === 0);
-        const drop = weeklyDrop(weekly.tier, loot, pity);
+        const drop = weeklyDrop(weekly.tier, loot, pity, state.level);
         pity = drop.pity;
         Object.assign(out, { coins: pay.coins, scrap: pay.scrap, mythicCores: drop.mythicCore ? 1 : 0, drops: dropOf(drop) });
       }
@@ -265,7 +267,7 @@ export function runFight(input: FightInput): GameResult<FightOutcome> {
         const pay = towerPay(floor);
         out.coins += pay.coins;
         out.scrap += pay.scrap;
-        out.drops.push(...dropOf(towerDrop(loot)));
+        out.drops.push(...dropOf(towerDrop(loot, floor, state.level)));
       }
       return ok({ ...out, doc: { ...doc, endless: { cleared, cooldownUntil }, updatedAt: now } });
     }
@@ -289,7 +291,7 @@ export function runFight(input: FightInput): GameResult<FightOutcome> {
         const pay = bossTowerPay(floor, firstClear);
         Object.assign(out, { coins: pay.coins, scrap: pay.scrap, firstClear });
         if (firstClear) {
-          const drop = bossTowerDrop(floor, loot, pity);
+          const drop = bossTowerDrop(floor, loot, pity, state.level);
           pity = drop.pity;
           Object.assign(out, { mythicCores: drop.mythicCore ? 1 : 0, drops: dropOf(drop) });
         }
@@ -308,7 +310,7 @@ export function runFight(input: FightInput): GameResult<FightOutcome> {
       const out = { ...base, rounds: [r], energySpent: 1 };
       if (r.result.won) {
         const pay = campaignPay(stage);
-        Object.assign(out, { coins: pay.coins, scrap: pay.scrap, drops: dropOf(campaignDrop(loot)) });
+        Object.assign(out, { coins: pay.coins, scrap: pay.scrap, drops: dropOf(campaignDrop(loot, stage, state.level)) });
       }
       return ok({ ...out, doc: { ...doc, campaign: { cleared: r.result.won ? stage : doc.campaign.cleared }, updatedAt: now } });
     }
@@ -321,42 +323,30 @@ export interface FightRewards {
   state: GameState;
   /** New inventory docs, with ids made from the fight's id so a retry can't add them twice. */
   items: { id: string; item: Item }[];
-  /** Drops of a base already owned, turned into scrap. */
-  salvaged: { baseId: string; rarity: Rarity; scrap: number }[];
 }
 
-/** Pays a fight's coins, scrap and Mythic Cores, and turns its drops into new items or scrap (duplicates). */
+/**
+ * Pays a fight's coins, scrap and Mythic Cores, and turns every drop into a new item at its rarity and
+ * item level. A second copy of something you own is kept too: salvage it or keep it (13.5).
+ */
 export function applyFightRewards({
   state,
   outcome,
-  owned,
   fightId,
   now,
 }: {
   state: GameState;
   outcome: Pick<FightOutcome, "coins" | "scrap" | "mythicCores" | "drops"> & Partial<Pick<FightOutcome, "energySpent">>;
-  /** The inventory items with the dropped bases (only those are needed). */
-  owned: Pick<OwnedItem, "baseId" | "removed">[];
   fightId: string;
   now: number;
 }): FightRewards {
   const items: FightRewards["items"] = [];
-  const salvaged: FightRewards["salvaged"] = [];
-  const have = [...owned];
-  let scrap = outcome.scrap;
   outcome.drops.forEach((d, i) => {
     const base = baseItem(d.baseId);
-    const result = dropOutcome(d, have);
-    const item = base && result.kind === "item" ? newItem(base, "boss", now) : null;
-    if (item?.ok) {
-      items.push({ id: `fight-${fightId}-${i}`, item: item.value });
-      have.push(item.value);
-    } else {
-      const s = result.kind === "salvage" ? result.scrap : 0;
-      salvaged.push({ baseId: d.baseId, rarity: d.rarity, scrap: s });
-      scrap += s;
-    }
+    const item = base ? newItem(base, "boss", now, { rarity: d.rarity, itemLevel: d.itemLevel }) : null;
+    if (item?.ok) items.push({ id: `fight-${fightId}-${i}`, item: item.value });
   });
+  const scrap = outcome.scrap;
   const m = materialsOf(state);
   return {
     state: {
@@ -367,7 +357,6 @@ export function applyFightRewards({
       updatedAt: now,
     },
     items,
-    salvaged,
   };
 }
 

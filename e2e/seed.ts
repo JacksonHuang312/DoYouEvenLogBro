@@ -5,6 +5,7 @@ import {
   STAT_POINTS,
   STATS,
   type ClassId,
+  type Rarity,
 } from "../src/lib/game/config";
 import { xpToReach } from "../src/lib/game/economy";
 import type { MusclesFacts } from "../src/lib/game/facts";
@@ -45,14 +46,17 @@ export const ITEM_IDS = {
   pot: "e2e-scrapper-pot",
 } as const;
 
-const GEAR: Record<keyof typeof ITEM_IDS, string> = {
-  loopA: "silver-loop", // Rare ring. Two identical copies, to test stacking.
-  loopB: "silver-loop",
-  seal: "gold-seal", // Epic ring.
-  band: "copper-band", // Common ring.
-  sunforged: "sunforged-ring", // Legendary ring: named, so salvage-only.
-  helm: "steelguard-helmet", // Rare helmet from a set.
-  pot: "scrapper-helmet", // Common helmet (ATK 20 / DEF 80): the longest subtitle. Only when asked for.
+/** Every seeded item is at this item level, so any seeded level of 20 or more can wear them all. */
+export const SEED_ITEM_LEVEL = 20;
+
+const GEAR: Record<keyof typeof ITEM_IDS, { base: string; rarity: Rarity }> = {
+  loopA: { base: "silver-loop", rarity: "rare" }, // Rare ring. Two identical copies, to test stacking.
+  loopB: { base: "silver-loop", rarity: "rare" },
+  seal: { base: "gold-seal", rarity: "epic" }, // Epic ring.
+  band: { base: "copper-band", rarity: "common" }, // Common ring.
+  sunforged: { base: "sunforged-ring", rarity: "legendary" }, // Legendary ring: salvage-only.
+  helm: { base: "steelguard-helmet", rarity: "rare" }, // Rare helmet from a set.
+  pot: { base: "scrapper-helmet", rarity: "common" }, // Common helmet (ATK 20 / DEF 80): the longest subtitle. Only when asked for.
 };
 
 export interface SeedOptions {
@@ -210,9 +214,9 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
   }
 
   for (const key of gear) {
-    const base = baseItem(GEAR[key]);
-    if (!base) throw new Error(`Unknown base item ${GEAR[key]}`);
-    const made = newItem(base, "admin", now);
+    const base = baseItem(GEAR[key].base);
+    if (!base) throw new Error(`Unknown base item ${GEAR[key].base}`);
+    const made = newItem(base, "admin", now, { rarity: GEAR[key].rarity, itemLevel: SEED_ITEM_LEVEL });
     if (!made.ok) throw new Error(made.error);
     await user
       .collection("inventory")

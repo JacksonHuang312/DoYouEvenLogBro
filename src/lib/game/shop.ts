@@ -1,13 +1,14 @@
 import type { GameState } from "./claim";
-import { BASE_ITEMS, type BaseItem } from "./catalog";
-import { isAccessory, ITEM_VALUE, SHOP, SHOP_RARITIES, type ShopRarity } from "./config";
+import { bandOf, baseItem, basesFor, type BaseItem, type BaseKind } from "./catalog";
+import { ITEM_LEVEL, ITEM_VALUE, SHOP, SHOP_RARITIES, type ShopRarity } from "./config";
 import { fail, newItem, ok, roundCoins, type GameResult, type Item } from "./items";
 import { seeded } from "./random";
 
 /*
- * The weekly shop (GAME_DESIGN.md 3.5, 5 and 10). A week's stock is a pure function of the
- * user, the week and how many times it was rerolled, so it is never stored. shop/{weekId} keeps
- * only the reroll count and what was bought.
+ * The weekly shop (GAME_DESIGN.md 3.5, 5, 10 and 13.5). A week's stock is a pure function of the
+ * user, the week, how many times it was rerolled and the level band the user is in, so it is never
+ * stored. shop/{weekId} keeps only the reroll count and what was bought. Everything it sells is at
+ * the buyer's level.
  */
 
 /** users/{uid}/shop/{weekId}. Written only by the server. */
@@ -51,28 +52,36 @@ export function rerollCost(doc: Pick<ShopDoc, "rerolls">, discount = 0): number 
   return cost == null ? null : Math.round(cost * (1 - discount));
 }
 
-const bases = (rarity: ShopRarity, accessory: boolean) => BASE_ITEMS.filter((b) => b.rarity === rarity && isAccessory(b.slot) === accessory);
+type ShopKind = "armor" | "accessory" | "weapon";
+const KIND_BASES: Record<ShopKind, BaseKind[]> = { armor: ["set", "loose"], accessory: ["accessory"], weapon: ["weapon"] };
+const bases = (kind: ShopKind, level: number) => KIND_BASES[kind].flatMap((k) => basesFor(k, level));
+
+/** The item level of anything bought at `level`. */
+export const shopItemLevel = (level: number) => Math.min(Math.max(level, ITEM_LEVEL.min), ITEM_LEVEL.max);
 
 /**
- * A week's stock: SHOP.offers items, Common to Epic. Each offer is an accessory with chance
- * SHOP.accessoryShare, otherwise armor; rarities are rolled by SHOP.rarityWeights with at most
- * SHOP.maxEpic Epics, and no base item twice.
+ * A week's stock for a user at `level`: SHOP.offers items, Common to Epic. Each offer is an accessory
+ * with chance SHOP.accessoryShare, a weapon with SHOP.weaponShare, otherwise armor (set pieces of the
+ * level's band or loose armor); rarities are rolled by SHOP.rarityWeights with at most SHOP.maxEpic
+ * Epics, and no base item twice. The stock changes when the user enters a new level band.
  */
-export function shopStock(uid: string, weekId: string, rerolls: number): ShopOffer[] {
-  const rand = seeded(`shop:${uid}:${weekId}:${rerolls}`);
+export function shopStock(uid: string, weekId: string, rerolls: number, level: number = ITEM_LEVEL.min): ShopOffer[] {
+  const band = bandOf(level);
+  const rand = seeded(`shop:${uid}:${weekId}:${rerolls}:b${band}`);
   const used = new Set<string>();
   const offers: ShopOffer[] = [];
   for (let index = 0; index < SHOP.offers; index++) {
     const epics = offers.filter((o) => o.rarity === "epic").length;
-    const rarities = (accessory: boolean) =>
-      SHOP_RARITIES.filter((r) => (r !== "epic" || epics < SHOP.maxEpic) && bases(r, accessory).some((b) => !used.has(b.id)));
-    // If a kind has nothing left to offer, the other kind fills the slot.
-    let accessory = rand() < SHOP.accessoryShare;
-    if (rarities(accessory).length === 0) accessory = !accessory;
-    const open = rarities(accessory);
-    if (open.length === 0) break;
-    const rarity = weighted(open, rand);
-    const choices = bases(rarity, accessory).filter((b) => !used.has(b.id));
+    const roll = rand();
+    // If a kind has nothing left to offer, armor fills the slot.
+    let kind: ShopKind = roll < SHOP.accessoryShare ? "accessory" : roll < SHOP.accessoryShare + SHOP.weaponShare ? "weapon" : "armor";
+    if (!bases(kind, level).some((b) => !used.has(b.id))) kind = "armor";
+    const choices = bases(kind, level).filter((b) => !used.has(b.id));
+    if (choices.length === 0) break;
+    const rarity = weighted(
+      SHOP_RARITIES.filter((r) => r !== "epic" || epics < SHOP.maxEpic),
+      rand,
+    );
     const base: BaseItem = choices[Math.floor(rand() * choices.length)];
     used.add(base.id);
     offers.push({ index, key: offerKey(rerolls, index), baseId: base.id, rarity, price: shopPrice(rarity) });
@@ -91,8 +100,9 @@ function weighted(rarities: ShopRarity[], rand: () => number): ShopRarity {
 }
 
 /**
- * Buys one offer of the stock the caller saw (`expectedRerolls`). The caller checks that the
- * offer wasn't bought already (a retry), which returns the original item instead.
+ * Buys one offer of the stock the caller saw (`expectedRerolls`, and `expectedBaseId` when given, in
+ * case a level band changed the stock). The caller checks that the offer wasn't bought already (a
+ * retry), which returns the original item instead. The item comes at the buyer's level.
  */
 export function buyOffer({
   uid,
@@ -100,6 +110,7 @@ export function buyOffer({
   state,
   index,
   expectedRerolls,
+  expectedBaseId,
   now,
 }: {
   uid: string;
@@ -107,15 +118,17 @@ export function buyOffer({
   state: GameState;
   index: number;
   expectedRerolls: number;
+  expectedBaseId?: string;
   now: number;
 }): GameResult<{ doc: ShopDoc; state: GameState; itemId: string; item: Item; offer: ShopOffer }> {
   if (doc.rerolls !== expectedRerolls) return fail("The shop changed. Take a look at the new stock");
-  const offer = shopStock(uid, doc.weekId, doc.rerolls)[index];
+  const offer = shopStock(uid, doc.weekId, doc.rerolls, state.level)[index];
   if (!offer) return fail("That offer doesn't exist", 404);
+  if (expectedBaseId && offer.baseId !== expectedBaseId) return fail("The shop changed. Take a look at the new stock");
   if (doc.bought[offer.key]) return fail("Already bought");
   if (state.coins < offer.price) return fail("Not enough coins", 402);
-  const base = BASE_ITEMS.find((b) => b.id === offer.baseId)!;
-  const item = newItem(base, "shop", now, { rarity: offer.rarity });
+  const base = baseItem(offer.baseId)!;
+  const item = newItem(base, "shop", now, { rarity: offer.rarity, itemLevel: shopItemLevel(state.level) });
   if (!item.ok) return item;
   const itemId = shopItemId(doc.weekId, doc.rerolls, index);
   return ok({

@@ -1,11 +1,13 @@
-import { ATTRIBUTES, BONUS_BUCKET_CAP, GEAR } from "./config";
+import { baseItem } from "./catalog";
+import { ATTRIBUTES, BONUS_BUCKET_CAP, GEAR, WEAPON_CLASS_BONUS, WEAPONS, type ClassId } from "./config";
 import { activeSet, canEquip, pieceFocus, pieceSetId, piecePower, type Item, type PieceRef } from "./items";
 
 /*
- * Battle power (GAME_DESIGN.md 2.5, 4 and 12). Gear and titles count only here: the radar,
+ * Battle power (GAME_DESIGN.md 2.5, 4, 12 and 13.6). Gear and titles count only here: the radar,
  * stats, stat XP and snapshots all use body power.
  *
- *   gear    = Σ piece power (a set's pieces × (1 + its set bonus)), capped at maxShare / (1 − maxShare) × body
+ *   gear    = Σ piece power (a set's pieces × (1 + its set bonus), the class's own weapon type ×
+ *             (1 + WEAPON_CLASS_BONUS)), capped at maxShare / (1 − maxShare) × body
  *   bucket  = min(BONUS_BUCKET_CAP, titles + class)
  *   battle  = (body + gear) × (1 + bucket)
  */
@@ -43,29 +45,39 @@ export interface BattlePower {
   total: number;
 }
 
-type GearPiece = Pick<Item, "slot" | "rarity" | "plus" | "originRarity" | "baseId"> & PieceRef;
+export type GearPiece = Pick<Item, "slot" | "rarity" | "plus" | "baseId"> & Partial<Pick<Item, "itemLevel">> & PieceRef;
+
+/** The class's own weapon type adds WEAPON_CLASS_BONUS to that weapon's power (13.6). */
+export function weaponClassBonus(piece: Pick<Item, "baseId">, classId: ClassId | null | undefined): number {
+  const weapon = baseItem(piece.baseId)?.weapon;
+  return weapon && classId && WEAPONS[weapon].classId === classId ? WEAPON_CLASS_BONUS : 0;
+}
 
 /**
  * Battle power from body power, the equipped items, and the title and class bonuses (shares,
- * 0.05 = 5%). Pieces the level can't equip are ignored. No body power means gear adds nothing.
+ * 0.05 = 5%). Pieces above the level are ignored. No body power means gear adds nothing.
  */
 export function battlePower({
   body,
   equipped,
   level,
+  classId = null,
   titlePct = 0,
   classPct = 0,
 }: {
   body: number;
   equipped: GearPiece[];
   level: number;
+  /** For the matching-weapon bonus. */
+  classId?: ClassId | null;
   titlePct?: number;
   classPct?: number;
 }): BattlePower {
   const pieces = equipped.filter((p) => canEquip(p, level));
   const set = activeSet(pieces);
   // The set bonus multiplies only the power of the active set's own pieces.
-  const worth = (p: GearPiece) => piecePower(p) * (set && pieceSetId(p) === set.setId ? 1 + set.pct : 1);
+  const worth = (p: GearPiece) =>
+    piecePower(p) * (set && pieceSetId(p) === set.setId ? 1 + set.pct : 1) * (1 + weaponClassBonus(p, classId));
   const raw = pieces.reduce((sum, p) => sum + piecePower(p), 0);
   const boosted = pieces.reduce((sum, p) => sum + worth(p), 0);
   const setPct = set?.pct ?? 0;

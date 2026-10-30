@@ -6,8 +6,11 @@ import {
   bossTowerPay,
   campaignDrop,
   campaignPay,
+  dropLevel,
   NO_PITY,
+  pickBase,
   rollDrop,
+  SOURCE_LEVEL,
   towerDrop,
   towerPay,
   weeklyDrop,
@@ -39,9 +42,14 @@ describe("drop rates", () => {
     }
   });
 
-  test("a drop is a real base item that starts at the dropped rarity", () => {
-    const d = rollDrop({ table: { chance: 1, weights: { legendary: 1 } }, rand: seeded("base"), pity: NO_PITY });
-    expect(baseItem(d.baseId!)?.rarity).toBe("legendary");
+  test("a drop is a real base item; a Mythic is always a unique Mythic", () => {
+    for (let i = 0; i < 50; i++) {
+      const d = rollDrop({ table: { chance: 1, weights: { legendary: 1 } }, rand: seeded(`base${i}`), pity: NO_PITY });
+      expect(d.rarity).toBe("legendary");
+      expect(baseItem(d.baseId!)?.mythic).toBe(false);
+      const m = rollDrop({ table: { chance: 1, weights: { mythic: 1 } }, rand: seeded(`m${i}`), pity: NO_PITY });
+      expect(baseItem(m.baseId!)?.mythic).toBe(true);
+    }
   });
 
   test("the Campaign and the endless tower never drop Legendary or Mythic", () => {
@@ -114,5 +122,45 @@ describe("what fights pay", () => {
     expect(bossTowerPay.length).toBe(2);
     expect(campaignPay.length).toBe(1);
     expect(towerPay.length).toBe(1);
+  });
+});
+
+describe("item levels (GAME_DESIGN.md 13.5)", () => {
+  test("a drop's level is up to 2 under the lower of your level and the source's, and never below 1", () => {
+    for (let i = 0; i < 200; i++) {
+      const rand = seeded(`lvl${i}`);
+      const level = dropLevel(40, rand);
+      expect(level).toBeGreaterThanOrEqual(38);
+      expect(level).toBeLessThanOrEqual(40);
+      expect(dropLevel(1, rand)).toBe(1);
+    }
+    expect([SOURCE_LEVEL.campaign(60), SOURCE_LEVEL.endless(10), SOURCE_LEVEL.weekly(1), SOURCE_LEVEL.weekly(5), SOURCE_LEVEL.bossTower(30)]).toEqual([
+      51, 35, 34, 100, 100,
+    ]);
+  });
+
+  test("a weekly drop comes near your level, capped by the tier; set pieces and weapons from that level's band", () => {
+    const always = () => 0;
+    for (let i = 0; i < 100; i++) {
+      const low = weeklyDrop(1, seeded(`w${i}`), NO_PITY, 80);
+      if (low.baseId) expect(low.itemLevel).toBeLessThanOrEqual(34);
+      const d = weeklyDrop(5, seeded(`w5-${i}`), NO_PITY, 63);
+      if (!d.baseId) continue;
+      expect(d.itemLevel).toBeGreaterThanOrEqual(61);
+      expect(d.itemLevel).toBeLessThanOrEqual(63);
+      const band = baseItem(d.baseId)!.band;
+      if (band != null) expect(band).toBe(60);
+    }
+    expect(campaignDrop(always, 1, 50).itemLevel === 1 || campaignDrop(always, 1, 50).baseId === null).toBe(true);
+  });
+
+  test("nothing dropped has level 0", () => {
+    expect(rollDrop({ table: { chance: 0, weights: { common: 1 } }, rand: seeded("none"), pity: NO_PITY })).toMatchObject({ baseId: null, itemLevel: 0 });
+  });
+
+  test("every kind of item drops: set pieces, loose armor, accessories and weapons", () => {
+    const kinds = new Set<string>();
+    for (let i = 0; i < 400; i++) kinds.add(baseItem(pickBase("rare", 30, seeded(`k${i}`))!)!.kind);
+    expect([...kinds].sort()).toEqual(["accessory", "loose", "set", "weapon"]);
   });
 });

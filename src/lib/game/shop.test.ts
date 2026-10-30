@@ -36,7 +36,7 @@ describe("shopStock", () => {
       expect(new Set(stock.map((o) => o.baseId)).size).toBe(stock.length);
       for (const o of stock) {
         expect(["common", "uncommon", "rare", "epic"]).toContain(o.rarity);
-        expect(baseItem(o.baseId)?.rarity).toBe(o.rarity);
+        expect(baseItem(o.baseId)?.mythic).toBe(false);
         expect(o.price).toBe(shopPrice(o.rarity));
       }
     }
@@ -63,9 +63,28 @@ describe("buyOffer", () => {
         state: { coins: 5000 - offer.price },
         doc: { bought: { "0:2": shopItemId(WEEK, 0, 2) } },
         itemId: `shop-${WEEK}-0-2`,
-        item: { baseId: offer.baseId, rarity: offer.rarity, originRarity: offer.rarity, source: "shop", plus: 0, named: false },
+        item: { baseId: offer.baseId, rarity: offer.rarity, source: "shop", plus: 0, itemLevel: 1 },
       },
     });
+  });
+
+  test("the item comes at the buyer's level, from the stock of the buyer's level band", () => {
+    const at = (level: number) => ({ ...state(5000), level });
+    const stock = shopStock("alice", WEEK, 0, 45);
+    const r = buyOffer({ uid: "alice", doc: shop(), state: at(45), index: 0, expectedRerolls: 0, expectedBaseId: stock[0].baseId, now: T0 });
+    expect(r).toMatchObject({ ok: true, value: { item: { baseId: stock[0].baseId, itemLevel: 45 } } });
+    for (const o of stock) {
+      const band = baseItem(o.baseId)!.band;
+      if (band != null) expect(band, o.baseId).toBe(40);
+    }
+    // A stock seen in another band is refused rather than selling a different item.
+    const other = shopStock("alice", WEEK, 0, 5)[0].baseId;
+    if (other !== stock[0].baseId) {
+      expect(buyOffer({ uid: "alice", doc: shop(), state: at(45), index: 0, expectedRerolls: 0, expectedBaseId: other, now: T0 })).toMatchObject({
+        ok: false,
+        status: 409,
+      });
+    }
   });
 
   test("refuses a stock the caller didn't see (rerolled meanwhile)", () => {
@@ -127,7 +146,7 @@ describe("accessories in the shop", () => {
       const index = stock.findIndex((o) => isAccessory(baseItem(o.baseId)!.slot));
       if (index < 0) continue;
       const r = buyOffer({ uid: `u${w}`, doc: shop(), state: state(5000), index, expectedRerolls: 0, now: T0 });
-      expect(r).toMatchObject({ ok: true, value: { item: { slot: baseItem(stock[index].baseId)!.slot, named: false } } });
+      expect(r).toMatchObject({ ok: true, value: { item: { slot: baseItem(stock[index].baseId)!.slot } } });
       return;
     }
     throw new Error("no accessory offer found");

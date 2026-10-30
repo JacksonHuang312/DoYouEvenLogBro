@@ -17,7 +17,7 @@ import {
   STATS,
   type ClassId,
 } from "./config";
-import { NO_EFFECTS, type GearEffects } from "./effects";
+import { gearEffects, NO_EFFECTS, type GearEffects } from "./effects";
 import type { StatLine } from "./score";
 
 const RUNS = 300;
@@ -544,6 +544,32 @@ describe("gear effects in a fight", () => {
     ).toBeLessThan(taken(balancedHero(350, "cleric", regen)));
   });
 
+  test("Kingsbane: crits charge the ultimate twice as fast", () => {
+    const ults = (h: Hero) =>
+      Array.from({ length: 20 }, (_, i) => fight(h, `k${i}`))
+        .map((r) => r.log.filter((e) => e.action === "ultimate").length / r.seconds)
+        .reduce((a, b) => a + b, 0);
+    const critty = (e: GearEffects) => ({ ...balancedHero(350, "striker", e), critChance: 0.5 });
+    expect(ults(critty(withEffects({ mythic: ["kingsbane"] })))).toBeGreaterThan(ults(critty(NO_EFFECTS)));
+  });
+
+  test("The Unyielding Wall: hits taken charge the ultimate twice as fast", () => {
+    const brute = buildFoe("Brute", 350, BOSS_TYPES.brute);
+    const firstUlt = (h: Hero) => simulateFight(h, brute, "wall").log.find((e) => e.action === "ultimate")?.t ?? Infinity;
+    expect(firstUlt(balancedHero(350, "vanguard", withEffects({ mythic: ["unyielding-wall"] })))).toBeLessThan(
+      firstUlt(balancedHero(350, "vanguard")),
+    );
+  });
+
+  test("Staff of First Light: heals land stronger under 30% HP", () => {
+    const strong = buildFoe("Strong", 500, BOSS_TYPES.plain);
+    const healed = (h: Hero) =>
+      Array.from({ length: 20 }, (_, i) => simulateFight(h, strong, `fl${i}`).stats.healed).reduce((a, b) => a + b, 0);
+    expect(healed(balancedHero(350, "cleric", withEffects({ mythic: ["first-light"] })))).toBeGreaterThan(
+      healed(balancedHero(350, "cleric")),
+    );
+  });
+
   test("ring crit raises the crit rate", () => {
     const crits = (h: Hero) =>
       Array.from(
@@ -553,5 +579,34 @@ describe("gear effects in a fight", () => {
     expect(
       crits(balancedHero(350, "striker", withEffects({ crit: 0.2 }))),
     ).toBeGreaterThan(crits(balancedHero(350, "striker")));
+  });
+});
+
+/*
+ * Weapons (GAME_DESIGN.md 13.6): rarity outweighs type. A staff hits less hard than a sword of the
+ * same level and rarity, but an Epic staff still out-damages an Uncommon sword, for every class
+ * (the Striker's own sword bonus included).
+ */
+describe("weapons", () => {
+  const stats = statLine(60);
+  const hitWith = (baseId: string, rarity: "uncommon" | "rare" | "epic", classId: ClassId) => {
+    const weapon = { baseId, slot: "weapon" as const, rarity, plus: 0, itemLevel: 50 };
+    const battle = battlePower({ body: 60 * 5.5, equipped: [weapon], level: 50, classId });
+    const h = buildHero({ stats, battle, classId, effects: gearEffects([weapon], 50) });
+    // An average hit: attack, with crits at their chance and their (crit-damage boosted) size.
+    return h.atk * (1 + h.critChance * (COMBAT.critMultiplier * (1 + h.fx.critDamage) - 1));
+  };
+
+  test("a staff hits less hard than a sword of the same level and rarity, for every class", () => {
+    for (const c of CLASS_IDS) expect(hitWith("willow-staff", "rare", c), c).toBeLessThan(hitWith("recruits-blade", "rare", c));
+  });
+
+  test("an Epic staff out-damages an Uncommon sword, for every class", () => {
+    for (const c of CLASS_IDS) expect(hitWith("willow-staff", "epic", c), c).toBeGreaterThan(hitWith("recruits-blade", "uncommon", c));
+  });
+
+  test("every weapon deals damage: a Cleric with any weapon hits harder than with none", () => {
+    const bare = buildHero({ stats, battle: battlePower({ body: 60 * 5.5, equipped: [], level: 50 }), classId: "cleric", effects: NO_EFFECTS }).atk;
+    for (const id of ["recruits-blade", "willow-staff", "wooden-buckler"]) expect(hitWith(id, "rare", "cleric"), id).toBeGreaterThan(bare);
   });
 });

@@ -1,9 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { ACCESSORY_EFFECTS as FX, COMBAT, EFFECT_SCALE } from "./config";
+import { ACCESSORY_EFFECTS as FX, COMBAT, EFFECT_SCALE, WEAPONS } from "./config";
 import { setDef } from "./catalog";
 import { gearEffects } from "./effects";
 
-const worn = (baseId: string, rarity: string) => ({ baseId, rarity }) as { baseId: string; rarity: "common" | "rare" | "legendary" | "mythic" };
+type R = "common" | "rare" | "epic" | "legendary" | "mythic";
+const worn = (baseId: string, rarity: string, itemLevel = 1) => ({ baseId, rarity: rarity as R, itemLevel });
 
 describe("gearEffects", () => {
   test("nothing worn does nothing", () => {
@@ -28,8 +29,21 @@ describe("gearEffects", () => {
   });
 
   test("gear above the user's level does nothing", () => {
-    expect(gearEffects([worn("sunforged-ring", "legendary")], 1).crit).toBe(0);
-    expect(gearEffects([worn("unbroken-helmet", "mythic")], 40).mythic).toEqual([]);
+    expect(gearEffects([worn("sunforged-ring", "legendary", 30)], 29).crit).toBe(0);
+    expect(gearEffects([worn("sunforged-ring", "legendary", 30)], 30).crit).toBeGreaterThan(0);
+    expect(gearEffects([worn("unbroken-helmet", "mythic", 90)], 40).mythic).toEqual([]);
+  });
+
+  test("a weapon brings its type's effects at its rarity's strength, and a Mythic weapon its own effect too", () => {
+    const staff = gearEffects([worn("willow-staff", "epic")], 100);
+    expect(staff.healPower).toBeCloseTo(WEAPONS.staff.effects[0].value * EFFECT_SCALE.epic, 6);
+    expect(staff.healing).toBeCloseTo(WEAPONS.staff.effects[1].value * EFFECT_SCALE.epic, 6);
+    const shield = gearEffects([worn("tower-shield", "legendary")], 100);
+    expect([shield.guardDuration, shield.bastionShield]).toEqual([0.15, 0.1]);
+    expect(gearEffects([worn("recruits-blade", "common")], 100).critDamage).toBeCloseTo(0.15 * EFFECT_SCALE.common, 6);
+    const kingsbane = gearEffects([worn("kingsbane", "mythic")], 100);
+    expect(kingsbane.mythic).toEqual(["kingsbane"]);
+    expect(kingsbane.critDamage).toBeCloseTo(0.15 * EFFECT_SCALE.mythic, 6);
   });
 
   test("effects never include coins or XP", () => {
@@ -44,16 +58,16 @@ describe("gearEffects", () => {
     expect(gearEffects([worn("thornhide-belt", "legendary")], 100).thorns).toBeCloseTo(FX.thorns.value, 6);
   });
 
-  test("an Epic or Legendary set adds its effect only with all five pieces", () => {
+  test("a set adds its effect only with all five pieces, at the strength of its lowest rarity", () => {
     const slots = ["helmet", "chestplate", "gloves", "leggings", "boots"];
     const seraph = slots.map((s) => worn(`seraphs-grace-${s}`, "legendary"));
-    expect(gearEffects(seraph, 100).healPower).toBeCloseTo(setDef("seraphs-grace")!.effect!.value, 6);
+    expect(gearEffects(seraph, 100).healPower).toBeCloseTo(setDef("seraphs-grace")!.effect.value, 6);
     expect(gearEffects(seraph.slice(0, 4), 100).healPower).toBe(0);
+    const mixed = [...seraph.slice(0, 4), worn("seraphs-grace-boots", "rare")];
+    expect(gearEffects(mixed, 100).healPower).toBeCloseTo(setDef("seraphs-grace")!.effect.value * EFFECT_SCALE.rare, 6);
     // Set and accessory effects add up, to the cap.
     const halo = Array.from({ length: 4 }, () => worn("halo-pendant", "legendary"));
     expect(gearEffects([...seraph, ...halo], 100).healPower).toBe(COMBAT.effectCaps.healPower);
-    // A Rare set has no effect.
-    expect(gearEffects(slots.map((s) => worn(`lightwoven-${s}`, "rare")), 100)).toEqual(gearEffects([], 100));
   });
 
   test("the new Mythics, accessories included, add their unique effect", () => {

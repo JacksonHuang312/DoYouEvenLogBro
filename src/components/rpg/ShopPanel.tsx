@@ -1,6 +1,5 @@
 "use client";
 
-import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
 import { isAccessory } from "@/lib/game/config";
@@ -101,10 +100,10 @@ export function ShopPanel({
   async function buy(offer: OfferView) {
     const ok = await confirmRpgDialog({
       title: `Buy ${offer.name}?`,
-      message: `${RARITY_LABEL(offer.rarity)} ${SLOT_LABEL[offer.slot].toLowerCase()} for ${number(offer.price)} coins. You have ${number(state?.coins ?? 0)}.${offer.locked ? ` You need level ${offer.locked.level} to equip it.` : ""}`,
+      message: `${RARITY_LABEL(offer.rarity)} level ${offer.itemLevel} ${SLOT_LABEL[offer.slot].toLowerCase()} for ${number(offer.price)} coins. You have ${number(state?.coins ?? 0)}.`,
       confirmLabel: `Buy for ${number(offer.price)}`,
     });
-    if (ok) await act("Couldn't buy", () => buyOffer(view.weekId, offer.index, view.rerolls));
+    if (ok) await act("Couldn't buy", () => buyOffer(view.weekId, offer.index, view.rerolls, offer.baseId));
   }
 
   async function reroll() {
@@ -129,8 +128,8 @@ export function ShopPanel({
         <span className="pb-0.5 text-xs text-rpg-text-2">{number(state?.coins ?? 0)} coins</span>
       </div>
       <InfoText info={info} className="px-5 pt-1">
-        The shop sells Common to Epic gear at a markup. Legendary and Mythic gear only drops from bosses. Selling pays a quarter of an
-        item&apos;s original value.
+        The shop sells Common to Epic gear at your level, at a markup. Legendary and Mythic gear only drops from bosses. Selling pays a
+        quarter of an item&apos;s value.
       </InfoText>
       {!online && (
         <div className="px-5 pt-2">
@@ -156,13 +155,9 @@ export function ShopPanel({
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="break-words font-rpg-head text-lg font-semibold leading-tight">{o.name}</span>
               <span className="text-[11px] text-rpg-muted">{o.focus}</span>
-              <span className="text-[11px] text-rpg-muted">{o.setName ? `${o.setName} set` : isAccessory(o.slot) ? "Accessory" : "Loose item"} · unnamed</span>
-              {o.locked && (
-                <span aria-label={`Needs level ${o.locked.level} to equip`} className="flex items-center gap-1 text-[11px] text-rpg-warn">
-                  <Lock size={11} aria-hidden />
-                  {o.locked.level}
-                </span>
-              )}
+              <span className="text-[11px] text-rpg-muted">
+                Level {o.itemLevel} · {o.weapon ?? (o.setName ? `${o.setName} set` : isAccessory(o.slot) ? "Accessory" : "Loose item")}
+              </span>
             </div>
             {o.bought ? (
               <div className="flex min-h-11 items-center justify-center border border-rpg-line-soft text-xs text-rpg-muted">

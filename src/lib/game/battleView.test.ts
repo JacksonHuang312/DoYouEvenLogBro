@@ -257,13 +257,12 @@ describe("result view", () => {
     coins: 40,
     scrap: 6,
     mythicCores: 0,
-    items: [{ id: "i1", baseId: "ironbound-boots", rarity: "common" }],
-    salvaged: [{ baseId: "ironbound-boots", rarity: "common", scrap: 5 }],
+    items: [{ id: "i1", baseId: "ironbound-boots", rarity: "common", itemLevel: 7 }],
     guaranteed: false,
     ...patch,
   });
 
-  test("a win lists rewards, the item and the duplicate turned to scrap", () => {
+  test("a win lists rewards and the item with its level", () => {
     const r = resultView(record());
     expect(r).toMatchObject({
       won: true,
@@ -276,9 +275,18 @@ describe("result view", () => {
       { label: "Scrap", value: "+6" },
     ]);
     expect(r.items).toEqual([
-      { id: "i1", name: "Ironbound Boots", rarity: "common" },
+      { id: "i1", name: "Ironbound Boots", rarity: "common", itemLevel: 7 },
     ]);
-    expect(r.salvaged[0]).toMatch(/duplicate.*5 scrap/);
+    expect(r.salvaged).toEqual([]);
+    // A fight from before the item rework still shows its duplicates, and items without a level.
+    const old = resultView(
+      record({
+        items: [{ id: "i1", baseId: "ironbound-boots", rarity: "common" }],
+        salvaged: [{ baseId: "ironbound-boots", rarity: "common", scrap: 5 }],
+      }),
+    );
+    expect(old.items[0].itemLevel).toBeNull();
+    expect(old.salvaged[0]).toMatch(/duplicate.*5 scrap/);
     expect(r.rounds[0]).toMatchObject({
       won: true,
       ended: "Defeated it",

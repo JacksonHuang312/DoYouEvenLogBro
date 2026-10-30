@@ -1,5 +1,5 @@
 import { bossTowerPower, campaignPower, CAMPAIGN_STAGES } from "./bosses";
-import { BOSS_TOWER, EQUIP_LEVEL, PACING, WEEKLY_BOSS, XP } from "./config";
+import { BOSS_TOWER, PACING, WEEKLY_BOSS, XP } from "./config";
 import type { PacingWeek } from "./pacing";
 
 /* When each piece of content comes within reach in the pacing model (`npm run pacing-table`). */
@@ -28,7 +28,6 @@ export function milestones(run: PacingWeek[]): Milestone[] {
       target: PACING.targets.bossTower,
       months: first((w) => w.level >= BOSS_TOWER.minLevel && w.battle >= bossTowerPower(BOSS_TOWER.floors)),
     },
-    { name: `Level ${EQUIP_LEVEL.mythic} (Mythics)`, target: null, months: first((w) => w.level >= EQUIP_LEVEL.mythic) },
     { name: `Level ${XP.maxLevel}`, target: PACING.targets.level100, months: first((w) => w.level >= XP.maxLevel) },
   ];
 }

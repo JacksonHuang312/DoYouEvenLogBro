@@ -5,7 +5,7 @@ import { applyFightRewards, fightHero, newBattleDoc, runFight, type BattleDoc, t
 import { pickClass, switchClass } from "../game/heroClass";
 import { materialsOf, type Item, type Materials } from "../game/items";
 import { adminDb } from "./admin";
-import { ownedOf, stateOf, unwrap, wornItems } from "./items";
+import { stateOf, unwrap, wornItems } from "./items";
 import { gameRefs } from "./refs";
 
 // ---- Fights ----
@@ -31,8 +31,9 @@ export interface FightRecord {
   coins: number;
   scrap: number;
   mythicCores: number;
-  items: { id: string; baseId: string; rarity: Rarity }[];
-  salvaged: { baseId: string; rarity: Rarity; scrap: number }[];
+  items: { id: string; baseId: string; rarity: Rarity; itemLevel?: number }[];
+  /** Fights from before the item rework turned duplicate drops into scrap; every drop is an item now. */
+  salvaged?: { baseId: string; rarity: Rarity; scrap: number }[];
   /** Boss Tower wins: whether it was the floor's first clear. */
   firstClear?: boolean;
   /** Whether a guarantee forced a drop. */
@@ -78,10 +79,7 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
       runFight({ mode: input.mode, doc, state, fighter, now, timeZone: state.timeZone, seed, floor: input.floor, climb: input.climb }),
     );
 
-    // Duplicates become scrap: look up only the bases that dropped.
-    const bases = [...new Set(outcome.drops.map((d) => d.baseId))];
-    const owned = bases.length ? (await tx.get(r.inventory.where("baseId", "in", bases))).docs.map(ownedOf) : [];
-    const rewards = applyFightRewards({ state, outcome, owned, fightId: input.requestId, now });
+    const rewards = applyFightRewards({ state, outcome, fightId: input.requestId, now });
 
     const fight: FightRecord = {
       mode: input.mode,
@@ -92,10 +90,9 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
       rounds: outcome.rounds,
       won: outcome.rounds.some((x) => x.result.won),
       coins: outcome.coins,
-      scrap: outcome.scrap + rewards.salvaged.reduce((n, x) => n + x.scrap, 0),
+      scrap: outcome.scrap,
       mythicCores: outcome.mythicCores,
-      items: rewards.items.map(({ id, item }) => ({ id, baseId: item.baseId, rarity: item.rarity })),
-      salvaged: rewards.salvaged,
+      items: rewards.items.map(({ id, item }) => ({ id, baseId: item.baseId, rarity: item.rarity, itemLevel: item.itemLevel })),
       ...(outcome.firstClear != null ? { firstClear: outcome.firstClear } : {}),
       guaranteed: outcome.drops.some((d) => d.guaranteed),
     };

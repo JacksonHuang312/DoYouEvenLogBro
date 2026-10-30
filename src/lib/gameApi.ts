@@ -80,8 +80,9 @@ export const setInjuryVisibility = (show: boolean) =>
 
 // ---- Shop, items and titles ----
 
-export const buyOffer = (weekId: string, index: number, expectedRerolls: number) =>
-  post<ShopResponse>("/api/shop", { action: "buy", weekId, index, expectedRerolls, timeZone: timeZone() });
+/** `expectedBaseId` is the item on screen: the stock changes when the user enters a new level band. */
+export const buyOffer = (weekId: string, index: number, expectedRerolls: number, expectedBaseId: string) =>
+  post<ShopResponse>("/api/shop", { action: "buy", weekId, index, expectedRerolls, expectedBaseId, timeZone: timeZone() });
 export const rerollShop = (weekId: string, expectedRerolls: number) =>
   post<ShopResponse>("/api/shop", { action: "reroll", weekId, expectedRerolls, timeZone: timeZone() });
 
@@ -90,6 +91,10 @@ export const unequipPosition = (position: Position) => post<ItemResponse>("/api/
 /** `rarity` and `plus` are what is on screen, so a retry can't upgrade twice. */
 export const upgradeItem = (itemId: string, rarity: Rarity, plus: number) =>
   post<ItemResponse>("/api/items", { action: "upgrade", itemId, expectedRarity: rarity, expectedPlus: plus });
+/** `level` is the item level on screen, so a retry can't pay twice. */
+export const reforgeItem = (itemId: string, level: number) => post<ItemResponse>("/api/items", { action: "reforge", itemId, expectedLevel: level });
+/** "Best gear": several equips in one request. */
+export const equipMany = (items: { itemId: string; position: Position }[]) => post<ItemResponse>("/api/items", { action: "equipMany", items });
 export const sellItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "sell", itemId });
 export const salvageItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "salvage", itemId });
 

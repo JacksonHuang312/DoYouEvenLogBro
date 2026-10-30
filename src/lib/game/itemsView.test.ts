@@ -10,6 +10,7 @@ import {
   scrapOf,
   setProgress,
   shopView,
+  bestGear,
   focusLabel,
   positionViews,
   titlesView,
@@ -22,8 +23,10 @@ import { TITLE_IDS, type AchievementProgress, type TitleId } from "./titles";
 const UTC = "UTC";
 const WEEK = "2026-10-11";
 
+/** Common at level 1 unless the patch says otherwise (unique Mythics are Mythic). */
 function owned(baseId: string, patch: Partial<OwnedItem> = {}, id = `i-${baseId}`): OwnedItem {
-  const made = newItem(baseItem(baseId)!, "shop", T0);
+  const base = baseItem(baseId)!;
+  const made = newItem(base, "shop", T0, { rarity: base.mythic ? "mythic" : "common", itemLevel: 1 });
   if (!made.ok) throw new Error(made.error);
   return { ...made.value, id, ...patch };
 }
@@ -42,7 +45,7 @@ const slotOf = (state: GameState | null, inv: OwnedItem[], position: string) => 
 
 describe("positionViews", () => {
   test("one entry per position; the worn item first, then the rest strongest first", () => {
-    const inv = [owned("ironbound-boots"), owned("warden-boots"), owned("wayfarer-boots")];
+    const inv = [owned("ironbound-boots"), owned("warden-boots", { rarity: "epic" }), owned("wayfarer-boots")];
     const boots = slotOf(game({ equipped: { boots: "i-wayfarer-boots" } }), inv, "boots");
     expect(boots.items.map((i) => i.baseId)).toEqual(["wayfarer-boots", "warden-boots", "ironbound-boots"]);
     expect(boots.equipped?.baseId).toBe("wayfarer-boots");
@@ -56,16 +59,43 @@ describe("positionViews", () => {
     expect(positionViews(null, [gone], T0).every((s) => s.cards.length === 0 && s.owned === 0)).toBe(true);
   });
 
-  test("labels: Equipped, Named, Ascended; and the level lock on gated items", () => {
-    const named = owned("titans-vow-helmet");
-    const ascended = owned("warden-gloves", { rarity: "legendary", plus: 1 });
-    const state = game({ level: 40, equipped: { helmet: named.id } });
-    const helmet = slotOf(state, [named, ascended], "helmet").items[0];
-    expect(helmet.tags).toEqual(["Equipped", "Named"]);
-    expect(helmet.locked).toEqual({ level: 55 });
-    const gloves = slotOf(state, [named, ascended], "gloves").items[0];
-    expect(gloves.tags).toEqual(["Ascended"]);
-    expect(gloves.equip).toEqual({ enabled: false, reason: "Legendary gear needs level 55" });
+  test("labels and the level lock on an item above your level", () => {
+    const worn = owned("titans-vow-helmet", { rarity: "legendary", itemLevel: 30 });
+    const high = owned("warden-gloves", { rarity: "common", itemLevel: 50 });
+    const state = game({ level: 40, equipped: { helmet: worn.id } });
+    const helmet = slotOf(state, [worn, high], "helmet").items[0];
+    expect(helmet).toMatchObject({ tags: ["Equipped"], locked: null, itemLevel: 30 });
+    const gloves = slotOf(state, [worn, high], "gloves").items[0];
+    expect(gloves).toMatchObject({ tags: [], locked: { level: 50 } });
+    expect(gloves.equip).toEqual({ enabled: false, reason: "Needs level 50" });
+  });
+
+  test("compare arrows: power against what is worn in the position, the whole power with nothing worn", () => {
+    const a = owned("ironbound-boots", { rarity: "rare", itemLevel: 50 }, "a");
+    const b = owned("wayfarer-boots", { rarity: "common", itemLevel: 50 }, "b");
+    const views = slotOf(game({ equipped: { boots: "a" } }), [a, b], "boots").items;
+    expect(views.find((v) => v.id === "a")!.compare).toBeNull();
+    expect(views.find((v) => v.id === "b")!.compare).toBeCloseTo(4 - 5.2);
+    expect(slotOf(game(), [b], "boots").items[0].compare).toBeCloseTo(4);
+  });
+
+  test("a weapon shows its type, the class it suits and its effects; the class's own weapon shows the bonus in its power", () => {
+    const sword = owned("recruits-blade", { rarity: "legendary", itemLevel: 50 }, "s");
+    const asCleric = slotOf(game({ classId: "cleric" }), [sword], "weapon").items[0];
+    const asStriker = slotOf(game({ classId: "striker" }), [sword], "weapon").items[0];
+    expect(asCleric.power).toBeCloseTo(4 * 1.75 * 2);
+    expect(asStriker.power).toBeCloseTo(4 * 1.75 * 2 * 1.1, 1);
+    expect(asCleric.weapon).toBe("Sword · Striker weapon (+10% power)");
+    expect(asCleric.effect).toBe("Crit damage +15%");
+    expect(slotOf(game(), [owned("kingsbane")], "weapon").items[0].effect).toBe("Crit damage +18.8% · Crits charge your ultimate twice as fast");
+  });
+
+  test("reforge: to your level for scrap, off without the scrap, absent at your level", () => {
+    const low = owned("steelguard-helmet", { rarity: "epic", itemLevel: 20 }, "h");
+    const r = slotOf(game({ level: 30 }), [low], "helmet").items[0].reforge!;
+    expect(r).toMatchObject({ to: 30, scrap: 30, enabled: true, label: "Reforge to level 30 for 30 scrap" });
+    expect(slotOf(game({ level: 30, materials: { scrap: 2 } }), [low], "helmet").items[0].reforge).toMatchObject({ enabled: false, reason: "Not enough scrap" });
+    expect(slotOf(game({ level: 20 }), [low], "helmet").items[0].reforge).toBeNull();
   });
 
   test("equip is on for an item you can wear, off for the one already worn", () => {
@@ -75,45 +105,44 @@ describe("positionViews", () => {
   });
 
   test("upgrade shows the step, the cost and what it would give; or why it is off", () => {
-    const rare = owned("steelguard-gloves");
-    const up = slotOf(game(), [rare], "gloves").items[0].upgrade!;
+    const rare = owned("steelguard-gloves", { rarity: "rare", itemLevel: 50 });
+    const view = slotOf(game(), [rare], "gloves").items[0];
+    const up = view.upgrade!;
     expect(up).toMatchObject({ label: "Rare → Rare (+1)", coins: 250, scrap: 8, enabled: true, costLabel: "250 coins + 8 scrap" });
-    expect(up.powerAfter).toBeGreaterThan(10);
+    expect(up.powerAfter).toBeGreaterThan(view.power);
     expect(slotOf(game({ coins: 10 }), [rare], "gloves").items[0].upgrade).toMatchObject({ enabled: false, reason: "Not enough coins" });
     expect(slotOf(game({ materials: {} }), [rare], "gloves").items[0].upgrade).toMatchObject({ enabled: false, reason: "Not enough scrap" });
   });
 
-  test("promotion step and the top of the ladder", () => {
-    const promo = owned("steelguard-gloves", { plus: 2 });
-    expect(slotOf(game(), [promo], "gloves").items[0].upgrade?.label).toBe("Rare (+2) → Epic");
-    const named = owned("titans-vow-gloves", { plus: 2 });
-    const up = slotOf(game(), [named], "gloves").items[0].upgrade!;
-    expect(up).toMatchObject({ mythicCore: 1, enabled: false, reason: "Needs a Mythic Core (boss drop)" });
+  test("a Legendary +2 turns Mythic with a Core; anything else stops at +2", () => {
+    const legendary = owned("titans-vow-gloves", { rarity: "legendary", plus: 2 });
+    const up = slotOf(game(), [legendary], "gloves").items[0].upgrade!;
+    expect(up).toMatchObject({ label: "Legendary (+2) → Mythic", mythicCore: 1, enabled: false, reason: "Needs a Mythic Core (boss drop)" });
     expect(up.costLabel).toBe("4,000 coins + 80 scrap + 1 Mythic Core");
-    const top = slotOf(game(), [owned("unbroken-gloves", { plus: 2 })], "gloves").items[0];
-    expect(top.upgrade).toBeNull();
-    expect(top.maxedNote).toBe("Fully upgraded");
-    const unnamed = slotOf(game(), [owned("warden-gloves", { rarity: "legendary", plus: 2 })], "gloves").items[0];
-    expect(unnamed.maxedNote).toBe("Unnamed gear stops at Legendary +2");
+    for (const item of [owned("unbroken-gloves", { plus: 2 }), owned("steelguard-gloves", { rarity: "epic", plus: 2 })]) {
+      const top = slotOf(game(), [item], "gloves").items[0];
+      expect(top.upgrade).toBeNull();
+      expect(top.maxedNote).toBe("Fully upgraded");
+    }
   });
 
-  test("sell and salvage: price and yield, off while equipped, named cannot be sold", () => {
-    const a = owned("wayfarer-boots", {}, "a");
+  test("sell and salvage: price and yield, off while equipped, Legendary cannot be sold", () => {
+    const a = owned("wayfarer-boots", { rarity: "uncommon", itemLevel: 50 }, "a");
     const free = slotOf(game(), [a], "boots").items[0];
     expect(free.sell).toEqual({ price: 115, enabled: true, reason: null });
     expect(free.salvage).toEqual({ scrap: 15, enabled: true, reason: null });
     const worn = slotOf(game({ equipped: { boots: "a" } }), [a], "boots").items[0];
     expect(worn.sell).toMatchObject({ enabled: false, reason: "Unequip it first" });
     expect(worn.salvage).toMatchObject({ enabled: false, reason: "Unequip it first" });
-    const named = slotOf(game(), [owned("titans-vow-boots")], "boots").items[0];
+    const named = slotOf(game(), [owned("titans-vow-boots", { rarity: "legendary", itemLevel: 50 })], "boots").items[0];
     expect(named.sell.enabled).toBe(false);
     expect(named.sell.price).toBeNull();
     expect(named.salvage).toMatchObject({ scrap: 150, enabled: true });
   });
 
   test("a worn salvage charm raises the scrap shown, and its effect reads as active", () => {
-    const cog = owned("tinkers-cog", {}, "cog");
-    const view = slotOf(game({ equipped: { charm1: "cog" } }), [owned("wayfarer-boots", {}, "a"), cog], "boots").items[0];
+    const cog = owned("tinkers-cog", { rarity: "epic" }, "cog");
+    const view = slotOf(game({ equipped: { charm1: "cog" } }), [owned("wayfarer-boots", { rarity: "uncommon", itemLevel: 50 }, "a"), cog], "boots").items[0];
     expect(view.salvage.scrap).toBe(Math.round(15 * (1 + effectValue("salvageYield", "epic"))));
     expect(slotOf(game(), [cog], "charm1").items[0].effect).not.toMatch(/not active/);
   });
@@ -121,7 +150,7 @@ describe("positionViews", () => {
 
 describe("setProgress", () => {
   test("counts equipped pieces per set, best first, with the tiers reached", () => {
-    const pieces = (set: string, n: number) => ARMOR_SLOTS.slice(0, n).map((s) => ({ baseId: `${set}-${s}` }));
+    const pieces = (set: string, n: number) => ARMOR_SLOTS.slice(0, n).map((s) => ({ baseId: `${set}-${s}`, rarity: "legendary" as const }));
     const sets = setProgress([...pieces("warden", 3), ...pieces("steelguard", 2)]);
     expect(sets.map((s) => [s.name, s.count, s.active])).toEqual([
       ["Warden", 3, true],
@@ -139,18 +168,18 @@ describe("powerView", () => {
   });
 
   test("body, counted gear against its cap, the bonus bucket and battle power", () => {
-    const helm = owned("steelguard-helmet");
+    const helm = owned("steelguard-helmet", { rarity: "rare", itemLevel: 50 });
     const state = game({ equipped: { helmet: helm.id }, titles: { earned: { centurion: T0 }, equipped: ["centurion"], slots: 1 } });
     const p = powerView(200, state, [helm]);
     expect(p.body).toBe(200);
-    expect(p.gear).toMatchObject({ counted: 10, cap: 85.7, capped: false });
+    expect(p.gear).toMatchObject({ counted: 5.2, cap: 85.7, capped: false });
     expect(p.bonus).toMatchObject({ total: 0.03, cap: 0.25 });
-    expect(p.battle).toBe(216.3);
+    expect(p.battle).toBe(211.4);
   });
 
   test("no gear: battle is body power; a weak body caps the gear", () => {
     expect(powerView(150, game(), []).battle).toBe(150);
-    const full = ARMOR_SLOTS.map((s) => owned(`unbroken-${s}`));
+    const full = ARMOR_SLOTS.map((s) => owned(`unbroken-${s}`, { itemLevel: 100 }));
     const state = game({ equipped: Object.fromEntries(full.map((i) => [i.slot, i.id])) });
     expect(powerView(100, state, full).gear).toMatchObject({ capped: true, counted: 42.9 });
   });
@@ -164,19 +193,19 @@ describe("powerView", () => {
 describe("shopView", () => {
   const doc = (patch: Partial<ShopDoc> = {}): ShopDoc => ({ ...emptyShop(WEEK, UTC, T0), ...patch });
 
-  test("six offers with their price, affordability and level lock", () => {
+  test("six offers with their price and affordability, all at the user's level", () => {
     const v = shopView("alice", null, game({ coins: 600, level: 5 }), T0, UTC);
     expect(v.weekId).toBe(WEEK);
     expect(v.offers).toHaveLength(6);
     for (const o of v.offers) {
       expect(o.canAfford).toBe(600 >= o.price);
       expect(o.reason).toBe(o.canAfford ? null : "Not enough coins");
-      expect(o.locked).toEqual(o.rarity === "epic" ? { level: 35 } : null);
+      expect(o.itemLevel).toBe(5);
     }
   });
 
   test("a bought offer is marked and cannot be bought again", () => {
-    const stock = shopStock("alice", WEEK, 0);
+    const stock = shopStock("alice", WEEK, 0, 100);
     const v = shopView("alice", doc({ bought: { "0:1": "shop-x" } }), game(), T0, UTC);
     expect(v.offers[1]).toMatchObject({ bought: true, reason: null, baseId: stock[1].baseId });
     expect(v.offers[0].bought).toBe(false);
@@ -255,14 +284,20 @@ describe("stacks and accessories", () => {
   const copies = (baseId: string, n: number, patch: Partial<OwnedItem> = {}) =>
     Array.from({ length: n }, (_, i) => owned(baseId, patch, `c${i}-${baseId}`));
 
-  test("unequipped copies with the same base, rarity, plus and named flag are one card with a count", () => {
-    const inv = [...copies("ironbound-boots", 3), owned("ironbound-boots", { plus: 1 }, "plus1"), owned("wayfarer-boots")];
+  test("unequipped copies with the same base, rarity, plus and item level are one card with a count", () => {
+    const inv = [
+      ...copies("ironbound-boots", 3, { itemLevel: 50 }),
+      owned("ironbound-boots", { plus: 1, itemLevel: 50 }, "plus1"),
+      owned("ironbound-boots", { itemLevel: 51 }, "lv51"),
+      owned("wayfarer-boots", { rarity: "uncommon", itemLevel: 50 }),
+    ];
     const boots = positionViews(game(), inv, T0).find((p) => p.position === "boots")!;
-    expect(boots.owned).toBe(5);
-    expect(boots.cards.map((c) => [c.item.baseId, c.item.plus, c.count])).toEqual([
-      ["wayfarer-boots", 0, 1],
-      ["ironbound-boots", 1, 1],
-      ["ironbound-boots", 0, 3],
+    expect(boots.owned).toBe(6);
+    expect(boots.cards.map((c) => [c.item.baseId, c.item.plus, c.item.itemLevel, c.count])).toEqual([
+      ["wayfarer-boots", 0, 50, 1],
+      ["ironbound-boots", 1, 50, 1],
+      ["ironbound-boots", 0, 51, 1],
+      ["ironbound-boots", 0, 50, 3],
     ]);
   });
 
@@ -305,20 +340,57 @@ describe("stacks and accessories", () => {
   });
 
   test("an accessory shows its power, focus and effect", () => {
-    const ring = slotOf(game(), [owned("sunforged-ring")], "ring1").items[0];
-    expect(ring).toMatchObject({ power: 9, focus: "ATK 80 / DEF 20", named: true, slot: "ring" });
+    const ring = slotOf(game(), [owned("sunforged-ring", { rarity: "legendary", itemLevel: 50 })], "ring1").items[0];
+    expect(ring).toMatchObject({ power: 2.8, focus: "ATK 80 / DEF 20", slot: "ring" });
     expect(ring.effect).toBe("Crit chance +2.5%");
-    const charm = slotOf(game(), [owned("lucky-pebble")], "charm2").items[0];
-    expect(charm).toMatchObject({ power: 1, focus: "ATK 33 / HP 34 / DEF 33" });
-    expect(slotOf(game(), [owned("unbroken-gloves")], "gloves").items[0].effect).toBe("Unique effect");
+    const charm = slotOf(game(), [owned("lucky-pebble", { itemLevel: 50 })], "charm2").items[0];
+    expect(charm).toMatchObject({ power: 1.6, focus: "ATK 33 / HP 34 / DEF 33" });
+    expect(slotOf(game(), [owned("unbroken-gloves")], "gloves").items[0].effect).toBe("Every 4th attack is a critical hit");
     expect(slotOf(game(), [owned("ironbound-gloves")], "gloves").items[0].effect).toBeNull();
   });
 
   test("accessory power counts toward battle power and the gear cap", () => {
-    const ring = owned("sunforged-ring", {}, "r");
+    const ring = owned("sunforged-ring", { rarity: "legendary", itemLevel: 50 }, "r");
     const state = game({ equipped: { ring1: "r" } });
-    expect(powerView(500, state, [ring]).gear).toMatchObject({ counted: 9, capped: false });
-    expect(powerView(10, state, [ring]).gear).toMatchObject({ counted: 4.3, capped: true });
+    expect(powerView(500, state, [ring]).gear).toMatchObject({ counted: 2.8, capped: false });
+    expect(powerView(5, state, [ring]).gear).toMatchObject({ counted: 2.1, capped: true });
+  });
+});
+
+describe("bestGear", () => {
+  test("picks the strongest wearable piece per position, two rings, and leaves what is right alone", () => {
+    const inv = [
+      owned("ironbound-boots", { rarity: "common", itemLevel: 40 }, "weak"),
+      owned("wayfarer-boots", { rarity: "epic", itemLevel: 40 }, "strong"),
+      owned("drifter-boots", { rarity: "mythic", itemLevel: 90 }, "too-high"),
+      owned("copper-band", { rarity: "rare", itemLevel: 40 }, "r1"),
+      owned("bronze-signet", { rarity: "epic", itemLevel: 40 }, "r2"),
+      owned("silver-loop", { rarity: "common", itemLevel: 1 }, "r3"),
+    ];
+    const state = game({ level: 50, equipped: { boots: "weak", ring2: "r1" } });
+    const best = bestGear(state, inv);
+    expect(best.moves).toEqual([
+      { itemId: "strong", position: "boots" },
+      { itemId: "r2", position: "ring1" },
+    ]);
+    expect(best.gain).toBeGreaterThan(0);
+    const after = game({ level: 50, equipped: { boots: "strong", ring1: "r2", ring2: "r1" } });
+    expect(bestGear(after, inv)).toEqual({ moves: [], gain: 0 });
+  });
+
+  test("takes a set's pieces when the set bonus beats stronger loose pieces", () => {
+    const set = ARMOR_SLOTS.map((s) => owned(`warden-${s}`, { rarity: "rare", itemLevel: 50 }, `set-${s}`));
+    const loose = owned("ironbound-helmet", { rarity: "epic", itemLevel: 50 }, "loose");
+    const moves = bestGear(game(), [...set, loose]).moves;
+    expect(moves.find((m) => m.position === "helmet")?.itemId).toBe("set-helmet");
+    expect(moves).toHaveLength(5);
+  });
+
+  test("the class's own weapon wins a close call", () => {
+    const sword = owned("recruits-blade", { rarity: "rare", itemLevel: 50 }, "sword");
+    const staff = owned("willow-staff", { rarity: "rare", itemLevel: 50 }, "staff");
+    expect(bestGear(game({ classId: "cleric" }), [sword, staff]).moves).toEqual([{ itemId: "staff", position: "weapon" }]);
+    expect(bestGear(game({ classId: "striker" }), [sword, staff]).moves).toEqual([{ itemId: "sword", position: "weapon" }]);
   });
 });
 

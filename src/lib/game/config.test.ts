@@ -9,7 +9,6 @@ import {
   WEEKS_KEPT,
   COINS,
   ACHIEVEMENTS,
-  EQUIP_LEVEL,
   GEAR,
   POSITIONS,
   RARITIES,
@@ -53,26 +52,21 @@ describe("config", () => {
     expect(COINS.base + COINS.scheduledBonus).toBeLessThanOrEqual(COINS.dailyCap);
   });
 
-  test("level gates to equip: Epic 35, Legendary 55, Mythic 80", () => {
-    expect([EQUIP_LEVEL.epic, EQUIP_LEVEL.legendary, EQUIP_LEVEL.mythic]).toEqual([35, 55, 80]);
-  });
-
   test("gear tables cover every rarity, plus level and slot", () => {
-    expect(GEAR.ascendedFactor).toHaveLength(GEAR.maxPlus + 1);
-    for (const r of RARITIES) expect(UPGRADE_COSTS[r], r).toHaveLength(GEAR.maxPlus + 1);
+    for (const r of RARITIES) expect(UPGRADE_COSTS[r], r).toHaveLength(GEAR.maxPlus);
+    for (const r of RARITIES) expect(GEAR.rarityMultiplier[r], r).toBeGreaterThanOrEqual(1);
     for (const slot of SLOTS) {
       const sum = Object.values(GEAR.slotFocus[slot]).reduce((a, b) => a + b, 0);
       expect(sum, slot).toBe(100);
     }
   });
 
-  test("a Mythic armor piece is 30 base power; an accessory is about 40% of an armor piece", () => {
-    expect(GEAR.basePower.mythic).toBe(30);
-    for (const r of RARITIES) {
-      const share = GEAR.accessoryPower[r] / GEAR.basePower[r];
-      expect(share, r).toBeGreaterThan(0.3);
-      expect(share, r).toBeLessThan(0.45);
-    }
+  test("rarity climbs Common 1 to Mythic 2; an accessory is 40% of an armor piece, the weapon twice one", () => {
+    const m = RARITIES.map((r) => GEAR.rarityMultiplier[r]);
+    expect(m).toEqual([...m].sort((a, b) => a - b));
+    expect([m[0], m[m.length - 1]]).toEqual([1, 2]);
+    expect(GEAR.accessoryWeight).toBe(0.4);
+    expect(GEAR.weaponWeight).toBe(2);
   });
 
   test("every position belongs to one slot, and rings and charms have two", () => {

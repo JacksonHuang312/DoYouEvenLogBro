@@ -343,7 +343,9 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
 
   /** Heals the hero. `quiet` (lifesteal) heals without a log line, so the log stays readable. */
   const heal = (t: number, amount: number, name?: string, quiet = false) => {
-    const wanted = Math.round(amount);
+    // Staff of First Light: heals land stronger while the hero is low.
+    const low = has("first-light") && heroHp < hero.maxHp * M.firstLightBelowPct;
+    const wanted = Math.round(amount * (low ? M.firstLightHeal : 1));
     const gained = Math.min(wanted, hero.maxHp - heroHp);
     if (wardMax > 0 && wanted > gained)
       ward = Math.min(wardMax, ward + wanted - Math.max(0, gained));
@@ -400,7 +402,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
       heroHp -= toHp;
     }
     if (physical) {
-      energy += COMBAT.energy.perHitTaken * chargeFactor;
+      energy += COMBAT.energy.perHitTaken * chargeFactor * (has("unyielding-wall") ? M.wallTakenCharge : 1);
       const hit = toHp + soaked;
       if (hit > 0) {
         let back = 0;
@@ -436,7 +438,10 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     stats.dealt += dmg;
     if (crit) stats.crits++;
     if (action !== "ultimate")
-      energy += COMBAT.energy.perHitLanded * chargeFactor;
+      energy +=
+        COMBAT.energy.perHitLanded *
+        chargeFactor *
+        (crit && has("kingsbane") ? M.kingsbaneCritCharge : 1);
     log.push({
       t: secs(t),
       ...hpNow(),

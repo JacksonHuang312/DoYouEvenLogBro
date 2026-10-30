@@ -129,7 +129,8 @@ export function FightResultScreen({
                 >
                   <div className="text-[15px] font-semibold">{item.name}</div>
                   <div className="text-xs">
-                    {LABEL[item.rarity]} · added to your gear
+                    {LABEL[item.rarity]}
+                    {item.itemLevel != null ? ` · Level ${item.itemLevel}` : ""} · added to your gear
                   </div>
                 </li>
               ))}

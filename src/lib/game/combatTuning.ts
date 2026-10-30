@@ -56,15 +56,42 @@ const set = (id: string) => ARMOR.map((slot) => `${id}-${slot}`);
  * geared" rows, so no setup turns a fair fight into a sure win.
  */
 export const FULLY_GEARED: Record<ClassId, string[]> = {
-  vanguard: [...set("titans-vow"), "oathkeeper-belt", "sunforged-ring", "sunforged-ring", "heartstone-pendant", "chrono-charm", "phoenix-charm"],
-  striker: [...set("ashen-covenant"), "executioners-ring", "reapers-coil", "mountainheart-girdle", "heartstone-pendant", "chrono-charm", "phoenix-charm"],
-  cleric: [...set("seraphs-grace"), "saints-locket", "dawn-censer", "phoenix-charm", "sunforged-ring", "sunforged-ring", "mountainheart-girdle"],
+  vanguard: [
+    ...set("titans-vow"),
+    "titans-bulwark",
+    "oathkeeper-belt",
+    "sunforged-ring",
+    "sunforged-ring",
+    "heartstone-pendant",
+    "chrono-charm",
+    "phoenix-charm",
+  ],
+  striker: [
+    ...set("ashen-covenant"),
+    "sunsteel-greatsword",
+    "executioners-ring",
+    "reapers-coil",
+    "mountainheart-girdle",
+    "heartstone-pendant",
+    "chrono-charm",
+    "phoenix-charm",
+  ],
+  cleric: [
+    ...set("seraphs-grace"),
+    "seraph-scepter",
+    "saints-locket",
+    "dawn-censer",
+    "phoenix-charm",
+    "sunforged-ring",
+    "sunforged-ring",
+    "mountainheart-girdle",
+  ],
 };
 
-/** The effects of a class's FULLY_GEARED loadout. */
+/** The effects of a class's FULLY_GEARED loadout: everything Legendary, the unique Mythics Mythic. */
 export function fullyGearedEffects(classId: ClassId): GearEffects {
   return gearEffects(
-    FULLY_GEARED[classId].map((id) => ({ baseId: id, rarity: baseItem(id)!.rarity })),
+    FULLY_GEARED[classId].map((id) => ({ baseId: id, rarity: baseItem(id)!.mythic ? "mythic" : "legendary", itemLevel: 50 })),
     50,
   );
 }

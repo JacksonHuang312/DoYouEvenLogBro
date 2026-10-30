@@ -10,7 +10,15 @@ const weekId = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const expectedRerolls = z.number().int().min(0).max(SHOP.rerollCosts.length);
 
 const Body = z.discriminatedUnion("action", [
-  z.strictObject({ action: z.literal("buy"), weekId, index: z.number().int().min(0).max(SHOP.offers - 1), expectedRerolls, timeZone }),
+  z.strictObject({
+    action: z.literal("buy"),
+    weekId,
+    index: z.number().int().min(0).max(SHOP.offers - 1),
+    expectedRerolls,
+    /** The base the client saw in that offer: the stock changes when the user enters a new level band. */
+    expectedBaseId: z.string().max(80).optional(),
+    timeZone,
+  }),
   z.strictObject({ action: z.literal("reroll"), weekId, expectedRerolls, timeZone }),
 ]);
 

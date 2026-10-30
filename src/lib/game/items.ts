@@ -3,20 +3,23 @@ import { baseItem, type BaseItem } from "./catalog";
 import {
   ACCESSORY_EFFECTS,
   EFFECT_SCALE,
-  EQUIP_LEVEL,
   GEAR,
   type Focus,
+  ITEM_LEVEL,
   ITEM_VALUE,
-  NAMED_RARITIES,
+  MYTHIC_PROMOTION,
   POSITIONS,
   RARITIES,
+  REFORGE_SCRAP_PER_LEVEL,
   SALVAGE,
+  SALVAGE_LEVEL,
   SELL_SHARE,
   SET_BONUS,
   SHOP,
-  UNNAMED_MAX_RARITY,
+  SHOP_RARITIES,
   UPGRADE_COSTS,
   isAccessory,
+  isWeapon,
   positionsOf,
   slotOfPosition,
   type AccessoryEffect,
@@ -29,10 +32,9 @@ import {
 } from "./config";
 
 /*
- * Items (GAME_DESIGN.md 5 and 12). An owned item stores only facts: which base it is, the
- * rarity it started at, its current rarity and upgrade level. Its power, set and sell price are
- * computed. Every action is pure and returns the next state or why it isn't allowed; the API
- * routes write the result.
+ * Items (GAME_DESIGN.md 5, 12 and 13.5). An owned item stores only facts: which base it is, its
+ * rarity, item level and upgrade level. Its power, set and sell price are computed. Every action is
+ * pure and returns the next state or why it isn't allowed; the API routes write the result.
  */
 
 export type ItemSource = "shop" | "admin" | "boss";
@@ -50,13 +52,12 @@ export interface Item {
   baseId: string;
   /** Also in the catalog; kept so the item still works if its base is ever removed. */
   slot: Slot;
-  /** The rarity it started at. */
-  originRarity: Rarity;
+  /** Rolled when it dropped. Only a Legendary turned Mythic with a Mythic Core ever changes it. */
   rarity: Rarity;
   /** Upgrade level within the rarity: 0 to GEAR.maxPlus. */
   plus: number;
-  /** True when it started at Legendary or Mythic. */
-  named: boolean;
+  /** Where it dropped (13.5); reforging raises it. Items from before item levels have none: level 1. */
+  itemLevel: number;
   source: ItemSource;
   acquiredAt: number;
   removed: Removal | null;
@@ -75,20 +76,25 @@ export const ok = <T>(value: T): GameResult<T> => ({ ok: true, value });
 export const fail = (error: string, status: 402 | 404 | 409 = 409): GameResult<never> => ({ ok: false, error, status });
 
 export const rarityIndex = (r: Rarity) => RARITIES.indexOf(r);
-export const isNamedRarity = (r: Rarity) => NAMED_RARITIES.includes(r);
 
-/** Promoted into a named rarity it didn't start at (Epic → Legendary, Legendary → Mythic). */
-export const isAscended = (item: Pick<Item, "rarity" | "originRarity">) =>
-  isNamedRarity(item.rarity) && rarityIndex(item.rarity) > rarityIndex(item.originRarity);
+/** An item's level; items from before item levels count as level 1. */
+export const itemLevelOf = (item: Partial<Pick<Item, "itemLevel">>): number => item.itemLevel ?? ITEM_LEVEL.min;
+
+/** An armor piece's power at item level `level`, Common, +0 (GEAR.levelPower). */
+export function levelPower(level: number): number {
+  const { base, perLevel, perLevelSq } = GEAR.levelPower;
+  return base + perLevel * level + perLevelSq * level * level;
+}
+
+/** How a slot's power compares with an armor piece: accessories less, the weapon more. */
+export const slotWeight = (slot?: Slot): number => (!slot ? 1 : isWeapon(slot) ? GEAR.weaponWeight : isAccessory(slot) ? GEAR.accessoryWeight : 1);
 
 /**
- * One piece's power: its rarity's base, +4% of it per + step, less the ascended penalty. Accessories
- * (when `slot` says so) use their own, lower base; without a slot it is armor.
+ * One piece's power: its level's power × its rarity multiplier × its slot's weight, +4% per + step.
+ * Without a slot it is armor; without an item level, level 1.
  */
-export function piecePower(item: Pick<Item, "rarity" | "plus" | "originRarity"> & Partial<Pick<Item, "slot">>): number {
-  const base = item.slot && isAccessory(item.slot) ? GEAR.accessoryPower : GEAR.basePower;
-  const native = base[item.rarity] * (1 + GEAR.plusStep * item.plus);
-  return isAscended(item) ? native * GEAR.ascendedFactor[item.plus] : native;
+export function piecePower(item: Pick<Item, "rarity" | "plus"> & Partial<Pick<Item, "slot" | "itemLevel">>): number {
+  return levelPower(itemLevelOf(item)) * GEAR.rarityMultiplier[item.rarity] * slotWeight(item.slot) * (1 + GEAR.plusStep * item.plus);
 }
 
 /** An accessory effect's strength at a rarity (a Phase 5 hook: nothing in combat reads it yet). */
@@ -107,27 +113,29 @@ export function itemDoc(item: OwnedItem): Item {
 
 export const roundCoins = (x: number) => Math.round(x / SHOP.roundTo) * SHOP.roundTo;
 
+export const isItemLevel = (level: unknown): level is number =>
+  Number.isInteger(level) && (level as number) >= ITEM_LEVEL.min && (level as number) <= ITEM_LEVEL.max;
+
 /**
- * A new item of a base. Normally at the base's own rarity and +0; the admin script may ask for
- * a higher rarity or plus, as long as an upgrade could have got there.
+ * A new item of a base at a rarity and item level, normally +0 (the admin script may ask for a plus).
+ * A unique Mythic is always Mythic; anything else can be any rarity.
  */
 export function newItem(
   base: BaseItem,
   source: ItemSource,
   now: number,
-  { rarity = base.rarity, plus = 0 }: { rarity?: Rarity; plus?: number } = {},
+  { rarity, itemLevel, plus = 0 }: { rarity: Rarity; itemLevel: number; plus?: number },
 ): GameResult<Item> {
-  const named = isNamedRarity(base.rarity);
-  if (rarityIndex(rarity) < rarityIndex(base.rarity)) return fail(`${base.name} starts at ${base.rarity}`);
-  if (!named && rarityIndex(rarity) > rarityIndex(UNNAMED_MAX_RARITY)) return fail(`Unnamed gear stops at ${UNNAMED_MAX_RARITY}`);
+  if (!RARITIES.includes(rarity)) return fail("Unknown rarity");
+  if (base.mythic && rarity !== "mythic") return fail(`${base.name} is always Mythic`);
+  if (!isItemLevel(itemLevel)) return fail(`Item level must be ${ITEM_LEVEL.min} to ${ITEM_LEVEL.max}`);
   if (!Number.isInteger(plus) || plus < 0 || plus > GEAR.maxPlus) return fail(`Plus must be 0 to ${GEAR.maxPlus}`);
   return ok({
     baseId: base.id,
     slot: base.slot,
-    originRarity: base.rarity,
     rarity,
     plus,
-    named,
+    itemLevel,
     source,
     acquiredAt: now,
     removed: null,
@@ -138,24 +146,20 @@ export function newItem(
 // ---- Upgrades ----
 
 export interface UpgradeStep {
-  /** "plus" raises the + level; "promote" moves to the next rarity at +0. */
+  /** "plus" raises the + level; "promote" turns a Legendary +2 into a Mythic +0. */
   kind: "plus" | "promote";
   to: { rarity: Rarity; plus: number };
   cost: UpgradeCost;
 }
 
-/** The item's next upgrade and its cost, or why there is none. */
-export function upgradeStep(item: Pick<Item, "rarity" | "plus" | "named">): GameResult<UpgradeStep> {
-  const costs = UPGRADE_COSTS[item.rarity];
+/** The item's next upgrade and its cost, or why there is none. Rarity only changes Legendary → Mythic (13.5). */
+export function upgradeStep(item: Pick<Item, "rarity" | "plus">): GameResult<UpgradeStep> {
   if (item.plus < GEAR.maxPlus) {
-    const cost = costs[item.plus];
-    return cost ? ok({ kind: "plus", to: { rarity: item.rarity, plus: item.plus + 1 }, cost }) : fail("Already maxed");
+    const cost = UPGRADE_COSTS[item.rarity][item.plus];
+    return ok({ kind: "plus", to: { rarity: item.rarity, plus: item.plus + 1 }, cost });
   }
-  const next = RARITIES[rarityIndex(item.rarity) + 1];
-  const cost = costs[GEAR.maxPlus];
-  if (!next || !cost) return fail("Already maxed");
-  if (!item.named && rarityIndex(item.rarity) >= rarityIndex(UNNAMED_MAX_RARITY)) return fail("Unnamed gear stops at Legendary +2");
-  return ok({ kind: "promote", to: { rarity: next, plus: 0 }, cost });
+  if (item.rarity === "legendary") return ok({ kind: "promote", to: { rarity: "mythic", plus: 0 }, cost: MYTHIC_PROMOTION });
+  return fail("Already maxed");
 }
 
 /** Why `state` can't pay `cost`, or null if it can. */
@@ -169,8 +173,7 @@ export function shortfall(state: Pick<GameState, "coins" | "materials">, cost: U
 
 /**
  * Upgrades an item one step, paying coins and materials. Never fails once paid. `expected` is
- * the rarity and plus the caller saw, so a retried request can't upgrade twice. An equipped
- * item can't be upgraded into a rarity the user's level can't equip.
+ * the rarity and plus the caller saw, so a retried request can't upgrade twice.
  */
 export function applyUpgrade({
   state,
@@ -188,9 +191,6 @@ export function applyUpgrade({
   const step = upgradeStep(item);
   if (!step.ok) return step;
   const { to, cost } = step.value;
-  if (equippedPosition(state, item.id) && state.level < EQUIP_LEVEL[to.rarity]) {
-    return fail(`${label(to.rarity)} needs level ${EQUIP_LEVEL[to.rarity]} to equip. Unequip it first to upgrade it`);
-  }
   const missing = shortfall(state, cost);
   if (missing) return fail(missing, 402);
 
@@ -204,12 +204,46 @@ export function applyUpgrade({
   });
 }
 
-const label = (r: Rarity) => r[0].toUpperCase() + r.slice(1);
+// ---- Reforging ----
+
+/** Scrap to raise an item to `level`: REFORGE_SCRAP_PER_LEVEL by its rarity for each level gained. */
+export const reforgeCost = (item: Pick<Item, "rarity"> & Partial<Pick<Item, "itemLevel">>, level: number): number =>
+  Math.max(0, level - itemLevelOf(item)) * REFORGE_SCRAP_PER_LEVEL[item.rarity];
+
+/**
+ * Reforges an item to the user's level for scrap (13.5), so a great roll doesn't go obsolete.
+ * `expectedLevel` is the item level the caller saw, so a retried request can't pay twice.
+ */
+export function applyReforge({
+  state,
+  item,
+  expectedLevel,
+  now,
+}: {
+  state: GameState;
+  item: OwnedItem;
+  expectedLevel: number;
+  now: number;
+}): GameResult<{ state: GameState; item: Item; scrap: number; to: number }> {
+  if (item.removed) return fail("That item is gone", 404);
+  if (itemLevelOf(item) !== expectedLevel) return fail("That item changed. Reload and try again");
+  const to = Math.min(state.level, ITEM_LEVEL.max);
+  if (itemLevelOf(item) >= to) return fail("Already at your level");
+  const scrap = reforgeCost(item, to);
+  const m = materialsOf(state);
+  if (amount(m, "scrap") < scrap) return fail("Not enough scrap", 402);
+  return ok({
+    state: { ...state, materials: { ...m, scrap: amount(m, "scrap") - scrap }, updatedAt: now },
+    item: { ...itemDoc(item), itemLevel: to, updatedAt: now },
+    scrap,
+    to,
+  });
+}
 
 // ---- Equipping ----
 
-/** Whether the user's level allows equipping the item at its current rarity. */
-export const canEquip = (item: Pick<Item, "rarity">, level: number) => level >= EQUIP_LEVEL[item.rarity];
+/** Whether the user's level allows equipping the item: you can't wear one above your level. */
+export const canEquip = (item: Partial<Pick<Item, "itemLevel">>, level: number) => itemLevelOf(item) <= level;
 
 /** Where an item is equipped, or null. */
 export function equippedPosition(state: Pick<GameState, "equipped">, itemId: string): Position | null {
@@ -228,7 +262,7 @@ export function defaultPosition(state: Pick<GameState, "equipped">, slot: Slot):
  */
 export function equipItem(state: GameState, item: OwnedItem, now: number, position?: Position): GameResult<GameState> {
   if (item.removed) return fail("That item is gone", 404);
-  if (!canEquip(item, state.level)) return fail(`${label(item.rarity)} gear needs level ${EQUIP_LEVEL[item.rarity]}`);
+  if (!canEquip(item, state.level)) return fail(`Needs level ${itemLevelOf(item)}`);
   const at = equippedPosition(state, item.id);
   const target = position ?? at ?? defaultPosition(state, item.slot);
   if (slotOfPosition(target) !== item.slot) return fail(`A ${item.slot} can't be worn in the ${target} position`);
@@ -256,14 +290,17 @@ export function equippedItems(state: Pick<GameState, "equipped">, inventory: Own
 
 // ---- Selling and salvage ----
 
-/** Coins for selling: a share of the origin rarity's value. Null for named gear, which can only be salvaged. */
-export function sellPrice(item: Pick<Item, "named" | "originRarity">): number | null {
-  if (item.named) return null;
-  return roundCoins(ITEM_VALUE[item.originRarity as ShopRarity] * SELL_SHARE);
+/** Coins for selling: a share of the rarity's value. Null for Legendary and Mythic, which can only be salvaged. */
+export function sellPrice(item: Pick<Item, "rarity">): number | null {
+  if (!(SHOP_RARITIES as readonly Rarity[]).includes(item.rarity)) return null;
+  return roundCoins(ITEM_VALUE[item.rarity as ShopRarity] * SELL_SHARE);
 }
 
-/** Scrap for salvaging, by current rarity, plus the salvage charm's share (`bonus`, the salvageYield effect), rounded. */
-export const salvageYield = (item: Pick<Item, "rarity">, bonus = 0): number => Math.round(SALVAGE[item.rarity] * (1 + bonus));
+/** Scrap for salvaging, by rarity and item level, plus the salvage charm's share (`bonus`, the salvageYield effect), rounded. */
+export function salvageYield(item: Pick<Item, "rarity"> & Partial<Pick<Item, "itemLevel">>, bonus = 0): number {
+  const byLevel = SALVAGE_LEVEL.levelBase + SALVAGE_LEVEL.perLevel * itemLevelOf(item);
+  return Math.max(1, Math.round(SALVAGE[item.rarity] * byLevel * (1 + bonus)));
+}
 
 /** Sells or salvages an item. It must be unequipped first. `salvageBonus` is the worn salvageYield effect. */
 export function removeItem(
@@ -276,7 +313,7 @@ export function removeItem(
   if (item.removed) return fail("That item is gone", 404);
   if (equippedPosition(state, item.id)) return fail("Unequip it first");
   const price = reason === "sold" ? sellPrice(item) : 0;
-  if (price == null) return fail("Named gear can't be sold. Salvage it for scrap instead");
+  if (price == null) return fail("Legendary and Mythic gear can't be sold. Salvage it for scrap instead");
   const scrap = reason === "salvaged" ? salvageYield(item, salvageBonus) : 0;
   const removal: Removal = { reason, at: now, coins: price, scrap };
   const m = materialsOf(state);
@@ -285,18 +322,6 @@ export function removeItem(
     item: { ...itemDoc(item), removed: removal, updatedAt: now },
     removal,
   });
-}
-
-/**
- * What a boss drop becomes (Phase 5): the item, or scrap when the user already owns that base.
- * Duplicates convert to salvage, never coins (section 12).
- */
-export function dropOutcome(
-  drop: { baseId: string; rarity: Rarity },
-  owned: Pick<OwnedItem, "baseId" | "removed">[],
-): { kind: "item" } | { kind: "salvage"; scrap: number } {
-  const duplicate = owned.some((o) => !o.removed && o.baseId === drop.baseId);
-  return duplicate ? { kind: "salvage", scrap: SALVAGE[drop.rarity] } : { kind: "item" };
 }
 
 // ---- Sets and focus ----

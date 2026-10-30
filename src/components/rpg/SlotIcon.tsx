@@ -2,6 +2,7 @@ import type { Slot } from "@/lib/game/config";
 
 /** Flat line-art path per slot (24×24), from design/Gear.dc.html. */
 const PATHS: Record<Slot, string> = {
+  weapon: "M19 3l2 0 0 2-11 11-2-2zM8 14l-3 3M6 13l5 5M4 18l2 2M3 21l2-2",
   helmet: "M5 13a7 7 0 0 1 14 0v5H5zM12 6v12M5 14h5M14 14h5M8 4l4-2 4 2",
   chestplate: "M8 3l4 2 4-2 4 3-2 5v10H6V11L4 6zM12 5v16M8 11h8",
   gloves: "M7 21v-6l-2-4V6.5a1.5 1.5 0 0 1 3 0V10M8 10V4.5a1.5 1.5 0 0 1 3 0V10M11 10V4a1.5 1.5 0 0 1 3 0v6M14 10V5.5a1.5 1.5 0 0 1 3 0V14l-2 3v4",

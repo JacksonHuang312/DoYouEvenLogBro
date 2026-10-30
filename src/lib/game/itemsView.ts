@@ -1,42 +1,52 @@
 import { baseItem, setDef, SETS, type BaseItem } from "./catalog";
-import { battlePower } from "./battle";
-import { gearEffects, SET_EFFECT_PIECES } from "./effects";
+import { battlePower, weaponClassBonus } from "./battle";
+import { gearEffects, SET_EFFECT_PIECES, setEffectValue } from "./effects";
 import { classBonusPct } from "./heroClass";
 import { newGameState, type GameState } from "./claim";
 import {
   ACCESSORY_EFFECTS,
   ACHIEVEMENTS,
   BONUS_BUCKET_CAP,
-  EQUIP_LEVEL,
+  MYTHIC_EFFECTS,
   POSITIONS,
   SET_BONUS,
   SHOP,
   TITLES,
+  EFFECT_SCALE,
+  WEAPON_CLASS_BONUS,
+  WEAPONS,
   positionsOf,
   slotOfPosition,
   type AccessoryEffect,
+  type ClassId,
   type Focus,
+  type MythicEffect,
   type Position,
   type Rarity,
   type Slot,
 } from "./config";
 import {
   activeSet,
+  applyReforge,
   applyUpgrade,
+  canEquip,
   effectValue,
   equipItem,
   equippedItems,
+  equippedOf,
   equippedPosition,
-  isAscended,
+  itemLevelOf,
   materialsOf,
+  pieceSetId,
   pieceFocus,
   piecePower,
+  reforgeCost,
   removeItem,
   setCounts,
   upgradeStep,
   type OwnedItem,
 } from "./items";
-import { shopStock, emptyShop, rerollCost, rerollShop, buyOffer, offerKey, type ShopDoc } from "./shop";
+import { shopStock, emptyShop, rerollCost, rerollShop, buyOffer, offerKey, shopItemLevel, type ShopDoc } from "./shop";
 import { addDays, dayStartMs, weekId as weekIdOf } from "./time";
 import {
   buyTitleSlot,
@@ -65,6 +75,7 @@ export const RARITY_LABEL = (r: Rarity) => cap(r);
 /** "Epic", or "Epic (+1)" once upgraded: +0 is not shown. */
 export const rarityWithPlus = (r: Rarity, plus: number) => (plus > 0 ? `${cap(r)} (+${plus})` : cap(r));
 export const SLOT_LABEL: Record<Slot, string> = {
+  weapon: "Weapon",
   helmet: "Helmet",
   chestplate: "Chestplate",
   gloves: "Gloves",
@@ -77,6 +88,7 @@ export const SLOT_LABEL: Record<Slot, string> = {
 };
 /** A worn position's name: Ring 1 and Ring 2 are told apart, the rest are their slot. */
 export const POSITION_LABEL: Record<Position, string> = {
+  weapon: "Weapon",
   helmet: "Helmet",
   chestplate: "Chestplate",
   gloves: "Gloves",
@@ -100,15 +112,33 @@ export function focusLabel(focus: Focus): string {
     .join(" / ");
 }
 
-/** An accessory's effect at the item's rarity, or a Mythic's unique effect. Every effect is live now: fights use them, and the salvage and reroll charms work outside fights. */
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+/** "2.5%": one decimal, for effects. */
+const pct1 = (x: number) => `${Math.round(x * 1000) / 10}%`;
+
+/**
+ * What an item does beyond its power, at its rarity: a weapon type's effects, an accessory's effect,
+ * a Mythic's unique effect. Every effect is live: fights use them, and the salvage and reroll charms
+ * work outside fights.
+ */
 function effectLabel(base: BaseItem | undefined, rarity: Rarity): string | null {
-  if (!base?.effect) return null;
-  const known = base.effect in ACCESSORY_EFFECTS ? (base.effect as AccessoryEffect) : null;
-  const text = known ? `${ACCESSORY_EFFECTS[known].label} +${Math.round(effectValue(known, rarity) * 1000) / 10}%` : "Unique effect";
-  return text;
+  const parts: string[] = [];
+  if (base?.weapon) for (const e of WEAPONS[base.weapon].effects) parts.push(`${ACCESSORY_EFFECTS[e.id].label} +${pct1(e.value * EFFECT_SCALE[rarity])}`);
+  if (base?.effect && base.effect in ACCESSORY_EFFECTS) {
+    const known = base.effect as AccessoryEffect;
+    parts.push(`${ACCESSORY_EFFECTS[known].label} +${pct1(effectValue(known, rarity))}`);
+  } else if (base?.effect && base.effect in MYTHIC_EFFECTS) {
+    parts.push(MYTHIC_EFFECTS[base.effect as MythicEffect].label);
+  }
+  return parts.length ? parts.join(" · ") : null;
 }
 
-const pct = (x: number) => `${Math.round(x * 100)}%`;
+/** "Sword · Striker's weapon": a weapon's type and the class it suits. */
+function weaponLabel(base: BaseItem | undefined): string | null {
+  if (!base?.weapon) return null;
+  const w = WEAPONS[base.weapon];
+  return `${w.label} · ${cap(w.classId)} weapon (+${pct(WEAPON_CLASS_BONUS)} power)`;
+}
 
 // ---- Gear ----
 
@@ -125,6 +155,16 @@ export interface UpgradeView {
   reason: string | null;
 }
 
+export interface ReforgeView {
+  /** The level it would reach: the user's. */
+  to: number;
+  scrap: number;
+  /** "Reforge to level 34 for 40 scrap" */
+  label: string;
+  enabled: boolean;
+  reason: string | null;
+}
+
 export interface ItemView {
   id: string;
   baseId: string;
@@ -133,41 +173,53 @@ export interface ItemView {
   slot: Slot;
   rarity: Rarity;
   plus: number;
+  itemLevel: number;
   /** "Epic" or "Epic (+1)" */
   title: string;
+  /** With the class's weapon bonus, when it is the class's own weapon type. */
   power: number;
+  /**
+   * Power against what is worn in the position the sheet is for (green up, red down): null for the
+   * worn item itself. With nothing worn there, the whole power.
+   */
+  compare: number | null;
   /** "HP 70 / DEF 30" */
   focus: string;
-  /** An accessory's effect or a Mythic's unique effect, with its strength. */
+  /** "Sword · Striker weapon (+10% power)", for weapons. */
+  weapon: string | null;
+  /** A weapon's, accessory's or Mythic's effects, with their strength. */
   effect: string | null;
   equipped: boolean;
   /** Where it is worn, when it is. */
   position: Position | null;
-  named: boolean;
-  ascended: boolean;
-  /** Small text labels: Equipped, Named, Ascended. */
+  /** Small text labels: Equipped. */
   tags: string[];
-  /** The level needed when the user's level is below it. */
+  /** The level needed when the user's level is below its item level. */
   locked: { level: number } | null;
   /** Equip into the position the sheet was opened for. */
   equip: { enabled: boolean; reason: string | null };
   /** Null when the item is at the top of what it can reach. */
   upgrade: UpgradeView | null;
   maxedNote: string | null;
+  /** Raise it to the user's level for scrap; null when it is already there. */
+  reforge: ReforgeView | null;
   sell: { price: number | null; enabled: boolean; reason: string | null };
   salvage: { scrap: number; enabled: boolean; reason: string | null };
 }
 
 const NO_STATE = (now: number) => newGameState(now, "UTC");
 
-/** One owned copy as shown for `target`, the position being equipped into. */
-function itemView(state: GameState, item: OwnedItem, now: number, target: Position, salvageBonus: number): ItemView {
+/** A piece's power as it counts for this class: its own, plus the weapon bonus for the class's weapon type. */
+export const wornPower = (item: OwnedItem, classId: ClassId | null | undefined) => piecePower(item) * (1 + weaponClassBonus(item, classId));
+
+/** One owned copy as shown for `target`, the position being equipped into, against `worn` (what is there). */
+function itemView(state: GameState, item: OwnedItem, now: number, target: Position, salvageBonus: number, worn: OwnedItem | null): ItemView {
   const base = baseItem(item.baseId);
   const position = equippedPosition(state, item.id);
   const equipped = position != null;
-  const ascended = isAscended(item);
-  const needed = EQUIP_LEVEL[item.rarity];
+  const level = itemLevelOf(item);
   const equipTry = equipItem(state, item, now, target);
+  const power = wornPower(item, state.classId);
 
   const step = upgradeStep(item);
   let upgrade: UpgradeView | null = null;
@@ -181,8 +233,22 @@ function itemView(state: GameState, item: OwnedItem, now: number, target: Positi
       coins: cost.coins,
       scrap: cost.scrap,
       mythicCore: cost.mythicCore ?? 0,
-      powerAfter: round1(piecePower({ rarity: to.rarity, plus: to.plus, originRarity: item.originRarity, slot: item.slot })),
+      powerAfter: round1(wornPower({ ...item, rarity: to.rarity, plus: to.plus }, state.classId)),
       costLabel: parts.join(" + "),
+      enabled: attempt.ok,
+      reason: attempt.ok ? null : attempt.error,
+    };
+  }
+
+  let reforge: ReforgeView | null = null;
+  if (level < state.level) {
+    const attempt = applyReforge({ state, item, expectedLevel: level, now });
+    const to = Math.min(state.level, 100);
+    const scrap = attempt.ok ? attempt.value.scrap : reforgeCost(item, to);
+    reforge = {
+      to,
+      scrap,
+      label: `Reforge to level ${to} for ${number(scrap)} scrap`,
       enabled: attempt.ok,
       reason: attempt.ok ? null : attempt.error,
     };
@@ -202,19 +268,21 @@ function itemView(state: GameState, item: OwnedItem, now: number, target: Positi
     slot: item.slot,
     rarity: item.rarity,
     plus: item.plus,
+    itemLevel: level,
     title: rarityWithPlus(item.rarity, item.plus),
-    power: round1(piecePower(item)),
+    power: round1(power),
+    compare: worn?.id === item.id ? null : round1(power - (worn ? wornPower(worn, state.classId) : 0)),
     focus: focusLabel(pieceFocus(item)),
+    weapon: weaponLabel(base),
     effect: effectLabel(base, item.rarity),
     equipped,
     position,
-    named: item.named,
-    ascended,
-    tags: [...(equipped ? [`Equipped${where}`] : []), ...(item.named ? ["Named"] : []), ...(ascended ? ["Ascended"] : [])],
-    locked: state.level < needed ? { level: needed } : null,
+    tags: equipped ? [`Equipped${where}`] : [],
+    locked: canEquip(item, state.level) ? null : { level },
     equip: { enabled: !equipped && equipTry.ok, reason: equipped ? null : equipTry.ok ? null : equipTry.error },
     upgrade,
     maxedNote: step.ok ? null : step.error === "Already maxed" ? "Fully upgraded" : step.error,
+    reforge,
     sell: { price: sellPrice, enabled: sellTry.ok, reason: sellTry.ok ? null : sellTry.error },
     salvage: { scrap: salvageTry.ok ? salvageTry.value.removal.scrap : 0, enabled: salvageTry.ok, reason: salvageTry.ok ? null : salvageTry.error },
   };
@@ -222,8 +290,7 @@ function itemView(state: GameState, item: OwnedItem, now: number, target: Positi
 
 /**
  * Copies of one item shown as one card with "×N". Unequipped copies with the same base, rarity,
- * plus and named flag (and origin, which sets the ascended penalty) stack; an equipped copy is its
- * own card. Equip, upgrade, sell and salvage act on `item`, one copy of the stack.
+ * plus and item level stack; an equipped copy is its own card. Equip, upgrade, sell and salvage act on `item`, one copy of the stack.
  */
 export interface StackView {
   key: string;
@@ -244,7 +311,7 @@ export interface PositionView {
   cards: StackView[];
 }
 
-const stackKey = (i: OwnedItem) => `${i.baseId}|${i.rarity}|${i.plus}|${i.named}|${i.originRarity}`;
+const stackKey = (i: OwnedItem) => `${i.baseId}|${i.rarity}|${i.plus}|${itemLevelOf(i)}`;
 const strongestFirst = (a: ItemView, b: ItemView) => b.power - a.power || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 
 /** Every worn position with what is worn there and what else is owned for its slot. */
@@ -256,9 +323,10 @@ export function positionViews(state: GameState | null, inventory: OwnedItem[], n
   return POSITIONS.map((position) => {
     const slot = slotOfPosition(position);
     const copies = live.filter((i) => i.slot === slot);
-    const views = copies.map((i) => ({ owned: i, view: itemView(game, i, now, position, salvageBonus) }));
-    const worn = views.filter((v) => v.view.equipped).map((v) => ({ key: v.owned.id, count: 1, item: v.view }));
-    worn.sort((a, b) => Number(b.item.position === position) - Number(a.item.position === position) || strongestFirst(a.item, b.item));
+    const worn = live.find((i) => i.id === equippedOf(game)[position]) ?? null;
+    const views = copies.map((i) => ({ owned: i, view: itemView(game, i, now, position, salvageBonus, worn) }));
+    const wornCards = views.filter((v) => v.view.equipped).map((v) => ({ key: v.owned.id, count: 1, item: v.view }));
+    wornCards.sort((a, b) => Number(b.item.position === position) - Number(a.item.position === position) || strongestFirst(a.item, b.item));
 
     const stacks = new Map<string, StackView>();
     for (const { owned, view } of [...views].sort((a, b) => a.owned.id.localeCompare(b.owned.id))) {
@@ -275,7 +343,7 @@ export function positionViews(state: GameState | null, inventory: OwnedItem[], n
       label: POSITION_LABEL[position],
       equipped: views.find((v) => v.view.position === position)?.view ?? null,
       owned: copies.length,
-      cards: [...worn, ...rest],
+      cards: [...wornCards, ...rest],
     };
   });
 }
@@ -288,8 +356,8 @@ export interface SetProgress {
   tiers: { pieces: number; label: string; reached: boolean }[];
 }
 
-/** Equipped pieces per set, best set first, with the 3 and 5 piece bonuses. */
-export function setProgress(equipped: Pick<OwnedItem, "baseId">[]): SetProgress[] {
+/** Equipped pieces per set, best set first, with the 3 and 5 piece bonuses (the effect at the lowest rarity worn). */
+export function setProgress(equipped: Pick<OwnedItem, "baseId" | "rarity">[]): SetProgress[] {
   const counts = setCounts(equipped);
   const active = activeSet(equipped);
   return SETS.filter((s) => (counts[s.id] ?? 0) > 0)
@@ -301,7 +369,9 @@ export function setProgress(equipped: Pick<OwnedItem, "baseId">[]): SetProgress[
       tiers: SET_BONUS.map((t) => ({
         pieces: t.pieces,
         label: `${t.pieces} pieces: +${pct(t.gearPct)} gear power${
-          s.effect && t.pieces === SET_EFFECT_PIECES ? `, ${ACCESSORY_EFFECTS[s.effect.id].label} +${pct(s.effect.value)}` : ""
+          t.pieces === SET_EFFECT_PIECES
+            ? `, ${ACCESSORY_EFFECTS[s.effect.id].label} +${pct1(setEffectValue(s.effect.value, equipped.filter((i) => pieceSetId(i) === s.id)))}`
+            : ""
         }`,
         reached: counts[s.id] >= t.pieces,
       })),
@@ -325,6 +395,7 @@ export function powerView(bodyPower: number | null, state: GameState | null, inv
     body: bodyPower,
     equipped: equippedItems(game, inventory),
     level: game.level,
+    classId: game.classId,
     titlePct: titleBonusPct(game),
     classPct: classBonusPct(game),
   });
@@ -334,6 +405,71 @@ export function powerView(bodyPower: number | null, state: GameState | null, inv
     bonus: { total: p.bonus.total, cap: BONUS_BUCKET_CAP, titles: p.bonus.titles, capped: p.bonus.capped },
     battle: round1(p.total),
   };
+}
+
+// ---- Best gear (13.9) ----
+
+export interface BestGear {
+  /** The equips that get there, each to its position; empty when the best is already worn. */
+  moves: { itemId: string; position: Position }[];
+  /** Gear power gained, before the gear cap. */
+  gain: number;
+}
+
+const ARMOR_POSITIONS: Position[] = ["helmet", "chestplate", "gloves", "leggings", "boots"];
+
+/** Gear power of a loadout before the cap: the same rules as battle power (sets, the weapon bonus). */
+function loadoutPower(game: GameState, items: OwnedItem[]): number {
+  return battlePower({ body: Number.MAX_SAFE_INTEGER, equipped: items, level: game.level, classId: game.classId }).gear.boosted;
+}
+
+/**
+ * The strongest loadout the user can wear, by gear power: the strongest piece for each position, then
+ * each set's best pieces in the armor slots instead, if a set bonus beats it. Effects aren't weighed.
+ * Items already worn in a ring or charm position stay where they are.
+ */
+export function bestGear(state: GameState | null, inventory: OwnedItem[]): BestGear {
+  const game = state ?? NO_STATE(0);
+  const live = inventory.filter((i) => !i.removed && canEquip(i, game.level));
+  const worn = equippedOf(game);
+  const ranked = (filter: (i: OwnedItem) => boolean) =>
+    live.filter(filter).sort((a, b) => wornPower(b, game.classId) - wornPower(a, game.classId) || a.id.localeCompare(b.id));
+
+  const pick = new Map<Position, OwnedItem>();
+  for (const slot of new Set(POSITIONS.map(slotOfPosition))) {
+    const positions = positionsOf(slot);
+    const best = ranked((i) => i.slot === slot).slice(0, positions.length);
+    // Keep chosen items where they are worn; the rest fill the free positions in order.
+    const placed = new Set<OwnedItem>();
+    for (const p of positions) {
+      const there = best.find((i) => i.id === worn[p]);
+      if (there) {
+        pick.set(p, there);
+        placed.add(there);
+      }
+    }
+    const rest = best.filter((i) => !placed.has(i));
+    for (const p of positions) if (!pick.has(p) && rest.length) pick.set(p, rest.shift()!);
+  }
+
+  let bestPick = pick;
+  let bestPower = loadoutPower(game, [...pick.values()]);
+  for (const set of SETS) {
+    const alt = new Map(pick);
+    for (const p of ARMOR_POSITIONS) {
+      const piece = ranked((i) => i.slot === p && pieceSetId(i) === set.id)[0];
+      if (piece) alt.set(p, piece);
+    }
+    const power = loadoutPower(game, [...alt.values()]);
+    if (power > bestPower + 1e-9) {
+      bestPick = alt;
+      bestPower = power;
+    }
+  }
+
+  const current = loadoutPower(game, equippedItems(game, inventory));
+  const moves = [...bestPick].filter(([p, i]) => worn[p] !== i.id).map(([position, i]) => ({ itemId: i.id, position }));
+  return { moves, gain: moves.length ? round1(bestPower - current) : 0 };
 }
 
 export const scrapOf = (state: GameState | null) => materialsOf(state ?? {}).scrap ?? 0;
@@ -351,14 +487,16 @@ export interface OfferView {
   rarity: Rarity;
   /** "HP 70 / DEF 30" */
   focus: string;
+  /** "Sword · Striker weapon (+10% power)", for weapons. */
+  weapon: string | null;
+  /** The item level it comes at: the user's. */
+  itemLevel: number;
   price: number;
   /** "Bought" once this offer was taken; the item is the user's. */
   bought: boolean;
   canAfford: boolean;
   /** Why Buy is off, if it is. */
   reason: string | null;
-  /** Level needed to equip it, when the user is below it. */
-  locked: { level: number } | null;
 }
 
 export interface ShopView {
@@ -395,10 +533,10 @@ export function shopView(
   const week = weekIdOf(now, timeZone);
   const game = state ?? NO_STATE(now);
   const shop = doc ?? emptyShop(week, timeZone, now);
-  const offers = shopStock(uid, week, shop.rerolls).map((o): OfferView => {
+  const offers = shopStock(uid, week, shop.rerolls, game.level).map((o): OfferView => {
     const base = baseItem(o.baseId);
     const bought = shop.bought[offerKey(shop.rerolls, o.index)] != null;
-    const attempt = buyOffer({ uid, doc: shop, state: game, index: o.index, expectedRerolls: shop.rerolls, now });
+    const attempt = buyOffer({ uid, doc: shop, state: game, index: o.index, expectedRerolls: shop.rerolls, expectedBaseId: o.baseId, now });
     return {
       index: o.index,
       key: o.key,
@@ -408,11 +546,12 @@ export function shopView(
       slot: base?.slot ?? "helmet",
       rarity: o.rarity,
       focus: base ? focusLabel(base.focus) : "",
+      weapon: weaponLabel(base),
+      itemLevel: shopItemLevel(game.level),
       price: o.price,
       bought,
       canAfford: game.coins >= o.price,
       reason: bought ? null : attempt.ok ? null : attempt.error,
-      locked: game.level < EQUIP_LEVEL[o.rarity] ? { level: EQUIP_LEVEL[o.rarity] } : null,
     };
   });
   const cost = rerollCost(shop, rerollDiscount);

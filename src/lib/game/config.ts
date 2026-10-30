@@ -242,13 +242,17 @@ export type ArmorSlot = (typeof ARMOR_SLOTS)[number];
 export const ACCESSORY_SLOTS = ["ring", "necklace", "belt", "charm"] as const;
 export type AccessorySlot = (typeof ACCESSORY_SLOTS)[number];
 
+/** One weapon slot (GAME_DESIGN.md 13.6): never part of a set. */
+export const WEAPON_SLOT = "weapon" as const;
+
 /** What an item is for (item.slot). */
-export const SLOTS = [...ARMOR_SLOTS, ...ACCESSORY_SLOTS] as const;
+export const SLOTS = [WEAPON_SLOT, ...ARMOR_SLOTS, ...ACCESSORY_SLOTS] as const;
 export type Slot = (typeof SLOTS)[number];
 export const isAccessory = (slot: Slot): slot is AccessorySlot => (ACCESSORY_SLOTS as readonly string[]).includes(slot);
+export const isWeapon = (slot: Slot) => slot === WEAPON_SLOT;
 
 /** Where an item is worn (the keys of the equipped map). Rings and charms have two positions each. */
-export const POSITIONS = ["helmet", "chestplate", "gloves", "leggings", "boots", "ring1", "ring2", "necklace", "belt", "charm1", "charm2"] as const;
+export const POSITIONS = ["weapon", "helmet", "chestplate", "gloves", "leggings", "boots", "ring1", "ring2", "necklace", "belt", "charm1", "charm2"] as const;
 export type Position = (typeof POSITIONS)[number];
 
 /** The slot a position takes: "ring2" → "ring". */
@@ -266,33 +270,39 @@ export type Focus = Partial<Record<Attribute, number>>;
 export const RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"] as const;
 export type Rarity = (typeof RARITIES)[number];
 
-/** Items that start at one of these are named. Everything that starts below is unnamed. */
-export const NAMED_RARITIES: readonly Rarity[] = ["legendary", "mythic"];
-
-/** The rarities the shop sells. Legendary and Mythic only drop from bosses. */
+/** The rarities the shop sells. Legendary only drops from bosses; Mythic drops late or comes from a Legendary and a Mythic Core. */
 export const SHOP_RARITIES = ["common", "uncommon", "rare", "epic"] as const;
 export type ShopRarity = (typeof SHOP_RARITIES)[number];
 
-/** Unnamed gear can be upgraded up to this rarity, never past it. */
-export const UNNAMED_MAX_RARITY: Rarity = "legendary";
+/** Item levels (GAME_DESIGN.md 13.5): an item's level is where it dropped, and you can't wear one above your own. */
+export const ITEM_LEVEL = { min: 1, max: 100 };
+
+/**
+ * The level bands of the named sets and weapons (13.5): one set per class and one weapon per type
+ * starts at each of these levels and covers up to the next. A piece's own level is wherever it dropped.
+ */
+export const LEVEL_BANDS = [1, 20, 40, 60, 80] as const;
 
 export const GEAR = {
-  /** Power of one armor piece at +0. Full sets: Epic 75, Legendary 110. A Mythic is a single piece. */
-  basePower: { common: 3, uncommon: 6, rare: 10, epic: 15, legendary: 22, mythic: 30 } as Record<Rarity, number>,
-  /** Power of one accessory at +0: about 40% of an armor piece. */
-  accessoryPower: { common: 1, uncommon: 2.5, rare: 4, epic: 6, legendary: 9, mythic: 12 } as Record<Rarity, number>,
-  /** Each + step adds this fraction of the piece's base power. */
+  /**
+   * An armor piece's power at item level L, Common, +0: base + perLevel × L + perLevelSq × L² (*draft*).
+   * Fitted so a full Common loadout at its level is about 12-20% of the pacing player's body power then
+   * (level 20 ≈ 1.5 a piece, 50 ≈ 4, 100 ≈ 10.5), leaving rarity and sets room under the gear cap.
+   */
+  levelPower: { base: 0.5, perLevel: 0.04, perLevelSq: 0.0006 },
+  /** Power = level power × this (*draft*): a Legendary is worth roughly a Common about 20 levels higher. */
+  rarityMultiplier: { common: 1, uncommon: 1.15, rare: 1.3, epic: 1.5, legendary: 1.75, mythic: 2 } as Record<Rarity, number>,
+  /** An accessory is about 40% of an armor piece; the weapon is the strongest single piece (13.6). */
+  accessoryWeight: 0.4,
+  weaponWeight: 2,
+  /** Each + step adds this fraction of the piece's power. */
   plusStep: 0.04,
   maxPlus: 2,
-  /**
-   * A piece promoted into a named rarity (Epic → Legendary, Legendary → Mythic) has this share of
-   * a native piece's power at the same plus, by plus (+0, +1, +2). A maxed one still loses to a fresh native.
-   */
-  ascendedFactor: [0.85, 0.885, 0.92],
   /** Gear's share of battle power is at most this: gear ≤ maxShare / (1 − maxShare) × body power. */
   maxShare: 0.3,
   /** The focus of an item that has none (older items, or a base that left the catalog): the slot's own split. */
   slotFocus: {
+    weapon: { atk: 80, hp: 20 },
     helmet: { hp: 70, def: 30 },
     chestplate: { def: 70, hp: 30 },
     gloves: { atk: 70, hp: 30 },
@@ -342,8 +352,37 @@ export type AccessoryEffect = keyof typeof ACCESSORY_EFFECTS;
 /** An effect's strength by the item's current rarity, as a share of its Legendary value. */
 export const EFFECT_SCALE: Record<Rarity, number> = { common: 0.2, uncommon: 0.4, rare: 0.6, epic: 0.8, legendary: 1, mythic: 1.25 };
 
-/** Level needed to equip an item of each (current) rarity. */
-export const EQUIP_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, epic: 35, legendary: 55, mythic: 80 };
+/**
+ * Weapons (GAME_DESIGN.md 13.6, *draft*). Open to every class; the matching class gets classBonus more
+ * weapon power. Every type deals damage, but the focus and effects differ: a staff is weaker than a
+ * sword of the same level and rarity, yet an Epic staff still out-damages an Uncommon sword. The
+ * effects are at Legendary strength, scaled by EFFECT_SCALE like an accessory's.
+ */
+export const WEAPON_TYPES = ["sword", "staff", "shield"] as const;
+export type WeaponType = (typeof WEAPON_TYPES)[number];
+export const WEAPONS: Record<WeaponType, { label: string; classId: ClassId; focus: Focus; effects: { id: AccessoryEffect; value: number }[] }> = {
+  sword: { label: "Sword", classId: "striker", focus: { atk: 90, hp: 10 }, effects: [{ id: "critDamage", value: 0.15 }] },
+  staff: {
+    label: "Staff",
+    classId: "cleric",
+    focus: { atk: 85, hp: 15 },
+    effects: [
+      { id: "healPower", value: 0.15 },
+      { id: "healing", value: 0.02 },
+    ],
+  },
+  shield: {
+    label: "Shield",
+    classId: "vanguard",
+    focus: { def: 60, atk: 25, hp: 15 },
+    effects: [
+      { id: "guardDuration", value: 0.15 },
+      { id: "bastionShield", value: 0.1 },
+    ],
+  },
+};
+/** The class's own weapon type adds this share to the weapon's power. */
+export const WEAPON_CLASS_BONUS = 0.1;
 
 /**
  * Set bonuses: equipping this many pieces of one set multiplies gear power before the gear cap.
@@ -374,21 +413,29 @@ export const SHOP = {
   rarityWeights: { common: 35, uncommon: 35, rare: 20, epic: 10 } as Record<ShopRarity, number>,
   /** At most this many Epic offers in one stock. */
   maxEpic: 1,
-  /** Each offer is an accessory with this chance, otherwise armor. */
+  /** Each offer is an accessory with this chance, a weapon with weaponShare, otherwise armor. */
   accessoryShare: 0.3,
+  weaponShare: 0.1,
   /** Coins for the first and second reroll of a week. */
   rerollCosts: [100, 200],
 };
 
-/** Unnamed items sell for this share of their origin rarity's value (pre-markup). Named items can't be sold. */
+/** Common to Epic items sell for this share of their rarity's value (pre-markup). Legendary and Mythic can't be sold. */
 export const SELL_SHARE = 0.25;
 
 /** Upgrade and salvage materials. Mythic Cores only come from bosses (Phase 5). */
 export const MATERIALS = ["scrap", "mythicCore"] as const;
 export type Material = (typeof MATERIALS)[number];
 
-/** Scrap from salvaging an item, by its current rarity. Coins and scrap spent upgrading it aren't refunded. */
+/**
+ * Scrap from salvaging an item: this by its rarity, times (levelBase + item level × perLevel), so a level-1
+ * item pays about half and a level-100 one about 1.5 times (*draft*). Coins and scrap spent on it aren't refunded.
+ */
 export const SALVAGE: Record<Rarity, number> = { common: 5, uncommon: 15, rare: 35, epic: 80, legendary: 150, mythic: 250 };
+export const SALVAGE_LEVEL = { levelBase: 0.5, perLevel: 0.01 };
+
+/** Reforging raises an item to your level for this much scrap per level gained, by rarity (*draft*, 13.5). */
+export const REFORGE_SCRAP_PER_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 2, epic: 3, legendary: 5, mythic: 8 };
 
 export interface UpgradeCost {
   coins: number;
@@ -397,17 +444,18 @@ export interface UpgradeCost {
 }
 
 /**
- * Cost of the next upgrade by current rarity: +0 → +1, +1 → +2, then +2 → the next rarity at +0.
- * Null: that rarity can't be promoted. Legendary → Mythic is for named gear only.
+ * Cost of the next plus level by current rarity: +0 → +1, +1 → +2. Rarity never changes by upgrading
+ * (13.5), except the endgame path: a Legendary at +2 becomes a Mythic at +0 for MYTHIC_PROMOTION.
  */
-export const UPGRADE_COSTS: Record<Rarity, [UpgradeCost, UpgradeCost, UpgradeCost | null]> = {
-  common: [{ coins: 40, scrap: 2 }, { coins: 60, scrap: 3 }, { coins: 150, scrap: 5 }],
-  uncommon: [{ coins: 100, scrap: 4 }, { coins: 150, scrap: 6 }, { coins: 400, scrap: 10 }],
-  rare: [{ coins: 250, scrap: 8 }, { coins: 350, scrap: 12 }, { coins: 900, scrap: 20 }],
-  epic: [{ coins: 600, scrap: 15 }, { coins: 800, scrap: 20 }, { coins: 2000, scrap: 40 }],
-  legendary: [{ coins: 1200, scrap: 30 }, { coins: 1600, scrap: 40 }, { coins: 4000, scrap: 80, mythicCore: 1 }],
-  mythic: [{ coins: 2500, scrap: 50 }, { coins: 3500, scrap: 70 }, null],
+export const UPGRADE_COSTS: Record<Rarity, [UpgradeCost, UpgradeCost]> = {
+  common: [{ coins: 40, scrap: 2 }, { coins: 60, scrap: 3 }],
+  uncommon: [{ coins: 100, scrap: 4 }, { coins: 150, scrap: 6 }],
+  rare: [{ coins: 250, scrap: 8 }, { coins: 350, scrap: 12 }],
+  epic: [{ coins: 600, scrap: 15 }, { coins: 800, scrap: 20 }],
+  legendary: [{ coins: 1200, scrap: 30 }, { coins: 1600, scrap: 40 }],
+  mythic: [{ coins: 2500, scrap: 50 }, { coins: 3500, scrap: 70 }],
 };
+export const MYTHIC_PROMOTION: UpgradeCost = { coins: 4000, scrap: 80, mythicCore: 1 };
 
 // ---- Titles (section 5.1) ----
 
@@ -550,6 +598,9 @@ export const MYTHIC_EFFECTS = {
   "oathkeeper-belt": { label: "Bastion's shield is 25% bigger" },
   "saints-locket": { label: "Mend also stops bleeding for 4 s" },
   "dawn-censer": { label: "Healing past full HP becomes a shield, up to 15% of max HP" },
+  kingsbane: { label: "Crits charge your ultimate twice as fast" },
+  "first-light": { label: "Heals are 50% stronger while you are under 30% HP" },
+  "unyielding-wall": { label: "Hits taken charge your ultimate twice as fast" },
 } as const;
 export type MythicEffect = keyof typeof MYTHIC_EFFECTS;
 
@@ -633,6 +684,10 @@ export const COMBAT = {
     oathkeeperShieldFactor: 1.25,
     saintsBleedFreeSec: 4,
     censerShieldMaxPct: 0.15,
+    kingsbaneCritCharge: 2,
+    firstLightBelowPct: 0.3,
+    firstLightHeal: 1.5,
+    wallTakenCharge: 2,
   },
   /**
    * An enemy's numbers from its recommended battle power P, before the boss's own multipliers:
@@ -655,6 +710,29 @@ export const WEEKLY_BOSS = {
   coins: [50, 75, 100, 125, 150],
   scrap: [10, 20, 30, 45, 60],
   refightShare: 0.5,
+};
+
+/**
+ * A drop's item level and kind (GAME_DESIGN.md 13.5, *draft*). Its level is the lower of your level and
+ * what its source can give, less 0 to `levelsBelow`. Set pieces and weapons come from the band of that
+ * level; loose armor and accessories fit any level. Rarity is rolled separately (the drop tables).
+ */
+export const LOOT = {
+  levelsBelow: 2,
+  /** The highest item level each source gives. */
+  sourceLevel: {
+    /** Campaign stage s: about the level the pacing player reaches it (the Campaign ends near 50). */
+    campaignPerStage: 0.85,
+    /** Endless tower floor f: its opening level plus f. */
+    endlessBase: 25,
+    /** Weekly tiers 1 to 5: up to the level before the next tier opens. */
+    weeklyTier: [34, 54, 69, 99, 100],
+    /** Boss Tower floor f: its opening level plus 1.5 × f. */
+    bossTowerBase: 55,
+    bossTowerPerFloor: 1.5,
+  },
+  /** What a drop is, by relative weight. */
+  kindWeights: { set: 40, loose: 20, accessory: 30, weapon: 10 },
 };
 
 /** Drops from boss wins (weekly boss and Boss Tower first clears). */

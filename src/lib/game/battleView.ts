@@ -428,6 +428,8 @@ export interface ResultItem {
   id: string;
   name: string;
   rarity: Rarity;
+  /** Null on fights from before item levels. */
+  itemLevel: number | null;
 }
 
 export interface ResultView {
@@ -595,6 +597,7 @@ export function resultView(
     id: i.id,
     name: baseItem(i.baseId)?.name ?? "Unknown item",
     rarity: i.rarity,
+    itemLevel: i.itemLevel ?? null,
   }));
   const rewards: ResultView["rewards"] = [];
   if (fight.coins)
@@ -611,7 +614,7 @@ export function resultView(
     rewards.push({ label: "Mythic Core", value: `+${fight.mythicCores}` });
   const dropped = [
     ...items.map((i) => i.rarity),
-    ...fight.salvaged.map((s) => s.rarity),
+    ...(fight.salvaged ?? []).map((s) => s.rarity),
   ];
   const best = dropped.length
     ? dropped.reduce((a, b) => (RANK.indexOf(b) > RANK.indexOf(a) ? b : a))
@@ -642,7 +645,7 @@ export function resultView(
     })),
     rewards,
     items,
-    salvaged: fight.salvaged.map(
+    salvaged: (fight.salvaged ?? []).map(
       (s) =>
         `${baseItem(s.baseId)?.name ?? "Item"} (duplicate) → ${s.scrap} scrap`,
     ),
