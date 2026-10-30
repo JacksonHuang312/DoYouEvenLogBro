@@ -608,7 +608,7 @@ Agreed in conversation after Phase 5 piece 2. Numbers marked *draft* get tuned w
 ### 13.1 Build order
 1. ~~**Levels 1-100 and level rewards** (13.2, 13.3), plus fight energy from workouts (13.7) and the anti-farming guard (13.8)~~ (built 2026-10-30, see 13.13).
 2. ~~**Battle screens** (Phase 5 piece 3) on the current items, with the loot moments of 13.9~~ (built 2026-10-30, see 13.14).
-2b. **Enemy icons** (13.15), in stages: ~~fallbacks, chapter and weekly bosses~~ (built 2026-10-30), tower bosses, Campaign enemies and endless types also done (2026-10-30), awaiting Jackson's review of the contact sheet. Sonnet.
+2b. **Enemy icons** (13.15), in stages: ~~fallbacks, chapter and weekly bosses~~ (built 2026-10-30), tower bosses, Campaign enemies and endless types also done (2026-10-30), reviewed and approved by Jackson on the contact sheet. Sonnet.
 2c. *Optional, not yet agreed:* a live fight replay (play the stored events back with health bars, speed toggle and skip; needs health values on each fight event).
 3. **Two weeks of real use**, then retune from real fight records (13.11).
 4. **Item rework:** item level + rarity (13.5), weapons (13.6). One or two sessions, **on Opus**; the Gear and Shop tabs are reworked with it. Gear and weapon icons (13.15) follow once the item list settles.
