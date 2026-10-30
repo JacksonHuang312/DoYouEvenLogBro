@@ -606,7 +606,7 @@ Vercel also needs FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and FIR
 Agreed in conversation after Phase 5 piece 2. Numbers marked *draft* get tuned with the pacing and combat tables, as before.
 
 ### 13.1 Build order
-1. **Levels 1-100 and level rewards** (13.2, 13.3), plus fight energy from workouts (13.7) and the anti-farming guard (13.8). Small; before the rollout, since production hasn't had the RPG backfill yet (the backfill then simply uses the new curve).
+1. ~~**Levels 1-100 and level rewards** (13.2, 13.3), plus fight energy from workouts (13.7) and the anti-farming guard (13.8)~~ (built 2026-10-30, see 13.13).
 2. **Battle screens** (Phase 5 piece 3) on the current items, with the loot moments of 13.9.
 3. **Two weeks of real use**, then retune from real fight records (13.11).
 4. **Item rework:** item level + rarity (13.5), weapons (13.6). One or two sessions; the Gear and Shop tabs are reworked with it.
@@ -676,3 +676,13 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 
 ### 13.12 Notifications
 - Web push for an installed web app: "Your weekly fight is ready", "The tower is open again", "1 workout from levelling up".
+
+### 13.13 Step 1 (built 2026-10-30): levels 1-100, level rewards, stat points, energy, daily limit
+- **Pacing model:** `PACING.progressedShare` is **0.45** (was 0.15), from the Hevy replay (13.11).
+- **Curve:** reaching level L takes `round(22 × (L − 1)^1.5)` XP in all (`XP.curve`, `xpToReach`, `levelForXp`). Level 2 on the first workout, 5 in the first week, 12 at a month, 20 at 2 months, 39 at 6, 62 at a year, 82 at 18 months, 100 at about 24.5. Levels stop at 100 (`XP.maxLevel`); XP keeps counting and the bar keeps filling in steps the size of the last level.
+- **Gates by month** (each opens when it did on the 1-35 scale): endless tower **25**, weekly tiers **1 / 35 / 55 / 70 / 100**, Boss Tower **55**, equip Epic **35**, Legendary **55**, Mythic **80**. With the corrected progressed share the Campaign (8.5 months, target 9) and Boss Tower floor 30 (28.4, target 30) now come a little early; left for the retune on real data (13.1 step 3).
+- **Level rewards:** each new level pays 25 coins and 5 scrap, every 10th 250 and 50 (`LEVEL_REWARDS`), outside the daily coin cap, whether a claim or a quest claim reached it. `game/state.levelRewardsTo` records the highest level paid; claims store what they paid (`levelRewards`). About 5,000 coins and 1,000 scrap over two years. The backfill and `--rework` only mark replayed levels as paid.
+- **Stat points:** one per level past 1, put into a muscle stat: +0.5% of that stat in fights, at most 30 a stat (`LEVEL_POINTS`), so spreading them is worth about +8% at level 100 and dumping them in one stat much less. Stored as `game/state.statPoints`. They count in fights and the Battle number only; boss minimums, the radar, Power, XP, quests and titles use earned stats. `POST /api/points` assigns (`add`, `expectedSpent`) or resets all for **500 coins** (`respec`), retry-safe by the spent total the client saw. No screen yet: the Battle screens (step 2) add it.
+- **Fight energy:** a counted workout gives 3, up to 9; new players start with 3 (`ENERGY`, `game/state.energy`). A Campaign or endless tower request spends 1, an auto-climb included; the weekly boss and Boss Tower don't use it. The fight route returns `energy`.
+- **Daily limit:** at most 2 counted workouts per workout day in the user's zone (`DAILY_WORKOUTS`, `game/state.countedDays`, kept 30 days). Counting by the workout's own day means a week of offline workouts syncing at once still counts. A third is "daily-limit": saved, no claim record, and the Rewards screen says so. Recompute and the backfill skip the same workouts.
+- `e2e/seed.ts` sets XP with `xpToReach` (default level 80, everything equippable) and marks the seeded levels' rewards as paid.

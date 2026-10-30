@@ -172,7 +172,7 @@ test.describe("Gear tab", () => {
     // The level sits on the Equip button as a lock and a number, not as a line of text.
     const equip = epic.getByRole("button", { name: "Equip, needs level 35" });
     await expect(equip).toBeDisabled();
-    await expect(equip).toContainText("8");
+    await expect(equip).toContainText("35");
     await expect(epic).not.toContainText("Needs level");
     await shot(page, "gear-level-lock", { full: false });
   });
