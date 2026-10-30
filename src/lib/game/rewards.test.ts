@@ -2,7 +2,7 @@ import { xpToReach } from "./economy";
 import { describe, expect, test } from "vitest";
 import type { ClaimResponse } from "../server/game";
 import type { ClaimResult } from "./claim";
-import { COINS, STATS, XP, type Stat } from "./config";
+import { COINS, STATS, type Stat } from "./config";
 import { durationLabel, rewardsView, summaryOf, type RewardsInput, type RewardsSummary } from "./rewards";
 import { BENCH, set, T0, workout } from "./test-helpers";
 

@@ -1,7 +1,7 @@
 import { xpToReach } from "./economy";
 import { describe, expect, test } from "vitest";
 import { newGameState } from "./claim";
-import { QUESTS, STAT_MUSCLES, SUB_MUSCLES, XP, type Stat } from "./config";
+import { QUESTS, STAT_MUSCLES, SUB_MUSCLES, type Stat } from "./config";
 import { statOf } from "./muscles";
 import {
   claimable,
