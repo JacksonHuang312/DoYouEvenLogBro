@@ -34,7 +34,8 @@ test.describe("Offline mode", () => {
 
     // Gear: the tab and a slot sheet both warn, and every action is off.
     await hero.openTab("Gear");
-    await expect(page.getByText("Equipping, upgrading, selling and salvaging need a connection.", { exact: false })).toBeVisible();
+    await expect(page.getByText("Equipping, upgrading, reforging, selling and salvaging need a connection.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Best gear/ })).toBeDisabled();
     await page.getByRole("button", { name: /^Ring 1\b/ }).click();
     const sheet = page.getByRole("dialog", { name: "Ring 1", exact: true });
     await expect(sheet.getByText("Gear changes need a connection.", { exact: false })).toBeVisible();
