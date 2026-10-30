@@ -715,3 +715,9 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 - **Auto-play first:** a new fight opens `FightReplay` (`src/components/rpg/FightReplay.tsx`) instead of the result: the enemy's icon and name, two flat health bars (you in the accent colour, the enemy in grey) and the last four log lines, driven by `replayAt` in `battleView.ts`. It runs at 3 fight-seconds per second and holds a moment at the end, then hands over to the result screen by itself. A climb plays each floor in turn ("Round 2 of 3").
 - **Controls:** a speed button cycling 1× / 2× / 4× and **Skip** (Escape too). The result screen has **Watch replay** to play it again. With reduced motion on, or on a stored fight without health, the replay is skipped and the result shows at once.
 - Presentation only: the server still decides the fight, so skipping changes nothing. `e2e/battle.e2e.ts` covers the bars, speed, skip and watch-again at 390px (no overflow, tap targets); the other fight specs now skip the replay first.
+
+### 13.17 After first play of the replay (2026-10-30, to do next session)
+Jackson tried the replay on the emulator test account (`npm run seed:har`, `npm run dev:emu`) and wants:
+- **Slower attacks in the replay.** It plays too fast; lower the pace (`PACE` in `FightReplay.tsx`) and rethink the 1×/2×/4× steps. The fight itself is unchanged.
+- **Battle action icons with cooldowns.** Icons for each side's actions (basic attack, skill, ultimate, the enemy's heavy blow and its wind-up) with a cooldown bar or ring, so you can see how fast each one fires. Needs the cooldown figures per action from `combat.ts` and `config.ts`. Flat line-art like the enemy icons (7.1), state-driven, nothing looping.
+- **A transition from the fight ending to the result screen** (he is unsure). Today it holds 1.2 s then swaps; try a short fade or a Victory/Defeat beat first, off with reduced motion.

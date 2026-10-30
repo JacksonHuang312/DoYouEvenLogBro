@@ -47,3 +47,5 @@ next-env.d.ts
 
 # e2e run output (screenshots, traces, reports)
 /e2e/.output/
+
+.next-emu/
