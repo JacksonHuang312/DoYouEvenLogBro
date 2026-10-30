@@ -358,6 +358,13 @@ export function battleView({
 
 // ---- A finished fight ----
 
+/**
+ * Fight seconds per second shown (GAME_DESIGN.md 13.17). The simulation counts in its own seconds;
+ * every time the player sees (cooldowns, timestamps, how long a fight lasted) is divided by this, so
+ * the replay at 1× plays 1 second for 1 second. The rules and balance are untouched.
+ */
+export const FIGHT_TIME_SCALE = 2;
+
 const fixed = (t: number) => `${t.toFixed(1)}s`;
 const amt = (e: FightEvent) =>
   e.amount != null ? Math.round(e.amount).toLocaleString("en-US") : "";
@@ -366,6 +373,7 @@ const amt = (e: FightEvent) =>
 export function logLines(
   events: FightEvent[],
   foe: string,
+  scale = 1,
 ): { t: string; text: string }[] {
   return events.map((e) => {
     const you = e.actor === "hero";
@@ -412,7 +420,7 @@ export function logLines(
         // The actor of a "down" event is whoever fell.
         text = you ? "You are down" : `${foe} is down`;
     }
-    return { t: fixed(e.t), text };
+    return { t: fixed(e.t / scale), text };
   });
 }
 
@@ -454,7 +462,10 @@ export interface ReplayRound {
   heroMax: number;
   foeMax: number;
   classId: ClassId;
+  /** In shown seconds (fight seconds / FIGHT_TIME_SCALE). */
   timing: FightTiming;
+  /** The lowest and highest hit of each action this round (crits left out), by cooldown row key. */
+  damage: Partial<Record<string, { min: number; max: number }>>;
   events: {
     t: number;
     text: string;
@@ -482,16 +493,49 @@ export function replayRounds(
     )
       return null;
     const lines = logLines(log, r.foe);
+    const S = FIGHT_TIME_SCALE;
+    const per = (cd: { every: number; first: number }) => ({
+      every: cd.every / S,
+      first: cd.first / S,
+    });
+    const damage: ReplayRound["damage"] = {};
+    const seen = (key: string, e: FightEvent) => {
+      if (!e.amount || e.crit) return;
+      const d = damage[key];
+      damage[key] = {
+        min: Math.min(d?.min ?? Infinity, e.amount),
+        max: Math.max(d?.max ?? 0, e.amount),
+      };
+    };
+    for (const e of log) {
+      if (
+        e.actor === "hero" &&
+        (e.action === "attack" ||
+          e.action === "skill" ||
+          e.action === "ultimate")
+      )
+        seen(e.action, e);
+      else if (e.actor === "foe" && e.action === "attack") seen("foeAttack", e);
+      else if (e.actor === "foe" && e.action === "heavy") seen("foeHeavy", e);
+    }
     out.push({
       foe: r.foe,
       won: r.result.won,
-      seconds: r.result.seconds,
+      seconds: r.result.seconds / S,
       heroMax: heroMaxHp,
       foeMax: foeMaxHp,
       classId,
-      timing,
+      timing: {
+        attack: per(timing.attack),
+        skill: per(timing.skill),
+        foeAttack: per(timing.foeAttack),
+        foeHeavy: timing.foeHeavy
+          ? { ...per(timing.foeHeavy), warn: timing.foeHeavy.warn / S }
+          : null,
+      },
+      damage,
       events: log.map((e, i) => ({
-        t: e.t,
+        t: e.t / S,
         text: lines[i].text,
         actor: e.actor,
         action: e.action,
@@ -592,7 +636,7 @@ export function resultView(
     rounds: rounds.map((r) => ({
       title: r.foe,
       won: r.result.won,
-      seconds: fixed(r.result.seconds),
+      seconds: fixed(r.result.seconds / FIGHT_TIME_SCALE),
       power: `${Math.round(fight.heroPower)} vs ${r.power}`,
       ended: END_TEXT[r.result.end],
     })),
@@ -606,7 +650,7 @@ export function resultView(
     best,
     log: rounds.map((r) => ({
       title: r.foe,
-      lines: logLines(r.result.log, r.foe),
+      lines: logLines(r.result.log, r.foe, FIGHT_TIME_SCALE),
     })),
     energyLeft: energy,
     replay: replayRounds(rounds, fight.classId),
@@ -633,6 +677,8 @@ export interface CooldownRow {
   icon: ActionIconId;
   /** 0 just used, 1 ready. */
   fill: number;
+  /** The lowest and highest hit it lands this fight ("38–46"), when it deals damage. */
+  range?: string;
   /** The enemy's big hit is winding up. */
   warn?: boolean;
 }
@@ -668,6 +714,17 @@ export function replayCooldowns(
     );
   const cls = CLASSES[classId];
   const charge = seen.at(-1)?.en ?? 0;
+  const rangeOf = (key: string) => {
+    const d = round.damage[key];
+    return d
+      ? {
+          range:
+            d.min === d.max
+              ? `${Math.round(d.max)}`
+              : `${Math.round(d.min)}–${Math.round(d.max)}`,
+        }
+      : {};
+  };
   const rows: CooldownRow[] = [
     {
       side: "you",
@@ -675,6 +732,7 @@ export function replayCooldowns(
       label: "Attack",
       icon: "slash",
       fill: ready(timing.attack, lastAt("hero", "attack")),
+      ...rangeOf("attack"),
     },
     {
       side: "you",
@@ -682,6 +740,7 @@ export function replayCooldowns(
       label: cls.skill.name,
       icon: SKILL_ICON[classId],
       fill: ready(timing.skill, lastAt("hero", "skill")),
+      ...rangeOf("skill"),
     },
     {
       side: "you",
@@ -689,6 +748,7 @@ export function replayCooldowns(
       label: cls.ultimate.name,
       icon: ULT_ICON[classId],
       fill: Math.min(1, charge / COMBAT.energy.full),
+      ...rangeOf("ultimate"),
     },
     {
       side: "foe",
@@ -696,6 +756,7 @@ export function replayCooldowns(
       label: "Attack",
       icon: "claw",
       fill: ready(timing.foeAttack, lastAt("foe", "attack")),
+      ...rangeOf("foeAttack"),
     },
   ];
   if (timing.foeHeavy) {
@@ -707,6 +768,7 @@ export function replayCooldowns(
       label: "Heavy blow",
       icon: "heavy",
       fill: ready(timing.foeHeavy, lastHeavy),
+      ...rangeOf("foeHeavy"),
       warn: lastWarn != null && (lastHeavy == null || lastWarn > lastHeavy),
     });
   }

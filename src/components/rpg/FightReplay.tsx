@@ -10,8 +10,8 @@ import {
 import { ActionIcon } from "./ActionIcon";
 import { EnemyIcon } from "./EnemyIcon";
 
-/** Fight seconds that pass per real second at 1×; the speed button multiplies it. */
-const PACE = 1.5;
+/** Shown seconds already are real seconds at 1× (see FIGHT_TIME_SCALE), so the clock runs 1:1; the speed button multiplies it. */
+const PACE = 1;
 const SPEEDS = [1, 2, 4];
 /** Real seconds a finished round holds, showing how it ended, before the next one (or the result) starts. */
 const HOLD_SEC = 1.3;
@@ -50,30 +50,37 @@ function Bar({
   );
 }
 
-/** One action: its icon, name and how ready it is. The fill empties on use and refills; a ready one is lit. */
+/** One action: its icon, name, the damage range it deals and how ready it is. The fill empties on use and refills; a ready one is lit. */
 function ActionRow({ row }: { row: CooldownRow }) {
   const ready = row.fill >= 0.995;
   const pct = Math.round(row.fill * 100);
   return (
     <li
-      className={`flex items-center gap-3 ${row.warn ? "text-rpg-warn" : ready ? "text-rpg-text" : "text-rpg-muted"}`}
+      className={`flex items-center gap-2 ${row.warn ? "text-rpg-warn" : ready ? "text-rpg-text" : "text-rpg-muted"}`}
     >
-      <ActionIcon id={row.icon} />
-      <span className="w-24 shrink-0 text-xs">
-        {row.warn ? "Winding up" : row.label}
-      </span>
-      <div
-        role="progressbar"
-        aria-label={`${row.label} ${row.key === "ultimate" ? "charge" : "cooldown"}`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct}
-        className="h-1.5 flex-1 bg-rpg-line"
-      >
+      <ActionIcon id={row.icon} size={22} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex justify-between gap-1 text-[11px] leading-none">
+          <span className="truncate">
+            {row.warn ? "Winding up" : row.label}
+          </span>
+          {row.range && (
+            <span className="shrink-0 tabular-nums">{row.range}</span>
+          )}
+        </div>
         <div
-          className={`h-full ${row.warn ? "bg-rpg-warn" : ready ? "bg-rpg-text" : "bg-rpg-text-2"}`}
-          style={{ width: `${pct}%` }}
-        />
+          role="progressbar"
+          aria-label={`${row.label} ${row.key === "ultimate" ? "charge" : "cooldown"}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct}
+          className="h-1.5 bg-rpg-line"
+        >
+          <div
+            className={`h-full ${row.warn ? "bg-rpg-warn" : ready ? "bg-rpg-text" : "bg-rpg-text-2"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
       </div>
     </li>
   );
@@ -110,18 +117,25 @@ export function FightReplay({
     return () => window.removeEventListener("keydown", onKey);
   }, [onDone]);
 
-  // The clock runs in fight seconds. A finished round holds for a moment, then the next one starts.
+  // The clock follows the real time between frames, so the bars move smoothly. A finished round
+  // holds for a moment, then the next one starts.
   useEffect(() => {
-    const id = window.setInterval(() => {
+    let frame = 0;
+    let before = performance.now();
+    const tick = (at: number) => {
+      const dt = Math.min(0.1, (at - before) / 1000);
+      before = at;
       setPos((p) => {
-        const c = p.clock + (50 / 1000) * pace;
+        const c = p.clock + dt * pace;
         const over = c >= rounds[p.index].seconds + HOLD_SEC * pace;
         return over && p.index + 1 < rounds.length
           ? { index: p.index + 1, clock: 0 }
           : { index: p.index, clock: c };
       });
-    }, 50);
-    return () => window.clearInterval(id);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [pace, rounds]);
 
   // The last round's hold ends the replay and hands over to the result.
@@ -180,26 +194,28 @@ export function FightReplay({
         </section>
 
         <section
-          className="flex flex-col gap-4 border-b border-rpg-line px-5 py-4"
+          className="grid grid-cols-2 gap-x-5 border-b border-rpg-line px-5 py-4"
           aria-label="Actions"
         >
-          <ul className="flex flex-col gap-2.5" aria-label="Your actions">
-            {rows
-              .filter((r) => r.side === "you")
-              .map((r) => (
-                <ActionRow key={r.key} row={r} />
-              ))}
-          </ul>
-          <ul
-            className="flex flex-col gap-2.5"
-            aria-label={`${round.foe}'s actions`}
-          >
-            {rows
-              .filter((r) => r.side === "foe")
-              .map((r) => (
-                <ActionRow key={r.key} row={r} />
-              ))}
-          </ul>
+          {(["you", "foe"] as const).map((side) => (
+            <div key={side} className="flex min-w-0 flex-col gap-3">
+              <h2 className="truncate text-xs text-rpg-text-2">
+                {side === "you" ? "You" : round.foe}
+              </h2>
+              <ul
+                className="flex flex-col gap-3"
+                aria-label={
+                  side === "you" ? "Your actions" : `${round.foe}'s actions`
+                }
+              >
+                {rows
+                  .filter((r) => r.side === side)
+                  .map((r) => (
+                    <ActionRow key={r.key} row={r} />
+                  ))}
+              </ul>
+            </div>
+          ))}
         </section>
 
         <div className="flex flex-1 flex-col justify-end gap-2 px-5 py-5">

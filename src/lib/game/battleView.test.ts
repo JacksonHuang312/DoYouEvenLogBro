@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   battleView,
+  FIGHT_TIME_SCALE,
   logLines,
   replayAt,
   replayCooldowns,
@@ -282,7 +283,7 @@ describe("result view", () => {
       won: true,
       ended: "Defeated it",
       power: "150 vs 120",
-      seconds: "12.3s",
+      seconds: "6.2s",
     });
   });
 
@@ -326,6 +327,7 @@ describe("result view", () => {
 });
 
 describe("replay view", () => {
+  const S = FIGHT_TIME_SCALE;
   const events: FightEvent[] = [
     {
       t: 1.5,
@@ -387,19 +389,27 @@ describe("replay view", () => {
   ];
   const replay = () => replayRounds(rounds(events), "striker")![0];
 
-  test("each event becomes a line with both sides' health after it", () => {
+  test("each event becomes a line with both sides' health after it, in shown seconds", () => {
     const r = replay();
     expect(r).toMatchObject({
       foe: "Ironmaw",
       heroMax: 100,
       foeMax: 200,
-      seconds: 4.5,
+      seconds: 4.5 / S,
       classId: "striker",
     });
     expect(r.events[1]).toMatchObject({
+      t: 3 / S,
       text: "Ironmaw hits you for 25",
       hh: 75,
       fh: 160,
+    });
+    // Cooldowns are in shown seconds too: a 1.5 s swing in the simulation is shown as 0.75 s.
+    expect(r.timing.attack).toEqual({ every: 1.5 / S, first: 1.5 / S });
+    expect(r.timing.foeHeavy).toEqual({
+      every: 7 / S,
+      first: 7 / S,
+      warn: 3 / S,
     });
   });
 
@@ -423,8 +433,8 @@ describe("replay view", () => {
   test("health follows the clock, and starts full", () => {
     const r = replay();
     expect(replayAt(r, 0)).toEqual({ hh: 100, fh: 200, lines: [] });
-    expect(replayAt(r, 3.2)).toMatchObject({ hh: 75, fh: 160 });
-    expect(replayAt(r, 3.2).lines).toEqual([
+    expect(replayAt(r, 3.2 / S)).toMatchObject({ hh: 75, fh: 160 });
+    expect(replayAt(r, 3.2 / S).lines).toEqual([
       "You hit Ironmaw for 40",
       "Ironmaw hits you for 25",
     ]);
@@ -437,11 +447,11 @@ describe("replay view", () => {
 
   test("cooldowns refill after each use, and the ultimate follows its charge", () => {
     const r = replay();
-    const row = (clock: number, key: string) =>
-      replayCooldowns(r, clock).find((c) => c.key === key)!;
+    const row = (fightSec: number, key: string) =>
+      replayCooldowns(r, fightSec / S).find((c) => c.key === key)!;
     // Before its first swing the attack is filling toward `first`.
     expect(row(0.75, "attack").fill).toBeCloseTo(0.5);
-    // Just after a swing it is empty, then refills over its 1.5 s.
+    // Just after a swing it is empty, then refills over its cooldown.
     expect(row(1.5, "attack").fill).toBe(0);
     expect(row(2.25, "attack").fill).toBeCloseTo(0.5);
     expect(row(3, "attack").fill).toBe(1);
@@ -459,15 +469,60 @@ describe("replay view", () => {
     });
   });
 
+  test("each action shows the range of the hits it lands, crits left out", () => {
+    const withHits: FightEvent[] = [
+      {
+        t: 1,
+        actor: "hero",
+        action: "attack",
+        amount: 38,
+        hh: 100,
+        fh: 160,
+        en: 5,
+      },
+      {
+        t: 2.5,
+        actor: "hero",
+        action: "attack",
+        amount: 46,
+        hh: 100,
+        fh: 120,
+        en: 10,
+      },
+      {
+        t: 4,
+        actor: "hero",
+        action: "attack",
+        amount: 80,
+        crit: true,
+        hh: 100,
+        fh: 40,
+        en: 15,
+      },
+      {
+        t: 5,
+        actor: "foe",
+        action: "attack",
+        amount: 20,
+        hh: 80,
+        fh: 40,
+        en: 23,
+      },
+    ];
+    const r = replayRounds(rounds(withHits), "striker")![0];
+    const rows = replayCooldowns(r, 99);
+    expect(rows.find((c) => c.key === "attack")!.range).toBe("38–46");
+    expect(rows.find((c) => c.key === "foeAttack")!.range).toBe("20");
+    expect(rows.find((c) => c.key === "skill")!.range).toBeUndefined();
+  });
+
   test("the enemy's big hit shows its wind-up, and only enemies with one get the row", () => {
     const r = replay();
-    expect(
-      replayCooldowns(r, 3.2).find((c) => c.key === "foeHeavy")!.warn,
-    ).toBe(false);
-    expect(
-      replayCooldowns(r, 3.6).find((c) => c.key === "foeHeavy")!.warn,
-    ).toBe(true);
-    const plain = { ...r, timing: { ...timing, foeHeavy: null } };
+    const heavy = (fightSec: number) =>
+      replayCooldowns(r, fightSec / S).find((c) => c.key === "foeHeavy")!;
+    expect(heavy(3.2).warn).toBe(false);
+    expect(heavy(3.6).warn).toBe(true);
+    const plain = { ...r, timing: { ...r.timing, foeHeavy: null } };
     expect(replayCooldowns(plain, 1).map((c) => c.key)).toEqual([
       "attack",
       "skill",
