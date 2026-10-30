@@ -104,4 +104,27 @@ test.describe("Battle tab", () => {
     await expect(sheet).toContainText(/Next switch in/);
     await expect(sheet.getByRole("button", { name: "Switch to Vanguard" })).toBeDisabled();
   });
+
+  test("every fight card and the result screen show an enemy icon that fits the screen", async ({ hero, page }, info) => {
+    await hero.start({ level: 80, classId: "striker" });
+    await page.goto("/battle");
+    for (const title of ["Weekly boss", "Endless tower", "Boss Tower", "Campaign"]) {
+      const icon = page.getByRole("region", { name: title }).locator("svg[data-enemy-icon]").first();
+      await expect(icon).toBeVisible();
+      const box = await icon.boundingBox();
+      expect(box!.width).toBeGreaterThanOrEqual(32);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    }
+    // Regular enemies and the endless tower have no art of their own yet: they show their kind's icon.
+    await expect(page.getByRole("region", { name: "Endless tower" }).locator("svg[data-enemy-icon=tower-sentinel]")).toBeVisible();
+    await shot(page, "battle-enemy-icons");
+    await expectNoOverflow(page, "Battle hub with enemy icons", info);
+    await expectTapTargets(page.locator("body"), "Battle hub with enemy icons", info);
+
+    await page.getByRole("region", { name: "Campaign" }).getByRole("button", { name: /^Fight/ }).click();
+    const result = page.getByRole("dialog", { name: "Fight result" });
+    await expect(result.locator("svg[data-enemy-icon]").first()).toBeVisible();
+    await expectNoOverflow(page, "Fight result with enemy icon", info);
+    await expectTapTargets(result, "Fight result with enemy icon", info);
+  });
 });

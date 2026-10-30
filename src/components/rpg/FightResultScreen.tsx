@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Rarity } from "@/lib/game/config";
 import type { ResultView } from "@/lib/game/battleView";
+import { EnemyIcon } from "./EnemyIcon";
 import { RARITY_BORDER, RARITY_TEXT } from "./rarity";
 
 const SECTION = "border-b border-rpg-line px-5 py-4";
@@ -38,13 +39,16 @@ export function FightResultScreen({ view, onDone }: { view: ResultView; onDone: 
 
         <section className={`${SECTION} flex flex-col gap-3`} aria-label="Rounds">
           {view.rounds.map((r, i) => (
-            <div key={i} className="flex flex-col gap-0.5 text-[13px]">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 break-words font-semibold">{r.title}</span>
-                <span className={`shrink-0 text-xs ${r.won ? "text-rpg-good" : "text-rpg-bad"}`}>{r.ended}</span>
-              </div>
-              <div className="text-xs text-rpg-muted">
-                {r.seconds} · power {r.power}
+            <div key={i} className="flex items-start gap-3 text-[13px]">
+              <EnemyIcon name={r.title} size={view.rounds.length > 1 ? 32 : 44} />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 break-words font-semibold">{r.title}</span>
+                  <span className={`shrink-0 text-xs ${r.won ? "text-rpg-good" : "text-rpg-bad"}`}>{r.ended}</span>
+                </div>
+                <div className="text-xs text-rpg-muted">
+                  {r.seconds} · power {r.power}
+                </div>
               </div>
             </div>
           ))}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ENDLESS_TOWER } from "@/lib/game/config";
+import { EnemyIcon } from "./EnemyIcon";
 import type { ModeCard } from "@/lib/game/battleView";
 
 const PRIMARY = "min-h-11 flex-1 bg-rpg-text px-4 text-[13px] font-semibold text-rpg-bg disabled:opacity-40";
@@ -31,14 +32,17 @@ export function FightCard({
 
   return (
     <section aria-label={card.title} className="flex flex-col gap-3 border-b border-rpg-line px-5 py-4">
-      <div>
-        <h2 className="font-rpg-head text-2xl font-semibold uppercase leading-none">{card.title}</h2>
-        <p className="mt-2 text-[15px] font-semibold leading-snug">
-          {card.foe}
-          {card.type && <span className="ml-2 text-xs font-normal text-rpg-muted">{card.type}</span>}
-        </p>
-        {card.epithet && <p className="mt-0.5 text-xs italic text-rpg-muted">{card.epithet}</p>}
-        <p className="mt-1.5 text-xs text-rpg-text-2">{card.powerLine}</p>
+      <div className="flex items-start gap-3">
+        <EnemyIcon name={card.foe} size={44} />
+        <div className="min-w-0">
+          <h2 className="font-rpg-head text-2xl font-semibold uppercase leading-none">{card.title}</h2>
+          <p className="mt-2 text-[15px] font-semibold leading-snug">
+            {card.foe}
+            {card.type && <span className="ml-2 text-xs font-normal text-rpg-muted">{card.type}</span>}
+          </p>
+          {card.epithet && <p className="mt-0.5 text-xs italic text-rpg-muted">{card.epithet}</p>}
+          <p className="mt-1.5 text-xs text-rpg-text-2">{card.powerLine}</p>
+        </div>
       </div>
 
       <ul className="flex flex-col gap-0.5 text-xs text-rpg-muted">
@@ -70,18 +74,21 @@ export function FightCard({
       {card.mode === "bossTower" && card.floors.length > 1 && (
         <label className="flex flex-col gap-1 text-xs text-rpg-muted">
           Floor
-          <select
-            value={picked ?? ""}
-            onChange={(e) => setFloor(Number(e.target.value))}
-            className="min-h-11 w-full border border-rpg-line-strong bg-rpg-bg px-3 text-[13px] text-rpg-text"
-          >
-            {card.floors.map((f) => (
-              <option key={f.floor} value={f.floor}>
-                {f.floor}. {f.boss}
-                {f.reclear ? " (cleared, pays gold only)" : " (next)"}
-              </option>
-            ))}
-          </select>
+          <span className="flex items-center gap-3">
+            <EnemyIcon name={card.floors.find((f) => f.floor === picked)?.boss ?? card.foe} size={32} />
+            <select
+              value={picked ?? ""}
+              onChange={(e) => setFloor(Number(e.target.value))}
+              className="min-h-11 min-w-0 flex-1 border border-rpg-line-strong bg-rpg-bg px-3 text-[13px] text-rpg-text"
+            >
+              {card.floors.map((f) => (
+                <option key={f.floor} value={f.floor}>
+                  {f.floor}. {f.boss}
+                  {f.reclear ? " (cleared, pays gold only)" : " (next)"}
+                </option>
+              ))}
+            </select>
+          </span>
         </label>
       )}
 
