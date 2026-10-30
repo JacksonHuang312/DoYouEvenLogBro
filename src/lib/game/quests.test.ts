@@ -329,15 +329,16 @@ describe("paying quests", () => {
   });
 
   test("rewards add coins and XP, move the level, and leave the daily cap alone", () => {
-    const state = { ...newGameState(T0, UTC), coins: 10, xp: xpToReach(5) - 10, coinDay: "2026-10-14", coinsToday: 120 };
+    const state = { ...newGameState(T0, UTC), levelRewardsTo: 5, coins: 10, xp: xpToReach(5) - 10, coinDay: "2026-10-14", coinsToday: 120 };
     const next = withQuestRewards(state, make().quests.slice(0, 2), T0 + 1);
     expect(next).toMatchObject({ coins: 70, xp: xpToReach(5) + 40, level: 5, coinDay: "2026-10-14", coinsToday: 120, updatedAt: T0 + 1 });
   });
 
   test("each paid quest also pays scrap", () => {
-    const state = { ...newGameState(T0, "UTC"), materials: { scrap: 3, mythicCore: 1 } };
+    // Paid up to level 100, so no level-up reward adds scrap here.
+    const state = { ...newGameState(T0, "UTC"), levelRewardsTo: 100, materials: { scrap: 3, mythicCore: 1 } };
     expect(withQuestRewards(state, make().quests, T0).materials).toEqual({ scrap: 3 + 3 * QUESTS.scrapPerQuest, mythicCore: 1 });
-    expect(withQuestRewards(newGameState(T0, "UTC"), make().quests.slice(0, 1), T0).materials).toEqual({ scrap: QUESTS.scrapPerQuest });
+    expect(withQuestRewards({ ...newGameState(T0, "UTC"), levelRewardsTo: 100 }, make().quests.slice(0, 1), T0).materials).toEqual({ scrap: QUESTS.scrapPerQuest });
   });
 });
 

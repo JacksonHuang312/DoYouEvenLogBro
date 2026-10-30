@@ -4,6 +4,8 @@ import type { ScheduleDoc, WeekdayRoutines } from "./game/schedule";
 import { firebase } from "./firebase";
 import type { BreaksResponse } from "./server/breaks";
 import type { ClassResponse, FightRequest, FightResponse } from "./server/fights";
+import type { PointsResponse } from "./server/points";
+import type { StatPoints } from "./game/levels";
 import type { ItemResponse, ShopResponse } from "./server/items";
 import type { ClaimQuestResponse, RerollResponse } from "./server/quests";
 import type { TitlesResponse } from "./server/titles";
@@ -104,3 +106,7 @@ export const pickClass = (classId: ClassId) => post<ClassResponse>("/api/class",
 export const switchClass = (classId: ClassId) => post<ClassResponse>("/api/class", { action: "switch", classId, timeZone: timeZone() });
 /** `requestId` is made once per tap (keep it for retries), so a retry returns the same fight. */
 export const fight = (request: FightRequest) => post<FightResponse>("/api/fight", { ...request });
+
+/** `expectedSpent` is the spent total on screen, so a retry can't spend twice. */
+export const assignStatPoints = (add: StatPoints, expectedSpent: number) => post<PointsResponse>("/api/points", { action: "assign", add, expectedSpent });
+export const respecStatPoints = (expectedSpent: number) => post<PointsResponse>("/api/points", { action: "respec", expectedSpent });

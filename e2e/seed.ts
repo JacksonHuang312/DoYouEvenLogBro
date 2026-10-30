@@ -117,6 +117,8 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     level,
     materials: { scrap },
     ...(classId ? { classId } : {}),
+    // The seeded levels' rewards count as paid, so coins stay what the test sets.
+    levelRewardsTo: level,
     updatedAt: now,
   };
   await user.collection("game").doc("state").set(state);

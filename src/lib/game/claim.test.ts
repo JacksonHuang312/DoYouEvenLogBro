@@ -11,7 +11,7 @@ import {
   type ClaimableWorkout,
   type GameState,
 } from "./claim";
-import { COINS, MAX_FUTURE_MS, POWER_MULTIPLIERS, STAT_POINTS, XP } from "./config";
+import { COINS, LEVEL_REWARDS, MAX_FUTURE_MS, POWER_MULTIPLIERS, STAT_POINTS, XP } from "./config";
 import type { MusclesFacts, PreviousSession } from "./facts";
 import { BENCH, benchDay, CRUNCH, CURL, DAY, lookup, set, SQUAT, T0, workout } from "./test-helpers";
 
@@ -67,7 +67,9 @@ describe("applyClaim", () => {
     expect(outcome.result).toMatchObject({
       workoutId: "w1",
       claimedAt: T0,
-      coins: { base: COINS.base, scheduledBonus: 0, capped: 0, total: COINS.base, balance: COINS.base },
+      coins: { base: COINS.base, scheduledBonus: 0, capped: 0, total: COINS.base, balance: COINS.base + LEVEL_REWARDS.coins },
+      // The first workout reaches level 2, which pays its reward outside the cap.
+      levelRewards: { levels: [2], coins: LEVEL_REWARDS.coins, scrap: LEVEL_REWARDS.scrap },
       xp: { workout: XP.perWorkout, stats: statXp, total: XP.perWorkout + statXp },
       level: { before: 1, after: 2 }, // The first workout reaches level 2.
       progressed: [],
@@ -92,7 +94,8 @@ describe("applyClaim", () => {
     const { state, results } = claimAll(sameDay, { at: T0 + DAY / 4 });
     expect(results.map((r) => r.coins.total)).toEqual([50, 50, 50, 0]);
     expect(results[3].coins.capped).toBe(COINS.base);
-    expect(state.coins).toBe(COINS.dailyCap);
+    // Level-up rewards come on top of the cap.
+    expect(state.coins).toBe(COINS.dailyCap + (state.level - 1) * LEVEL_REWARDS.coins);
 
     const next = claim(benchDay(T0 + DAY), { state, now: T0 + DAY });
     expect(next.counted && next.result.coins.total).toBe(COINS.base);

@@ -17,6 +17,7 @@ import {
 } from "./bosses";
 import { gearEffects } from "./effects";
 import { classBonusPct } from "./heroClass";
+import { boosted } from "./levels";
 import { dropOutcome, fail, materialsOf, newItem, ok, type GameResult, type Item, type OwnedItem } from "./items";
 import {
   bossTowerDrop,
@@ -107,7 +108,7 @@ export function weeklyFor(doc: BattleDoc, level: number, battle: number, now: nu
 
 export interface FightHero {
   hero: Hero;
-  /** Earned stats with rust applied: what fights and minimums use. */
+  /** Earned stats with rust applied, without stat points: what boss minimums check. */
   stats: StatLine;
   battle: BattlePower;
   injured: Stat[];
@@ -128,14 +129,16 @@ export function fightHero({
 }): GameResult<FightHero> {
   if (!state.classId) return fail("Pick a class first");
   const stats = rustedStats(computeStats(muscles), statRust(muscles, now, freezeFor(state)));
+  // Stat points make stats stronger in the fight itself, never toward a boss minimum.
+  const fighting = boosted(stats, state);
   const battle = battlePower({
-    body: power(stats),
+    body: power(fighting),
     equipped: worn,
     level: state.level,
     titlePct: titleBonusPct(state),
     classPct: classBonusPct(state),
   });
-  const hero = buildHero({ stats, battle, classId: state.classId, effects: gearEffects(worn, state.level) });
+  const hero = buildHero({ stats: fighting, battle, classId: state.classId, effects: gearEffects(worn, state.level) });
   return ok({ hero, stats, battle, injured: injuredStats(state, now), paused: activePause(state, now) != null });
 }
 

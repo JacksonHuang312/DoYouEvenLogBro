@@ -3,6 +3,7 @@ import { injuredStats, type Result } from "./breaks";
 import type { GameState } from "./claim";
 import { QUESTS, STAT_MUSCLES, STATS, SUB_MUSCLES, type Stat, type SubMuscle } from "./config";
 import { levelForXp } from "./economy";
+import { payLevelRewards } from "./levels";
 import type { MusclesFacts } from "./facts";
 import { statOf } from "./muscles";
 import { seeded } from "./random";
@@ -371,5 +372,6 @@ export function withQuestRewards(state: GameState, quests: Pick<Quest, "reward">
   const coins = quests.reduce((n, q) => n + q.reward.coins, 0);
   const xp = quests.reduce((n, q) => n + q.reward.xp, 0);
   const materials = { ...state.materials, scrap: (state.materials?.scrap ?? 0) + quests.length * QUESTS.scrapPerQuest };
-  return { ...state, coins: state.coins + coins, xp: state.xp + xp, level: levelForXp(state.xp + xp), materials, updatedAt: now };
+  const next = { ...state, coins: state.coins + coins, xp: state.xp + xp, level: levelForXp(state.xp + xp), materials, updatedAt: now };
+  return payLevelRewards(next, now).state;
 }

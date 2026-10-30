@@ -10,6 +10,7 @@ import { computeStats, power, type StatLine } from "./score";
 import { workingSets, type ExerciseLookup } from "./sets";
 import { dayId, weekId } from "./time";
 import type { TitleId, TitlesState } from "./titles";
+import { payLevelRewards, type LevelReward, type StatPoints } from "./levels";
 
 /** users/{uid}/game/state. Written only by the server. */
 export interface GameState {
@@ -44,6 +45,10 @@ export interface GameState {
   classId?: ClassId;
   /** When the class was last switched (not the free pick), for the once-per-7-days rule. */
   classSwitchedAt?: number | null;
+  /** The highest level whose level-up reward was paid. Missing means up to level 1. */
+  levelRewardsTo?: number;
+  /** Stat points put into each stat (fights only). Missing means none. */
+  statPoints?: StatPoints;
   createdAt: number;
   updatedAt: number;
 }
@@ -96,6 +101,8 @@ export interface ClaimResult {
   scrap?: { earned: number; balance: number };
   /** Titles this claim earned (written by the claim route). */
   titles?: TitleId[];
+  /** Level-up rewards this claim paid (already in coins.balance). Missing when it reached no new level. */
+  levelRewards?: LevelReward;
   /** Set on claims written by the backfill script (which pays no coins). */
   backfilled?: boolean;
 }
@@ -185,7 +192,7 @@ export function applyClaim({
 
   const completionXp = workoutXp(state.workoutXpAt ?? null, now);
   const xpGained = completionXp + gainXp;
-  const nextState: GameState = {
+  const raw: GameState = {
     ...state,
     coins: state.coins + coins.total,
     xp: state.xp + xpGained,
@@ -198,6 +205,8 @@ export function applyClaim({
     timeZone,
     updatedAt: now,
   };
+  // Level-ups pay outside the daily coin cap; the backfill only records them as paid.
+  const { state: nextState, reward } = payLevelRewards(raw, now, payCoins);
 
   const result: ClaimResult = {
     workoutId: workout.id,
@@ -208,6 +217,7 @@ export function applyClaim({
     stats: { before: roundStats(before), after: roundStats(after) },
     power: { before: round1(power(before)), after: round1(powerAfter) },
     progressed: facts.progressed.map((exerciseId) => ({ exerciseId, stat: statOf(lookup(exerciseId)!.muscle) })),
+    ...(reward ? { levelRewards: reward } : {}),
   };
 
   return { counted: true, state: nextState, muscles: nextMuscles, result, snapshot: snapshotOf(after, now, timeZone) };
@@ -343,6 +353,8 @@ export function reworkGame({
       ...(kept as unknown as GameState),
       xp,
       level: levelForXp(xp),
+      // A migration, not a level-up: levels the replay reaches are not paid.
+      levelRewardsTo: Math.max(state.levelRewardsTo ?? 1, levelForXp(xp)),
       peakPower: replayed.state.peakPower,
       workoutXpAt: replayed.state.workoutXpAt ?? null,
       mostStatsBeaten: replayed.state.mostStatsBeaten ?? 0,

@@ -443,6 +443,19 @@ export const WEEK_START_DAY = 0;
 
 export const DEFAULT_TIME_ZONE = "UTC";
 
+// ---- Level rewards and stat points (GAME_DESIGN.md 13.3) ----
+
+/** Paid once per level reached, on top of the claim or quest that reached it; every 10th level pays `tenth` instead. Outside the daily coin cap. */
+export const LEVEL_REWARDS = { coins: 25, scrap: 5, tenth: { coins: 250, scrap: 50 } };
+
+/**
+ * Every level past 1 gives `perLevel` stat points. A point in a stat makes it `pctPerPoint` stronger
+ * in fights only (radar, Power, XP, quests, titles and boss minimums use earned stats), at most
+ * `maxPerStat` points a stat. A full level-100 spread is worth about +8% battle power. Resetting
+ * them all costs `respecCost` coins.
+ */
+export const LEVEL_POINTS = { perLevel: 1, pctPerPoint: 0.005, maxPerStat: 30, respecCost: 500 };
+
 // ---- Combat (sections 4 and 10, Phase 5) ----
 // First draft of every combat number. After the fight engine is built, scripts/combat-table.ts prints
 // win chances by class, boss type and power ratio so these can be tuned.

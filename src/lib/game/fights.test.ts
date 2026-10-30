@@ -194,5 +194,10 @@ describe("fight rewards and the hero", () => {
     if (!r.ok) throw new Error(r.error);
     expect(r.value.stats.chest).toBeCloseTo(10 * 0.7);
     expect(r.value.battle.bonus.class).toBeGreaterThan(0);
+    // Stat points raise battle power but not the stats minimums check.
+    const pts = fightHero({ state: state({ statPoints: { chest: 20 } }), muscles, worn: [], now: T0 });
+    if (!pts.ok) throw new Error(pts.error);
+    expect(pts.value.stats.chest).toBeCloseTo(10 * 0.7);
+    expect(pts.value.battle.body).toBeCloseTo(r.value.battle.body * 1.1);
   });
 });

@@ -3,6 +3,7 @@ import { freezeFor, injuredStats } from "./breaks";
 import { newGameState, roundStats, type GameState, type Snapshot } from "./claim";
 import { DEFAULT_TIME_ZONE, EXCLUDED_CATEGORIES, STATS, type Stat } from "./config";
 import { levelProgress } from "./economy";
+import { boosted } from "./levels";
 import type { MusclesFacts } from "./facts";
 import { statOf } from "./muscles";
 import { computeStats, power, rustedStats, statRust, subMuscleScores, type StatLine, type SubMuscleScores } from "./score";
@@ -65,7 +66,7 @@ export function heroView(state: GameState | null, muscles: MusclesFacts, now: nu
     scores: subMuscleScores(muscles),
     power: round1(power(earned)),
     rust,
-    battleBody: round1(power(rustedStats(earned, rust))),
+    battleBody: round1(power(boosted(rustedStats(earned, rust), game))),
     level: levelProgress(game.xp),
     coins: game.coins,
     injured: injuredStats(game, now),
