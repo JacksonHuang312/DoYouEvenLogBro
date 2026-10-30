@@ -1,3 +1,4 @@
+import { xpToReach } from "./economy";
 import { describe, expect, test } from "vitest";
 import type { ClaimResponse } from "../server/game";
 import type { ClaimResult } from "./claim";
@@ -133,22 +134,23 @@ describe("coins", () => {
 
 describe("xp bar", () => {
   test("the new segment starts where the old bar ended", () => {
-    const balance = 13 * XP.perLevel + 260;
+    const need = xpToReach(41) - xpToReach(40);
+    const balance = xpToReach(40) + 150;
     const x = view(claimed({ xp: { workout: 20, stats: 80, total: 100, balance } })).xp!;
-    // 260 into level 14, so the bar was at 160.
+    // 150 into level 40, so the bar was at 50.
     expect(x.gained).toBe(100);
-    expect(x.label).toBe(`Level 14 · 260 / ${XP.perLevel}`);
-    expect(x.basePct).toBeCloseTo((100 * 160) / XP.perLevel);
-    expect(x.addedPct).toBeCloseTo((100 * 100) / XP.perLevel);
+    expect(x.label).toBe(`Level 40 · 150 / ${need}`);
+    expect(x.basePct).toBeCloseTo((100 * 50) / need);
+    expect(x.addedPct).toBeCloseTo((100 * 100) / need);
     expect(x.levelUp).toBeNull();
   });
 
   test("crossing a level fills from zero and says so", () => {
-    const x = view(claimed({ xp: { workout: 20, stats: 80, total: 100, balance: 2 * XP.perLevel + 50 } })).xp!;
-    // 50 short of level 3 before, 50 into it after.
-    expect(x.levelUp).toBe("Level 2 → 3");
+    const x = view(claimed({ xp: { workout: 20, stats: 80, total: 100, balance: xpToReach(41) + 50 } })).xp!;
+    // 50 short of level 41 before, 50 into it after.
+    expect(x.levelUp).toBe("Level 40 → 41");
     expect(x.basePct).toBe(0);
-    expect(x.addedPct).toBeCloseTo((100 * 50) / XP.perLevel);
+    expect(x.addedPct).toBeCloseTo((100 * 50) / (xpToReach(42) - xpToReach(41)));
   });
 
   test("quest XP counts toward the gain", () => {

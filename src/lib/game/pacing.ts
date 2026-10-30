@@ -1,4 +1,5 @@
 import { GEAR, PACING, STAT_POINTS, STATS, XP } from "./config";
+import { levelForXp } from "./economy";
 import { power, type StatLine } from "./score";
 
 /*
@@ -39,8 +40,8 @@ export function battleFrom(body: number, gear: number, bonusPct: number): number
   return (body + Math.min(gear, cap)) * (1 + bonusPct);
 }
 
-/** Week-by-week progress for `weeks` weeks at `perLevel` XP per level. */
-export function simulatePacing(weeks: number, perLevel = XP.perLevel): PacingWeek[] {
+/** Week-by-week progress for `weeks` weeks, levels on the XP.curve. */
+export function simulatePacing(weeks: number): PacingWeek[] {
   const stats = Object.fromEntries(STATS.map((s) => [s, 0])) as StatLine;
   const perWorkout = Object.fromEntries(
     STATS.map((s) => {
@@ -72,17 +73,10 @@ export function simulatePacing(weeks: number, perLevel = XP.perLevel): PacingWee
       gear,
       battle: battleFrom(body, gear, PACING.bonusPct),
       xp,
-      level: 1 + Math.floor(xp / perLevel),
+      level: levelForXp(xp),
     });
   }
   return out;
-}
-
-/** The XP per level (rounded to 25) that puts level 35 at PACING.targets.level35 months. */
-export function suggestedPerLevel(): number {
-  const weeks = Math.round(PACING.targets.level35 * WEEKS_PER_MONTH);
-  const xp = simulatePacing(weeks, 1).at(-1)!.xp;
-  return Math.floor(xp / 34 / 25) * 25;
 }
 
 const TYPICAL_WEEKS = 520;

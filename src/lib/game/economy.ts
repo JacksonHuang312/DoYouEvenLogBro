@@ -42,13 +42,26 @@ export function statXp(powerAfter: number, peakPower: number): number {
   return Math.round(Math.max(0, powerAfter - peakPower) * XP.perPowerPoint);
 }
 
-/** Levels start at 1 and are flat: every XP.perLevel XP is one level. */
+/** Total XP needed to reach `level` (level 1 needs none), on the XP.curve. */
+export const xpToReach = (level: number): number => Math.round(XP.curve.base * Math.max(0, level - 1) ** XP.curve.exponent);
+
+/** The level for a total XP: 1 to XP.maxLevel. */
 export function levelForXp(xp: number): number {
-  return 1 + Math.floor(Math.max(0, xp) / XP.perLevel);
+  let level = 1;
+  while (level < XP.maxLevel && xpToReach(level + 1) <= xp) level++;
+  return level;
 }
 
-/** Progress through the current level, for the level bar. */
+/**
+ * Progress through the current level, for the level bar. Past XP.maxLevel the bar keeps filling in
+ * steps the size of the last level, so a workout always moves it.
+ */
 export function levelProgress(xp: number): { level: number; into: number; needed: number } {
   const level = levelForXp(xp);
-  return { level, into: Math.max(0, xp) - (level - 1) * XP.perLevel, needed: XP.perLevel };
+  const total = Math.max(0, xp);
+  if (level >= XP.maxLevel) {
+    const step = xpToReach(XP.maxLevel) - xpToReach(XP.maxLevel - 1);
+    return { level, into: (total - xpToReach(XP.maxLevel)) % step, needed: step };
+  }
+  return { level, into: total - xpToReach(level), needed: xpToReach(level + 1) - xpToReach(level) };
 }

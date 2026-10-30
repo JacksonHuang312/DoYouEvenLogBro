@@ -44,7 +44,7 @@ test.describe("Fight and class routes", () => {
   });
 
   test("the endless tower climbs, the Campaign fights the next stage, the Boss Tower closes after a fight", async ({ hero }) => {
-    await hero.start({ classId: "vanguard", level: 30 });
+    await hero.start({ classId: "vanguard", level: 60 });
     const climb = await hero.api("/api/fight", { mode: "endless", requestId: rid(), climb: true });
     expect(climb.status).toBe(200);
     const rounds = (climb.json.fight as { rounds: { key: number }[] }).rounds;

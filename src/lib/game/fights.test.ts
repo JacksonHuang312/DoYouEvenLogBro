@@ -22,13 +22,13 @@ import { DAY, T0 } from "./test-helpers";
 
 const HOUR = 60 * 60 * 1000;
 const UTC = "UTC";
-const state = (patch: Partial<GameState> = {}): GameState => ({ ...newGameState(T0, UTC), level: 40, classId: "striker", ...patch });
+const state = (patch: Partial<GameState> = {}): GameState => ({ ...newGameState(T0, UTC), level: 100, classId: "striker", ...patch });
 const statLine = (v: number, over: Partial<Record<Stat, number>> = {}): StatLine =>
   Object.fromEntries(STATS.map((s) => [s, over[s] ?? v])) as StatLine;
 
 /** A hero of battle power `power`, with `stats` for the minimum checks. */
 function fighter(power: number, { stats = statLine(1000), injured = [] as Stat[], classId = "striker" as ClassId } = {}): FightHero {
-  return { hero: balancedHero(power, classId), stats, battle: battlePower({ body: power, equipped: [], level: 50 }), injured, paused: false };
+  return { hero: balancedHero(power, classId), stats, battle: battlePower({ body: power, equipped: [], level: 100 }), injured, paused: false };
 }
 const STRONG = fighter(100_000);
 const WEAK = fighter(1);
@@ -57,7 +57,7 @@ describe("the weekly boss", () => {
   });
 
   test("the tier is locked by the week's first fight; the first win pays in full, later wins less", () => {
-    const tierNow = weeklyTier(40, STRONG.battle.total);
+    const tierNow = weeklyTier(100, STRONG.battle.total);
     const first = won({ mode: "weekly" });
     expect(first.doc.weekly).toMatchObject({ tier: tierNow, wins: 1, fights: 1 });
     expect(first.coins).toBe(weeklyPay(tierNow, true).coins);

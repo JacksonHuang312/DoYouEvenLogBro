@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { COINS, XP } from "./config";
-import { coinPayout, levelForXp, levelProgress, scheduledBonus, statXp, workoutXp } from "./economy";
+import { coinPayout, levelForXp, levelProgress, scheduledBonus, statXp, workoutXp, xpToReach } from "./economy";
 
 describe("scheduledBonus", () => {
   test("full on the day, −20% per day off, 0 beyond 3 days", () => {
@@ -59,15 +59,25 @@ describe("workoutXp", () => {
 });
 
 describe("levels", () => {
-  test("start at 1 and are flat", () => {
+  test("start at 1 and follow the curve to the cap", () => {
     expect(levelForXp(0)).toBe(1);
-    expect(levelForXp(XP.perLevel - 1)).toBe(1);
-    expect(levelForXp(XP.perLevel)).toBe(2);
-    expect(levelForXp(XP.perLevel * 100)).toBe(101);
     expect(levelForXp(-5)).toBe(1);
+    expect(xpToReach(2)).toBe(Math.round(XP.curve.base));
+    expect(levelForXp(xpToReach(2) - 1)).toBe(1);
+    expect(levelForXp(xpToReach(2))).toBe(2);
+    expect(levelForXp(xpToReach(50))).toBe(50);
+    expect(levelForXp(xpToReach(XP.maxLevel) * 10)).toBe(XP.maxLevel);
   });
 
-  test("progress through the current level", () => {
-    expect(levelProgress(XP.perLevel + 30)).toEqual({ level: 2, into: 30, needed: XP.perLevel });
+  test("later levels cost more than earlier ones", () => {
+    const cost = (l: number) => xpToReach(l + 1) - xpToReach(l);
+    for (let l = 2; l < XP.maxLevel; l++) expect(cost(l)).toBeGreaterThanOrEqual(cost(l - 1));
+    expect(cost(1)).toBeLessThanOrEqual(XP.perWorkout + 5);
+  });
+
+  test("progress through the current level, and past the cap the bar keeps filling", () => {
+    expect(levelProgress(xpToReach(10) + 30)).toEqual({ level: 10, into: 30, needed: xpToReach(11) - xpToReach(10) });
+    const step = xpToReach(XP.maxLevel) - xpToReach(XP.maxLevel - 1);
+    expect(levelProgress(xpToReach(XP.maxLevel) + step + 7)).toEqual({ level: XP.maxLevel, into: 7, needed: step });
   });
 });

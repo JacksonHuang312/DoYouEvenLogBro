@@ -121,8 +121,14 @@ export const XP = {
   workoutCooldownHours: 12,
   /** Per point of power above the highest power reached before. */
   perPowerPoint: 10,
-  /** Flat, uncapped levels. Tuned so level 35 comes at about 2 years of 4 workouts a week (npm run pacing-table). */
-  perLevel: 600,
+  /**
+   * Levels 1 to maxLevel on a curve (GAME_DESIGN.md 13.2): reaching level L takes
+   * round(curve.base × (L − 1) ^ curve.exponent) XP in all, so early levels come every workout or
+   * two and later ones about a week apart. Level 100 at about 2 years of 4 workouts a week
+   * (npm run pacing-table). XP keeps counting past maxLevel.
+   */
+  curve: { base: 22, exponent: 1.5 },
+  maxLevel: 100,
 };
 
 /**
@@ -134,7 +140,7 @@ export const PACING = {
   /** 16 working sets a workout, split like a typical push/pull/legs week. */
   setsPerStat: { chest: 3, back: 3.5, shoulders: 2.5, arms: 3, legs: 3, core: 1 } as Record<Stat, number>,
   /** Share of sets whose exercise beat its last session. */
-  progressedShare: 0.15,
+  progressedShare: 0.45,
   /** Two of the three weekly quests claimed. */
   questXpPerWeek: 50,
   /** "Decent gear" [months, gear power]: early drops and shop buys, an Epic set at a year, a full Legendary set at two. */
@@ -153,7 +159,7 @@ export const PACING = {
     weeklyTier: [0, null, 8, 14, 24] as (number | null)[],
     campaign: 9,
     bossTower: 30,
-    level35: 24,
+    level100: 24,
   },
 };
 
@@ -337,7 +343,7 @@ export type AccessoryEffect = keyof typeof ACCESSORY_EFFECTS;
 export const EFFECT_SCALE: Record<Rarity, number> = { common: 0.2, uncommon: 0.4, rare: 0.6, epic: 0.8, legendary: 1, mythic: 1.25 };
 
 /** Level needed to equip an item of each (current) rarity. */
-export const EQUIP_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, epic: 8, legendary: 15, mythic: 25 };
+export const EQUIP_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, epic: 35, legendary: 55, mythic: 80 };
 
 /**
  * Set bonuses: equipping this many pieces of one set multiplies gear power before the gear cap.
@@ -612,7 +618,7 @@ export const COMBAT = {
 /** Weekly boss (section 10): one fight a day, tier locked at week start. */
 export const WEEKLY_BOSS = {
   /** Level needed for tiers 1 to 5. */
-  tierLevels: [1, 8, 15, 21, 35],
+  tierLevels: [1, 35, 55, 70, 100],
   /** Recommended battle power of tiers 1 to 5. */
   tierPower: [60, 250, 350, 475, 625],
   /** You get the highest tier your level allows whose recommended power you reach this share of. */
@@ -646,7 +652,7 @@ export const BOSS_DROPS = {
 
 /** The endless tower: generic floors, only the next one can be fought. */
 export const ENDLESS_TOWER = {
-  minLevel: 5,
+  minLevel: 25,
   basePower: 120,
   growth: 1.05,
   lossCooldownHours: 4,
@@ -659,7 +665,7 @@ export const ENDLESS_TOWER = {
 
 /** The Boss Tower: a named boss per floor; first clears pay well, reclears pay a little gold. */
 export const BOSS_TOWER = {
-  minLevel: 15,
+  minLevel: 55,
   floors: 30,
   basePower: 300,
   growth: 1.047,

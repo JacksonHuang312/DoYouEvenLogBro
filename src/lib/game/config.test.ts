@@ -53,8 +53,8 @@ describe("config", () => {
     expect(COINS.base + COINS.scheduledBonus).toBeLessThanOrEqual(COINS.dailyCap);
   });
 
-  test("level gates to equip: Epic 8, Legendary 15, Mythic 25", () => {
-    expect([EQUIP_LEVEL.epic, EQUIP_LEVEL.legendary, EQUIP_LEVEL.mythic]).toEqual([8, 15, 25]);
+  test("level gates to equip: Epic 35, Legendary 55, Mythic 80", () => {
+    expect([EQUIP_LEVEL.epic, EQUIP_LEVEL.legendary, EQUIP_LEVEL.mythic]).toEqual([35, 55, 80]);
   });
 
   test("gear tables cover every rarity, plus level and slot", () => {

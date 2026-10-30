@@ -30,7 +30,7 @@ function owned(baseId: string, patch: Partial<OwnedItem> = {}, id = `i-${baseId}
 const game = (patch: Partial<GameState> = {}): GameState => ({
   ...newGameState(T0, UTC),
   coins: 10_000,
-  level: 30,
+  level: 100,
   materials: { scrap: 500 },
   ...patch,
 });
@@ -59,13 +59,13 @@ describe("positionViews", () => {
   test("labels: Equipped, Named, Ascended; and the level lock on gated items", () => {
     const named = owned("titans-vow-helmet");
     const ascended = owned("warden-gloves", { rarity: "legendary", plus: 1 });
-    const state = game({ level: 10, equipped: { helmet: named.id } });
+    const state = game({ level: 40, equipped: { helmet: named.id } });
     const helmet = slotOf(state, [named, ascended], "helmet").items[0];
     expect(helmet.tags).toEqual(["Equipped", "Named"]);
-    expect(helmet.locked).toEqual({ level: 15 });
+    expect(helmet.locked).toEqual({ level: 55 });
     const gloves = slotOf(state, [named, ascended], "gloves").items[0];
     expect(gloves.tags).toEqual(["Ascended"]);
-    expect(gloves.equip).toEqual({ enabled: false, reason: "Legendary gear needs level 15" });
+    expect(gloves.equip).toEqual({ enabled: false, reason: "Legendary gear needs level 55" });
   });
 
   test("equip is on for an item you can wear, off for the one already worn", () => {
@@ -171,7 +171,7 @@ describe("shopView", () => {
     for (const o of v.offers) {
       expect(o.canAfford).toBe(600 >= o.price);
       expect(o.reason).toBe(o.canAfford ? null : "Not enough coins");
-      expect(o.locked).toEqual(o.rarity === "epic" ? { level: 8 } : null);
+      expect(o.locked).toEqual(o.rarity === "epic" ? { level: 35 } : null);
     }
   });
 

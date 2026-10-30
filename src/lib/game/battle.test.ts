@@ -25,7 +25,7 @@ describe("battlePower", () => {
   });
 
   test("gear is capped at 30% of total power", () => {
-    const p = battlePower({ body: 100, equipped: fullSet("unbroken", "mythic"), level: 30 });
+    const p = battlePower({ body: 100, equipped: fullSet("unbroken", "mythic"), level: 100 });
     expect(p.gear.capped).toBe(true);
     expect(p.gear.counted).toBeCloseTo((0.3 / 0.7) * 100);
     expect(p.gear.counted / p.total).toBeCloseTo(0.3);
@@ -34,24 +34,24 @@ describe("battlePower", () => {
   test("five Mythics are 150 gear power with no set bonus, and count in full from an average stat of about 64", () => {
     const body = (avg: number) => avg * 5.5; // Five stats at 1×, Core at 0.5×.
     const mythics = fullSet("unbroken", "mythic");
-    const p = battlePower({ body: body(70), equipped: mythics, level: 30 });
+    const p = battlePower({ body: body(70), equipped: mythics, level: 100 });
     expect(p.gear).toMatchObject({ raw: 150, setPct: 0, capped: false });
-    expect(battlePower({ body: body(64), equipped: mythics, level: 30 }).gear.capped).toBe(false);
-    expect(battlePower({ body: body(63), equipped: mythics, level: 30 }).gear.capped).toBe(true);
+    expect(battlePower({ body: body(64), equipped: mythics, level: 100 }).gear.capped).toBe(false);
+    expect(battlePower({ body: body(63), equipped: mythics, level: 100 }).gear.capped).toBe(true);
   });
 
   test("set bonuses multiply gear power before the cap", () => {
-    const five = battlePower({ body: 1000, equipped: fullSet("warden", "epic"), level: 10 });
+    const five = battlePower({ body: 1000, equipped: fullSet("warden", "epic"), level: 40 });
     expect(five.gear).toMatchObject({ raw: 75, setPct: 0.2 });
     expect(five.gear.counted).toBeCloseTo(90);
     expect(five.bonus.total).toBe(0);
     // Capped: the set bonus can't push gear past 30%.
-    const capped = battlePower({ body: 150, equipped: fullSet("warden", "epic"), level: 10 });
+    const capped = battlePower({ body: 150, equipped: fullSet("warden", "epic"), level: 40 });
     expect(capped.gear.counted).toBeCloseTo((0.3 / 0.7) * 150);
   });
 
   test("pieces the level can't equip don't count", () => {
-    const p = battlePower({ body: 300, equipped: [piece("warden", "helmet", "epic"), piece("ironbound", "boots", "common")], level: 7 });
+    const p = battlePower({ body: 300, equipped: [piece("warden", "helmet", "epic"), piece("ironbound", "boots", "common")], level: 34 });
     expect(p.gear.raw).toBe(3);
   });
 
@@ -73,13 +73,13 @@ describe("battlePower", () => {
     expect(one.gear.attributes.hp).toBeCloseTo(4 + 2.1);
     expect(one.gear.attributes.def).toBeCloseTo(6 + 0.9);
     expect(one.gear.attributes.atk).toBe(0);
-    const capped = battlePower({ body: 100, equipped: fullSet("unbroken", "mythic"), level: 30 });
+    const capped = battlePower({ body: 100, equipped: fullSet("unbroken", "mythic"), level: 100 });
     const { hp, atk, def } = capped.gear.attributes;
     expect(hp + atk + def).toBeCloseTo(capped.gear.counted);
   });
 
   test("no body power means gear adds nothing", () => {
-    expect(battlePower({ body: 0, equipped: fullSet("warden", "epic"), level: 10 }).total).toBe(0);
+    expect(battlePower({ body: 0, equipped: fullSet("warden", "epic"), level: 40 }).total).toBe(0);
   });
 });
 
@@ -100,7 +100,7 @@ describe("sets against Mythics", () => {
     setId: null,
     focus,
   });
-  const power = (equipped: Worn[]) => battlePower({ body: 5000, equipped, level: 30 }).gear.attributes;
+  const power = (equipped: Worn[]) => battlePower({ body: 5000, equipped, level: 100 }).gear.attributes;
 
   test("Epic HP set: 5 × 15 with +20% is 90 HP; swapping one piece for a Mythic HP (30) gives 94.8, so the Mythic is better", () => {
     const epic = set("epic-hp", "epic", { hp: 100 });
@@ -133,14 +133,14 @@ describe("sets against Mythics", () => {
     const withLoose = battlePower({
       body: 5000,
       equipped: [...epic.slice(0, 3), mythic("leggings", { atk: 100 }), mythic("boots", { def: 100 })],
-      level: 30,
+      level: 100,
     });
     expect(withLoose.gear.setPct).toBe(0.08);
     expect(withLoose.gear.boosted).toBeCloseTo(3 * 15 * 1.08 + 60);
     expect(withLoose.gear.attributes.atk).toBeCloseTo(30);
     // Two sets: only the one that reached a tier gets its bonus.
     const other = set("rare-atk", "rare", { atk: 100 });
-    const two = battlePower({ body: 5000, equipped: [...epic.slice(0, 3), ...other.slice(3)], level: 30 });
+    const two = battlePower({ body: 5000, equipped: [...epic.slice(0, 3), ...other.slice(3)], level: 100 });
     expect(two.gear.boosted).toBeCloseTo(3 * 15 * 1.08 + 2 * 10);
   });
 });

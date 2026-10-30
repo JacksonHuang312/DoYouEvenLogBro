@@ -85,7 +85,7 @@ test.describe("Stats tab (stat rework)", () => {
     expect(state.coins).toBe(5000);
     // Two workouts a day apart: workout XP twice, plus 10 per point of power (0.9 in all).
     expect(state.xp).toBe(2 * 20 + 9);
-    expect(state.level).toBe(1);
+    expect(state.level).toBe(2);
     const muscles = (await user().collection("game").doc("muscles").get()).data()!.muscles;
     expect(muscles.chest).toMatchObject({ sets: 8, progressed: 4 });
   });

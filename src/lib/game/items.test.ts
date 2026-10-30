@@ -35,7 +35,7 @@ function owned(baseId: string, patch: Partial<OwnedItem> = {}, id = `i-${baseId}
 const rich = (patch: Partial<GameState> = {}): GameState => ({
   ...newGameState(T0, UTC),
   coins: 100_000,
-  level: 30,
+  level: 100,
   materials: { scrap: 10_000, mythicCore: 5 },
   ...patch,
 });
@@ -158,11 +158,11 @@ describe("applyUpgrade", () => {
 });
 
 describe("equipping", () => {
-  test("level gates by current rarity: Epic 8, Legendary 15, Mythic 25", () => {
+  test("level gates by current rarity: Epic 35, Legendary 55, Mythic 80", () => {
     const cases: [string, Rarity, number][] = [
-      ["warden-helmet", "epic", 8],
-      ["titans-vow-helmet", "legendary", 15],
-      ["unbroken-helmet", "mythic", 25],
+      ["warden-helmet", "epic", 35],
+      ["titans-vow-helmet", "legendary", 55],
+      ["unbroken-helmet", "mythic", 80],
     ];
     for (const [baseId, rarity, level] of cases) {
       const item = owned(baseId);
@@ -243,10 +243,10 @@ describe("accessories", () => {
 
   test("they need the same levels, and an equipped one can not be upgraded past the user's level", () => {
     const epic = owned("gold-seal", {}, "e");
-    expect(equipItem(rich({ level: 7 }), epic, T0, "ring1")).toMatchObject({ ok: false });
-    expect(equipItem(rich({ level: 8 }), epic, T0, "ring1")).toMatchObject({ ok: true });
+    expect(equipItem(rich({ level: 34 }), epic, T0, "ring1")).toMatchObject({ ok: false });
+    expect(equipItem(rich({ level: 35 }), epic, T0, "ring1")).toMatchObject({ ok: true });
     const wornEpic = owned("gold-seal", { plus: 2 }, "e2");
-    const state = rich({ level: 14, equipped: { ring2: "e2" } });
+    const state = rich({ level: 54, equipped: { ring2: "e2" } });
     expect(applyUpgrade({ state, item: wornEpic, expected: { rarity: "epic", plus: 2 }, now: T0 })).toMatchObject({ ok: false });
     const rare = owned("silver-loop", { plus: 1 }, "r");
     const rareState = rich({ level: 5, equipped: { ring1: "r" } });

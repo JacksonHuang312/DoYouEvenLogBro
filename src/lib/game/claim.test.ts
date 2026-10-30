@@ -1,3 +1,4 @@
+import { levelForXp, xpToReach } from "./economy";
 import { describe, expect, test } from "vitest";
 import {
   applyClaim,
@@ -68,7 +69,7 @@ describe("applyClaim", () => {
       claimedAt: T0,
       coins: { base: COINS.base, scheduledBonus: 0, capped: 0, total: COINS.base, balance: COINS.base },
       xp: { workout: XP.perWorkout, stats: statXp, total: XP.perWorkout + statXp },
-      level: { before: 1, after: 1 },
+      level: { before: 1, after: 2 }, // The first workout reaches level 2.
       progressed: [],
     });
     expect(outcome.result.stats.before.chest).toBe(0);
@@ -182,7 +183,7 @@ describe("applyClaim", () => {
   });
 
   test("levels up when XP crosses a level", () => {
-    const state = { ...newGameState(T0, UTC), xp: XP.perLevel - 5 };
+    const state = { ...newGameState(T0, UTC), xp: xpToReach(2) - 5 };
     const outcome = claim(benchDay(T0), { state });
     expect(outcome.counted && outcome.result.level).toEqual({ before: 1, after: 2 });
   });
@@ -270,7 +271,7 @@ describe("backfillHistory", () => {
     expect(claims.every((c) => c.xp.stats > 0)).toBe(true);
     // The first session has nothing to beat; the seven heavier ones after it do.
     expect(claims.filter((c) => c.progressed!.length > 0)).toHaveLength(7);
-    expect(state.level).toBe(1 + Math.floor(state.xp / XP.perLevel));
+    expect(state.level).toBe(levelForXp(state.xp));
   });
 
   test("builds the same muscles as a recompute", () => {
@@ -312,7 +313,7 @@ describe("reworkGame", () => {
     const { state } = reworkGame({ state: old, workouts: history, lookup, now, questXp: 75 });
     const replayed = backfillHistory(history, lookup, UTC, now).state;
     expect(state.xp).toBe(75 + replayed.xp);
-    expect(state.level).toBe(1 + Math.floor(state.xp / XP.perLevel));
+    expect(state.level).toBe(levelForXp(state.xp));
     expect(state.peakPower).toBeCloseTo(replayed.peakPower);
     expect(state).toMatchObject({ coins: 1234, equipped: { helmet: "i1" }, mostStatsBeaten: 1 });
     for (const field of ["calibration", "bodyweightKg", "age", "sex"]) expect(state).not.toHaveProperty(field);

@@ -1,6 +1,7 @@
 import { BASE_ITEMS, baseItem } from "../src/lib/game/catalog";
 import { newGameState, type GameState } from "../src/lib/game/claim";
-import { STAT_MUSCLES, STAT_POINTS, STATS, XP, type ClassId } from "../src/lib/game/config";
+import { STAT_MUSCLES, STAT_POINTS, STATS, type ClassId } from "../src/lib/game/config";
+import { xpToReach } from "../src/lib/game/economy";
 import type { MusclesFacts } from "../src/lib/game/facts";
 import { newItem, type Item } from "../src/lib/game/items";
 import { emptyShop } from "../src/lib/game/shop";
@@ -85,7 +86,7 @@ const CLAIMS = 6;
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();
-  const { coins = 5000, scrap = 300, level = 30, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench, trainedDaysAgo = 1, classId } = options;
+  const { coins = 5000, scrap = 300, level = 80, gear = (Object.keys(ITEM_IDS) as (keyof typeof ITEM_IDS)[]).filter((k) => k !== "pot"), shopDoc = false, routine = false, unit = "lb", lastBench, trainedDaysAgo = 1, classId } = options;
   const db = adminDb();
   const now = Date.now();
 
@@ -111,8 +112,8 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
   const state: GameState = {
     ...newGameState(now - 30 * 86_400_000, "America/Toronto"),
     coins,
-    // High enough to equip anything below Mythic.
-    xp: (level - 1) * XP.perLevel,
+    // High enough to equip anything, Mythics included.
+    xp: xpToReach(level),
     level,
     materials: { scrap },
     ...(classId ? { classId } : {}),

@@ -61,12 +61,12 @@ describe("the weekly boss", () => {
 
   test("tier is the highest the level allows whose power is within reach", () => {
     expect(weeklyTier(1, 0)).toBe(1);
-    expect(weeklyTier(50, 10_000)).toBe(5);
-    // Power enough for tier 5 but level only 20: tier 3.
-    expect(weeklyTier(20, 10_000)).toBe(3);
+    expect(weeklyTier(100, 10_000)).toBe(5);
+    // Power enough for tier 5 but level only 60: tier 3.
+    expect(weeklyTier(60, 10_000)).toBe(3);
     // Level enough for everything but power only for tier 2 (within tierPowerShare).
-    expect(weeklyTier(50, WEEKLY_BOSS.tierPower[1] * WEEKLY_BOSS.tierPowerShare)).toBe(2);
-    expect(weeklyTier(50, WEEKLY_BOSS.tierPower[1] * WEEKLY_BOSS.tierPowerShare - 1)).toBe(1);
+    expect(weeklyTier(100, WEEKLY_BOSS.tierPower[1] * WEEKLY_BOSS.tierPowerShare)).toBe(2);
+    expect(weeklyTier(100, WEEKLY_BOSS.tierPower[1] * WEEKLY_BOSS.tierPowerShare - 1)).toBe(1);
   });
 
   test("the encounter is the week's boss at the tier's recommended power", () => {

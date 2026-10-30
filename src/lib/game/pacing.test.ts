@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { PACING, XP } from "./config";
 import { milestones } from "./milestones";
-import { assumedGear, battleFrom, simulatePacing, suggestedPerLevel } from "./pacing";
+import { assumedGear, battleFrom, simulatePacing } from "./pacing";
 
 describe("pacing model", () => {
   const run = simulatePacing(52 * 3);
@@ -36,10 +36,9 @@ describe("pacing model", () => {
     expect(avg(24)).toBeLessThan(130);
   });
 
-  test("level 35, the endgame tier, comes at about two years", () => {
-    const level35 = milestones(run).find((m) => m.name === "Level 35")!;
-    expect(level35.months).toBeGreaterThan(PACING.targets.level35 - 1.5);
-    expect(level35.months).toBeLessThan(PACING.targets.level35 + 1.5);
-    expect(Math.abs(suggestedPerLevel() - XP.perLevel)).toBeLessThanOrEqual(50);
+  test("level 100, the endgame tier, comes at about two years", () => {
+    const top = milestones(run).find((m) => m.name === `Level ${XP.maxLevel}`)!;
+    expect(top.months).toBeGreaterThan(PACING.targets.level100 - 1.5);
+    expect(top.months).toBeLessThan(PACING.targets.level100 + 1.5);
   });
 });
