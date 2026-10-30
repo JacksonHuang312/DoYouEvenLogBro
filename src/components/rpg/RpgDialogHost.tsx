@@ -35,7 +35,7 @@ export function RpgDialogHost() {
       onClick={(e) => {
         if (e.target === e.currentTarget) closeCurrentRpgDialog(false);
       }}
-      className="m-auto w-[calc(100%-2.5rem)] max-w-sm border border-rpg-line bg-rpg-surface p-0 font-rpg-body text-rpg-text backdrop:bg-rpg-bg/85"
+      className="m-auto w-[calc(100%-2.5rem)] max-w-sm lg:translate-x-32 border border-rpg-line bg-rpg-surface p-0 font-rpg-body text-rpg-text backdrop:bg-rpg-bg/85"
     >
       {request && (
         <div className="flex flex-col gap-3 p-5">

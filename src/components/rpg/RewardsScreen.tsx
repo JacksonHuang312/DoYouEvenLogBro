@@ -39,7 +39,7 @@ export function RewardsScreen({ view, onDone }: { view: RewardsView; onDone: () 
   }, [onDone]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Workout rewards" className="fixed inset-0 z-50 overflow-y-auto bg-rpg-bg">
+    <div role="dialog" aria-modal="true" aria-label="Workout rewards" className="fixed inset-0 z-50 overflow-y-auto bg-rpg-bg lg:pl-64">
       <div className="mx-auto flex min-h-full max-w-[28rem] flex-col font-rpg-body text-rpg-text">
         <header className="flex flex-col gap-1.5 border-b border-rpg-line px-5 pb-[18px] pt-[max(2rem,env(safe-area-inset-top))]">
           <div className={`text-xs ${TONE[view.header.tone]}`}>{view.header.label}</div>

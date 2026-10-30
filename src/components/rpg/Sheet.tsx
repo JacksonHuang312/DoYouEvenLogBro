@@ -28,7 +28,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="m-0 mx-auto mt-auto max-h-[88dvh] w-full max-w-[28rem] overflow-y-auto border border-b-0 border-rpg-line bg-rpg-bg p-0 font-rpg-body text-rpg-text backdrop:bg-rpg-bg/85"
+      className="m-0 mx-auto mt-auto max-h-[88dvh] w-full max-w-[28rem] lg:translate-x-32 overflow-y-auto border border-b-0 border-rpg-line bg-rpg-bg p-0 font-rpg-body text-rpg-text backdrop:bg-rpg-bg/85"
     >
       <div className="flex items-center justify-between gap-3 border-b border-rpg-line px-5 py-2">
         <h2 id="sheet-title" className="font-rpg-head text-2xl font-semibold uppercase">

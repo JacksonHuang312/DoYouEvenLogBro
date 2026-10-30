@@ -28,7 +28,7 @@ export function FightResultScreen({ view, onDone }: { view: ResultView; onDone: 
   const rare = view.best && BIG.includes(view.best) ? view.best : null;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Fight result" className="fixed inset-0 z-50 overflow-y-auto bg-rpg-bg">
+    <div role="dialog" aria-modal="true" aria-label="Fight result" className="fixed inset-0 z-50 overflow-y-auto bg-rpg-bg lg:pl-64">
       <div className="mx-auto flex min-h-full max-w-[28rem] flex-col font-rpg-body text-rpg-text">
         <header className="flex flex-col gap-1.5 border-b border-rpg-line px-5 pb-[18px] pt-[max(2rem,env(safe-area-inset-top))]">
           <div className={`text-xs ${view.won ? "text-rpg-good" : "text-rpg-bad"}`}>{view.won ? "You won" : "You lost"}</div>

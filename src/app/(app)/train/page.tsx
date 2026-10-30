@@ -188,14 +188,13 @@ export default function TrainPage() {
           return (
             <div key={r.id} className="flex items-center gap-1 border-t border-rpg-line-soft py-1.5">
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-sm">{r.name}</span>
-                  {next && <span className="shrink-0 text-xs text-rpg-muted">{next}</span>}
-                </div>
+                <div className="truncate text-sm">{r.name}</div>
                 <div className="truncate text-[11px] text-rpg-muted">
                   {[`${r.exercises.length} exercises`, ...stats.map((s) => STAT_LABELS[s])].join(" · ")}
                 </div>
               </div>
+              {/* Level with the Start button, not with the name. */}
+              {next && <span className="shrink-0 self-center px-2 text-xs text-rpg-muted">{next}</span>}
               <button
                 onClick={() => void startFrom(r)}
                 aria-label={`Start ${r.name}`}
