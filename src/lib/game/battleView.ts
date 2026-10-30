@@ -30,7 +30,15 @@ import {
 import { classCards, nextSwitchAt, type ClassCard } from "./heroClass";
 import { equippedItems, type OwnedItem } from "./items";
 import { pointsFree, pointsOf, pointsSpent } from "./levels";
-import { bossTowerEncounter, campaignEncounter, checkMinimums, towerEncounter, weeklyEncounter, CAMPAIGN_STAGES, type Encounter } from "./bosses";
+import {
+  bossTowerEncounter,
+  campaignEncounter,
+  checkMinimums,
+  towerEncounter,
+  weeklyEncounter,
+  CAMPAIGN_STAGES,
+  type Encounter,
+} from "./bosses";
 import { STAT_LABELS } from "./view";
 import type { FightRecord } from "../server/fights";
 
@@ -99,19 +107,40 @@ export interface BattleView {
   power: number | null;
   paused: boolean;
   cards: ModeCard[];
-  points: { free: number; spent: number; perStat: { stat: Stat; label: string; points: number; boostPct: number }[]; respecCost: number; max: number };
+  points: {
+    free: number;
+    spent: number;
+    perStat: { stat: Stat; label: string; points: number; boostPct: number }[];
+    respecCost: number;
+    max: number;
+  };
   classSwitch: { cost: number; enabled: boolean; reason: string | null };
 }
 
-const TYPE_LABEL = (t: string | undefined) => (t ? t[0].toUpperCase() + t.slice(1) : null);
+const TYPE_LABEL = (t: string | undefined) =>
+  t ? t[0].toUpperCase() + t.slice(1) : null;
 
 function minimumRows(encounter: Encounter, f: FightHero): MinimumRow[] {
   if (!Object.keys(encounter.minimums).length) return [];
-  const check = checkMinimums({ minimums: encounter.minimums, power: encounter.power, stats: f.stats, heroPower: f.battle.total, injured: f.injured });
-  return check.rows.map((r) => ({ stat: r.stat, label: STAT_LABELS[r.stat], needed: r.needed, have: r.have, met: r.met, waived: r.waived }));
+  const check = checkMinimums({
+    minimums: encounter.minimums,
+    power: encounter.power,
+    stats: f.stats,
+    heroPower: f.battle.total,
+    injured: f.injured,
+  });
+  return check.rows.map((r) => ({
+    stat: r.stat,
+    label: STAT_LABELS[r.stat],
+    needed: r.needed,
+    have: r.have,
+    met: r.met,
+    waived: r.waived,
+  }));
 }
 
-const powerLine = (hero: number, encounter: number) => `Your power ${Math.round(hero)} · recommended ${encounter} (${Math.round((100 * hero) / encounter)}%)`;
+const powerLine = (hero: number, encounter: number) =>
+  `Your power ${Math.round(hero)} · recommended ${encounter} (${Math.round((100 * hero) / encounter)}%)`;
 
 export interface BattleInput {
   state: GameState | null;
@@ -122,7 +151,14 @@ export interface BattleInput {
   timeZone: string;
 }
 
-export function battleView({ state, battle, muscles, inventory, now, timeZone }: BattleInput): BattleView {
+export function battleView({
+  state,
+  battle,
+  muscles,
+  inventory,
+  now,
+  timeZone,
+}: BattleInput): BattleView {
   const game = state;
   const classId = game?.classId ?? null;
   const doc = battle ?? newBattleDoc(now);
@@ -135,14 +171,30 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
     max: LEVEL_POINTS.maxPerStat,
     perStat: STATS.map((stat) => {
       const p = game ? (pointsOf(game)[stat] ?? 0) : 0;
-      return { stat, label: STAT_LABELS[stat], points: p, boostPct: Math.round(p * LEVEL_POINTS.pctPerPoint * 1000) / 10 };
+      return {
+        stat,
+        label: STAT_LABELS[stat],
+        points: p,
+        boostPct: Math.round(p * LEVEL_POINTS.pctPerPoint * 1000) / 10,
+      };
     }),
   };
   const switchAt = game ? nextSwitchAt(game, now) : null;
   const classSwitch = {
     cost: CLASS_SWITCH.cost,
-    enabled: !!game && !!classId && switchAt == null && game.coins >= CLASS_SWITCH.cost,
-    reason: !game || !classId ? null : switchAt != null ? `Next switch in ${timeLeft(switchAt - now)}` : game.coins < CLASS_SWITCH.cost ? "Not enough coins" : null,
+    enabled:
+      !!game &&
+      !!classId &&
+      switchAt == null &&
+      game.coins >= CLASS_SWITCH.cost,
+    reason:
+      !game || !classId
+        ? null
+        : switchAt != null
+          ? `Next switch in ${timeLeft(switchAt - now)}`
+          : game.coins < CLASS_SWITCH.cost
+            ? "Not enough coins"
+            : null,
   };
   const base = {
     classId,
@@ -156,12 +208,32 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
   };
   if (!game || !classId) return { ...base, power: null, cards: [] };
 
-  const hero = fightHero({ state: game, muscles, worn: equippedItems(game, inventory), now });
+  const hero = fightHero({
+    state: game,
+    muscles,
+    worn: equippedItems(game, inventory),
+    now,
+  });
   if (!hero.ok) return { ...base, power: null, cards: [] };
   const f = hero.value;
-  const attempt = (mode: FightMode, extra: { floor?: number; climb?: boolean } = {}) =>
-    runFight({ mode, doc, state: game, fighter: f, now, timeZone, seed: "preview", ...extra });
-  const verdict = (r: ReturnType<typeof attempt>) => ({ enabled: r.ok, reason: r.ok ? null : r.error });
+  const attempt = (
+    mode: FightMode,
+    extra: { floor?: number; climb?: boolean } = {},
+  ) =>
+    runFight({
+      mode,
+      doc,
+      state: game,
+      fighter: f,
+      now,
+      timeZone,
+      seed: "preview",
+      ...extra,
+    });
+  const verdict = (r: ReturnType<typeof attempt>) => ({
+    enabled: r.ok,
+    reason: r.ok ? null : r.error,
+  });
   const zone = game.timeZone || timeZone;
   const cards: ModeCard[] = [];
 
@@ -181,7 +253,9 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
       facts: [
         `Tier ${weekly.tier} (locked for the week)`,
         `${weekly.wins} ${weekly.wins === 1 ? "win" : "wins"} in ${weekly.fights} ${weekly.fights === 1 ? "fight" : "fights"} this week`,
-        fought ? `Next fight in ${timeLeft(nextWeeklyReset(now, zone) - now)}` : "One fight a day, resets 04:00",
+        fought
+          ? `Next fight in ${timeLeft(nextWeeklyReset(now, zone) - now)}`
+          : "One fight a day, resets 04:00",
       ],
       minimums: minimumRows(e, f),
       energy: 0,
@@ -206,7 +280,9 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
       powerLine: powerLine(f.battle.total, e.power),
       facts: [
         `Floor ${floor} next (${doc.endless.cleared} cleared)`,
-        cool > 0 ? `Closed for ${timeLeft(cool)} after a loss` : `Climb fights up to ${ENDLESS_TOWER.autoClimbMax} floors`,
+        cool > 0
+          ? `Closed for ${timeLeft(cool)} after a loss`
+          : `Climb fights up to ${ENDLESS_TOWER.autoClimbMax} floors`,
       ],
       minimums: [],
       energy: 1,
@@ -231,14 +307,22 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
       power: e.power,
       powerLine: powerLine(f.battle.total, e.power),
       facts: [
-        cleared >= BOSS_TOWER.floors ? "Every floor cleared" : `Floor ${top} of ${BOSS_TOWER.floors} next`,
-        cool > 0 ? `Closed for ${timeLeft(cool)}` : `${BOSS_TOWER.cooldownHours} h wait after any fight`,
+        cleared >= BOSS_TOWER.floors
+          ? "Every floor cleared"
+          : `Floor ${top} of ${BOSS_TOWER.floors} next`,
+        cool > 0
+          ? `Closed for ${timeLeft(cool)}`
+          : `${BOSS_TOWER.cooldownHours} h wait after any fight`,
       ],
       minimums: minimumRows(e, f),
       energy: 0,
       ...verdict(attempt("bossTower", { floor: top })),
       canClimb: false,
-      floors: Array.from({ length: top }, (_, i) => ({ floor: i + 1, boss: bossTowerEncounter(i + 1)!.foe.name, reclear: i + 1 <= cleared })),
+      floors: Array.from({ length: top }, (_, i) => ({
+        floor: i + 1,
+        boss: bossTowerEncounter(i + 1)!.foe.name,
+        reclear: i + 1 <= cleared,
+      })),
     });
   }
 
@@ -255,7 +339,9 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
       power: e.power,
       powerLine: powerLine(f.battle.total, e.power),
       facts: [
-        stage > CAMPAIGN_STAGES ? "Finished" : `Chapter ${e.chapter}, stage ${e.stageInChapter} of ${CAMPAIGN.stagesPerChapter}`,
+        stage > CAMPAIGN_STAGES
+          ? "Finished"
+          : `Chapter ${e.chapter}, stage ${e.stageInChapter} of ${CAMPAIGN.stagesPerChapter}`,
         `${doc.campaign.cleared} of ${CAMPAIGN_STAGES} stages cleared`,
       ],
       minimums: minimumRows(e, f),
@@ -272,10 +358,14 @@ export function battleView({ state, battle, muscles, inventory, now, timeZone }:
 // ---- A finished fight ----
 
 const fixed = (t: number) => `${t.toFixed(1)}s`;
-const amt = (e: FightEvent) => (e.amount != null ? Math.round(e.amount).toLocaleString("en-US") : "");
+const amt = (e: FightEvent) =>
+  e.amount != null ? Math.round(e.amount).toLocaleString("en-US") : "";
 
 /** One readable line per fight event, in time order. `foe` is the enemy's name. */
-export function logLines(events: FightEvent[], foe: string): { t: string; text: string }[] {
+export function logLines(
+  events: FightEvent[],
+  foe: string,
+): { t: string; text: string }[] {
   return events.map((e) => {
     const you = e.actor === "hero";
     const crit = e.crit ? " (critical)" : "";
@@ -283,11 +373,15 @@ export function logLines(events: FightEvent[], foe: string): { t: string; text: 
     let text: string;
     switch (e.action) {
       case "attack":
-        text = you ? `You hit ${foe} for ${amt(e)}${crit}` : `${foe} hits you for ${amt(e)}${crit}`;
+        text = you
+          ? `You hit ${foe} for ${amt(e)}${crit}`
+          : `${foe} hits you for ${amt(e)}${crit}`;
         break;
       case "skill":
       case "ultimate":
-        text = you ? `${name || "Skill"}: ${amt(e) ? `${amt(e)}` : "used"}${crit}` : `${foe} uses ${name || "a skill"} for ${amt(e)}`;
+        text = you
+          ? `${name || "Skill"}: ${amt(e) ? `${amt(e)}` : "used"}${crit}`
+          : `${foe} uses ${name || "a skill"} for ${amt(e)}`;
         break;
       case "telegraph":
         text = `${foe} winds up a heavy blow`;
@@ -331,7 +425,13 @@ export interface ResultView {
   won: boolean;
   headline: string;
   sub: string;
-  rounds: { title: string; won: boolean; seconds: string; power: string; ended: string }[];
+  rounds: {
+    title: string;
+    won: boolean;
+    seconds: string;
+    power: string;
+    ended: string;
+  }[];
   rewards: { label: string; value: string }[];
   items: ResultItem[];
   salvaged: string[];
@@ -341,26 +441,136 @@ export interface ResultView {
   best: Rarity | null;
   log: { title: string; lines: { t: string; text: string }[] }[];
   energyLeft: number | null;
+  /** What the replay plays, or null for fights stored before health was recorded. */
+  replay: ReplayRound[] | null;
 }
 
-const END_TEXT = { "foe-down": "Defeated it", "hero-down": "You fell", enrage: "It enraged" } as const;
-const RANK: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
-const TITLE: Record<FightMode, string> = { weekly: "Weekly boss", endless: "Endless tower", bossTower: "Boss Tower", campaign: "Campaign" };
+/** One round of a fight as the replay plays it: each event with both sides' health right after it. */
+export interface ReplayRound {
+  foe: string;
+  won: boolean;
+  seconds: number;
+  heroMax: number;
+  foeMax: number;
+  events: {
+    t: number;
+    text: string;
+    actor: "hero" | "foe";
+    hh: number;
+    fh: number;
+  }[];
+}
+
+/** The replay's rounds, or null when any round lacks health (fights stored before the replay existed). */
+export function replayRounds(
+  rounds: FightRecord["rounds"],
+): ReplayRound[] | null {
+  const out: ReplayRound[] = [];
+  for (const r of rounds) {
+    const { heroMaxHp, foeMaxHp, log } = r.result;
+    if (
+      !heroMaxHp ||
+      !foeMaxHp ||
+      log.some((e) => e.hh == null || e.fh == null)
+    )
+      return null;
+    const lines = logLines(log, r.foe);
+    out.push({
+      foe: r.foe,
+      won: r.result.won,
+      seconds: r.result.seconds,
+      heroMax: heroMaxHp,
+      foeMax: foeMaxHp,
+      events: log.map((e, i) => ({
+        t: e.t,
+        text: lines[i].text,
+        actor: e.actor,
+        hh: e.hh!,
+        fh: e.fh!,
+      })),
+    });
+  }
+  return out;
+}
+
+/** The replay's state `clock` seconds into a round: both health values and the latest few lines. */
+export function replayAt(
+  round: ReplayRound,
+  clock: number,
+  show = 4,
+): { hh: number; fh: number; lines: string[] } {
+  const seen = round.events.filter((e) => e.t <= clock);
+  const last = seen.at(-1);
+  return {
+    hh: last?.hh ?? round.heroMax,
+    fh: last?.fh ?? round.foeMax,
+    lines: seen.slice(-show).map((e) => e.text),
+  };
+}
+
+const END_TEXT = {
+  "foe-down": "Defeated it",
+  "hero-down": "You fell",
+  enrage: "It enraged",
+} as const;
+const RANK: Rarity[] = [
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary",
+  "mythic",
+];
+const TITLE: Record<FightMode, string> = {
+  weekly: "Weekly boss",
+  endless: "Endless tower",
+  bossTower: "Boss Tower",
+  campaign: "Campaign",
+};
 
 /** A fight record as the result screen shows it. `energy` is what's left, when the response said. */
-export function resultView(fight: FightRecord, energy: number | null = null): ResultView {
+export function resultView(
+  fight: FightRecord,
+  energy: number | null = null,
+): ResultView {
   const won = fight.won;
   const rounds = fight.rounds;
   const wins = rounds.filter((r) => r.result.won).length;
-  const items: ResultItem[] = fight.items.map((i) => ({ id: i.id, name: baseItem(i.baseId)?.name ?? "Unknown item", rarity: i.rarity }));
+  const items: ResultItem[] = fight.items.map((i) => ({
+    id: i.id,
+    name: baseItem(i.baseId)?.name ?? "Unknown item",
+    rarity: i.rarity,
+  }));
   const rewards: ResultView["rewards"] = [];
-  if (fight.coins) rewards.push({ label: "Coins", value: `+${fight.coins.toLocaleString("en-US")}` });
-  if (fight.scrap) rewards.push({ label: "Scrap", value: `+${fight.scrap.toLocaleString("en-US")}` });
-  if (fight.mythicCores) rewards.push({ label: "Mythic Core", value: `+${fight.mythicCores}` });
-  const dropped = [...items.map((i) => i.rarity), ...fight.salvaged.map((s) => s.rarity)];
-  const best = dropped.length ? dropped.reduce((a, b) => (RANK.indexOf(b) > RANK.indexOf(a) ? b : a)) : null;
+  if (fight.coins)
+    rewards.push({
+      label: "Coins",
+      value: `+${fight.coins.toLocaleString("en-US")}`,
+    });
+  if (fight.scrap)
+    rewards.push({
+      label: "Scrap",
+      value: `+${fight.scrap.toLocaleString("en-US")}`,
+    });
+  if (fight.mythicCores)
+    rewards.push({ label: "Mythic Core", value: `+${fight.mythicCores}` });
+  const dropped = [
+    ...items.map((i) => i.rarity),
+    ...fight.salvaged.map((s) => s.rarity),
+  ];
+  const best = dropped.length
+    ? dropped.reduce((a, b) => (RANK.indexOf(b) > RANK.indexOf(a) ? b : a))
+    : null;
   const multi = rounds.length > 1;
-  const headline = multi ? (wins === rounds.length ? "Climbed" : wins ? "Climb stopped" : "Defeat") : won ? "Victory" : "Defeat";
+  const headline = multi
+    ? wins === rounds.length
+      ? "Climbed"
+      : wins
+        ? "Climb stopped"
+        : "Defeat"
+    : won
+      ? "Victory"
+      : "Defeat";
   const sub = multi
     ? `${TITLE[fight.mode]} · ${wins} of ${rounds.length} floors cleared`
     : `${TITLE[fight.mode]} · ${rounds[0].foe}${fight.firstClear === false ? " · cleared before" : ""}`;
@@ -377,10 +587,17 @@ export function resultView(fight: FightRecord, energy: number | null = null): Re
     })),
     rewards,
     items,
-    salvaged: fight.salvaged.map((s) => `${baseItem(s.baseId)?.name ?? "Item"} (duplicate) → ${s.scrap} scrap`),
+    salvaged: fight.salvaged.map(
+      (s) =>
+        `${baseItem(s.baseId)?.name ?? "Item"} (duplicate) → ${s.scrap} scrap`,
+    ),
     guaranteed: fight.guaranteed,
     best,
-    log: rounds.map((r) => ({ title: r.foe, lines: logLines(r.result.log, r.foe) })),
+    log: rounds.map((r) => ({
+      title: r.foe,
+      lines: logLines(r.result.log, r.foe),
+    })),
     energyLeft: energy,
+    replay: replayRounds(rounds),
   };
 }

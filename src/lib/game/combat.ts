@@ -183,6 +183,9 @@ export interface FightEvent {
   crit?: boolean;
   /** The skill or ultimate's name. */
   name?: string;
+  /** Each side's health right after this event, for the replay's health bars. Older fight records lack them. */
+  hh?: number;
+  fh?: number;
 }
 
 export interface FightResult {
@@ -193,6 +196,9 @@ export interface FightResult {
   seconds: number;
   heroHpLeft: number;
   foeHpLeft: number;
+  /** Full health of each side, the replay's bar length. Older fight records lack them. */
+  heroMaxHp?: number;
+  foeMaxHp?: number;
   /** For leaderboards later (Phase 6): damage dealt, damage absorbed (by DEF, Guard, the belt and shields), healing done (lifesteal included). */
   stats: { dealt: number; taken: number; absorbed: number; healed: number; crits: number };
   log: FightEvent[];
@@ -224,6 +230,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
   const foeForm = 1 + (rand() * 2 - 1) * COMBAT.formSpread;
 
   const log: FightEvent[] = [];
+  const hpNow = () => ({ hh: Math.max(0, Math.round(heroHp)), fh: Math.max(0, Math.round(foeHp)) });
   const stats = { dealt: 0, taken: 0, absorbed: 0, healed: 0, crits: 0 };
   let heroHp = hero.maxHp;
   let foeHp = foe.maxHp;
@@ -262,7 +269,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     if (gained <= 0) return;
     heroHp += gained;
     stats.healed += gained;
-    if (!quiet) log.push({ t: secs(t), actor: "hero", action: "heal", amount: gained, ...(name ? { name } : {}) });
+    if (!quiet) log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "heal", amount: gained, ...(name ? { name } : {}) });
   };
 
   /** Damage dealt back to the enemy (Thorns, the Heart, Bulwark Plate). */
@@ -270,7 +277,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     const back = Math.max(1, Math.round(amount));
     foeHp -= back;
     stats.dealt += back;
-    log.push({ t: secs(t), actor: "hero", action: "reflect", amount: back });
+    log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "reflect", amount: back });
   };
 
   /** Damage to the hero. `physical` hits are reduced by DEF and Guard; bleeding isn't. */
@@ -293,7 +300,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     if (heroHp - toHp <= 0 && has("unbroken-crown") && !lastStandUsed) {
       lastStandUsed = true;
       heroHp = M.lastStandHp;
-      log.push({ t: secs(t), actor: "hero", action: "last-stand" });
+      log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "last-stand" });
     } else {
       heroHp -= toHp;
     }
@@ -324,20 +331,22 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     stats.dealt += dmg;
     if (crit) stats.crits++;
     if (action !== "ultimate") energy += COMBAT.energy.perHitLanded * chargeFactor;
-    log.push({ t: secs(t), actor: "hero", action, amount: dmg, ...(crit ? { crit } : {}), ...(name ? { name } : {}) });
+    log.push({ t: secs(t), ...hpNow(), actor: "hero", action, amount: dmg, ...(crit ? { crit } : {}), ...(name ? { name } : {}) });
     const drain = fx.lifesteal + (crit && has("bloodletter-gauntlets") ? M.bloodletterHealPct : 0);
     if (drain > 0) heal(t, dmg * drain, undefined, true);
   };
 
   const end = (t: number, how: FightResult["end"]): FightResult => {
-    if (how === "enrage") log.push({ t: secs(t), actor: "foe", action: "enrage" });
-    else log.push({ t: secs(t), actor: how === "foe-down" ? "foe" : "hero", action: "down" });
+    if (how === "enrage") log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "enrage" });
+    else log.push({ t: secs(t), ...hpNow(), actor: how === "foe-down" ? "foe" : "hero", action: "down" });
     return {
       won: how === "foe-down",
       end: how,
       seconds: secs(t),
       heroHpLeft: Math.max(0, heroHp),
       foeHpLeft: Math.max(0, foeHp),
+      heroMaxHp: hero.maxHp,
+      foeMaxHp: foe.maxHp,
       stats,
       log,
     };
@@ -348,7 +357,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     if (t >= bleedStart && (t - bleedStart) % second === 0 && t > bleedFreeUntil) {
       const hp = heroHp;
       const dead = hurtHero(t, foe.atk * foe.bleed!.perSec, false);
-      log.push({ t: secs(t), actor: "foe", action: "bleed", amount: Math.max(0, hp - heroHp) });
+      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "bleed", amount: Math.max(0, hp - heroHp) });
       if (dead) return end(t, "hero-down");
     }
     if (hero.regenPct > 0 && t % ticks(COMBAT.necklaceEverySec) === 0) heal(t, hero.maxHp * hero.regenPct);
@@ -365,9 +374,9 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
         strike(t, SKILLS.bastion.strikeMultiplier, "ultimate", name);
         shield = Math.round(hero.maxHp * SKILLS.bastion.shieldPct * shieldFactor);
         shieldUntil = t + ticks(SKILLS.bastion.durationSec);
-        log.push({ t: secs(t), actor: "hero", action: "shield", amount: shield });
+        log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "shield", amount: shield });
       } else {
-        log.push({ t: secs(t), actor: "hero", action: "ultimate", name });
+        log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "ultimate", name });
         heal(t, hero.maxHp * SKILLS.radiance.healPct * (1 + fx.healPower), name);
         bleedFreeUntil = t + ticks(SKILLS.radiance.bleedFreeSec);
       }
@@ -383,11 +392,11 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
         const heavySoon = foe.heavy && nextHeavy - t <= ticks(SKILLS.guard.durationSec) / 2;
         if (foe.heavy ? heavySoon : heroHp < hero.maxHp * SKILLS.guard.useBelowPct) {
           guardUntil = t + ticks(SKILLS.guard.durationSec * (1 + fx.guardDuration));
-          log.push({ t: secs(t), actor: "hero", action: "skill", name });
+          log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "skill", name });
           nextSkill = t + skillEvery;
         }
       } else if (heroHp < hero.maxHp * SKILLS.mend.useBelowPct) {
-        log.push({ t: secs(t), actor: "hero", action: "skill", name });
+        log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "skill", name });
         heal(t, hero.maxHp * hero.mendPct * (1 + fx.healPower), name);
         if (has("saints-locket")) bleedFreeUntil = Math.max(bleedFreeUntil, t + ticks(M.saintsBleedFreeSec));
         nextSkill = t + skillEvery;
@@ -402,12 +411,12 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     }
 
     // The enemy: telegraph, big hit, basic attack.
-    if (foe.heavy && t === nextHeavy - heavyWarn) log.push({ t: secs(t), actor: "foe", action: "telegraph" });
+    if (foe.heavy && t === nextHeavy - heavyWarn) log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "telegraph" });
     if (foe.heavy && t >= nextHeavy) {
       const raw = foe.atk * foe.heavy.multiplier * spread();
       const hp = heroHp;
       const dead = hurtHero(t, raw, true);
-      log.push({ t: secs(t), actor: "foe", action: "heavy", amount: Math.max(0, hp - heroHp) });
+      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "heavy", amount: Math.max(0, hp - heroHp) });
       nextHeavy += heavyEvery;
       if (dead) return end(t, "hero-down");
       if (foeHp <= 0) return end(t, "foe-down");
@@ -415,7 +424,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     if (t >= nextFoeAttack) {
       const hp = heroHp;
       const dead = hurtHero(t, foe.atk * spread(), true);
-      log.push({ t: secs(t), actor: "foe", action: "attack", amount: Math.max(0, hp - heroHp) });
+      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "attack", amount: Math.max(0, hp - heroHp) });
       nextFoeAttack += foeEvery;
       if (dead) return end(t, "hero-down");
       if (foeHp <= 0) return end(t, "foe-down");
