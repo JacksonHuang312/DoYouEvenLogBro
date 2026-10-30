@@ -5,7 +5,7 @@
 //   npm run emulators                     # in one terminal
 //   npm run seed:har                      # level 40, about 40 in every stat, no class yet
 //   npm run seed:har -- --level 60 --stat 60 --class striker
-//   NEXT_PUBLIC_FIREBASE_EMULATOR=1 npm run dev
+//   npm run dev:emu          # http://localhost:3200, wired to the emulators
 //
 // Then sign in through the emulator hook in the browser console:
 //   window.__emulatorSignIn("har@test.dev", "password123")
