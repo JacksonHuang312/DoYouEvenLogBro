@@ -361,14 +361,14 @@ export const EFFECT_SCALE: Record<Rarity, number> = { common: 0.2, uncommon: 0.4
 export const WEAPON_TYPES = ["sword", "staff", "shield"] as const;
 export type WeaponType = (typeof WEAPON_TYPES)[number];
 export const WEAPONS: Record<WeaponType, { label: string; classId: ClassId; focus: Focus; effects: { id: AccessoryEffect; value: number }[] }> = {
-  sword: { label: "Sword", classId: "striker", focus: { atk: 90, hp: 10 }, effects: [{ id: "critDamage", value: 0.15 }] },
+  sword: { label: "Sword", classId: "striker", focus: { atk: 90, hp: 10 }, effects: [{ id: "critDamage", value: 0.1 }] },
   staff: {
     label: "Staff",
     classId: "cleric",
     focus: { atk: 85, hp: 15 },
     effects: [
-      { id: "healPower", value: 0.15 },
-      { id: "healing", value: 0.02 },
+      { id: "healPower", value: 0.1 },
+      { id: "healing", value: 0.01 },
     ],
   },
   shield: {
@@ -376,8 +376,8 @@ export const WEAPONS: Record<WeaponType, { label: string; classId: ClassId; focu
     classId: "vanguard",
     focus: { def: 60, atk: 25, hp: 15 },
     effects: [
-      { id: "guardDuration", value: 0.15 },
-      { id: "bastionShield", value: 0.1 },
+      { id: "guardDuration", value: 0.075 },
+      { id: "bastionShield", value: 0.05 },
     ],
   },
 };

@@ -39,11 +39,11 @@ describe("gearEffects", () => {
     expect(staff.healPower).toBeCloseTo(WEAPONS.staff.effects[0].value * EFFECT_SCALE.epic, 6);
     expect(staff.healing).toBeCloseTo(WEAPONS.staff.effects[1].value * EFFECT_SCALE.epic, 6);
     const shield = gearEffects([worn("tower-shield", "legendary")], 100);
-    expect([shield.guardDuration, shield.bastionShield]).toEqual([0.15, 0.1]);
-    expect(gearEffects([worn("recruits-blade", "common")], 100).critDamage).toBeCloseTo(0.15 * EFFECT_SCALE.common, 6);
+    expect([shield.guardDuration, shield.bastionShield]).toEqual(WEAPONS.shield.effects.map((e) => e.value));
+    expect(gearEffects([worn("recruits-blade", "common")], 100).critDamage).toBeCloseTo(0.1 * EFFECT_SCALE.common, 6);
     const kingsbane = gearEffects([worn("kingsbane", "mythic")], 100);
     expect(kingsbane.mythic).toEqual(["kingsbane"]);
-    expect(kingsbane.critDamage).toBeCloseTo(0.15 * EFFECT_SCALE.mythic, 6);
+    expect(kingsbane.critDamage).toBeCloseTo(0.1 * EFFECT_SCALE.mythic, 6);
   });
 
   test("effects never include coins or XP", () => {

@@ -86,8 +86,8 @@ describe("positionViews", () => {
     expect(asCleric.power).toBeCloseTo(4 * 1.75 * 2);
     expect(asStriker.power).toBeCloseTo(4 * 1.75 * 2 * 1.1, 1);
     expect(asCleric.weapon).toBe("Sword · Striker weapon (+10% power)");
-    expect(asCleric.effect).toBe("Crit damage +15%");
-    expect(slotOf(game(), [owned("kingsbane")], "weapon").items[0].effect).toBe("Crit damage +18.8% · Crits charge your ultimate twice as fast");
+    expect(asCleric.effect).toBe("Crit damage +10%");
+    expect(slotOf(game(), [owned("kingsbane")], "weapon").items[0].effect).toBe("Crit damage +12.5% · Crits charge your ultimate twice as fast");
   });
 
   test("reforge: to your level for scrap, off without the scrap, absent at your level", () => {
