@@ -1,7 +1,7 @@
 "use client";
 
 import { CLASS_SWITCH, type ClassId } from "@/lib/game/config";
-import type { ClassCard } from "@/lib/game/battleView";
+import type { ClassCard } from "@/lib/game/heroClass";
 
 /**
  * The three classes as tappable cards. `current` marks the one you have (a switch), none for the

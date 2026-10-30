@@ -83,6 +83,20 @@ function muscles(now: number, daysAgo: number): MusclesFacts {
 /** Counted workouts already claimed: enough for First Steps. */
 const CLAIMS = 6;
 
+/** Wipes the test user's data and profile but keeps its sign-in, like an account that has just signed up (onboarding). */
+export async function resetSignedUpHero(): Promise<string> {
+  assertEmulator();
+  const db = adminDb();
+  try {
+    await adminAuth().getUser(HERO.uid);
+  } catch {
+    await adminAuth().createUser({ uid: HERO.uid, email: HERO.email, password: HERO.password });
+  }
+  await db.recursiveDelete(db.collection("users").doc(HERO.uid));
+  await db.collection("usernames").doc(HERO.username).delete();
+  return HERO.uid;
+}
+
 /** Wipes and recreates the test user. Returns its uid. Call before every test. */
 export async function resetHero(options: SeedOptions = {}): Promise<string> {
   assertEmulator();

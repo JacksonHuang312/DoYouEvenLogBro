@@ -695,7 +695,7 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 - **Level-ups** show on the workout Rewards screen: "Level 12 reached", the coins and scrap paid, and the stat points to spend. The Rewards scrap line now counts quest scrap only.
 - **Stat points sheet** (`PointsSheet`): plus and minus on a draft, "+1% in fights" per stat, Apply, and Reset all for 500 coins (confirmed).
 - **Class sheet:** switch cost, the wait ("Next switch in ..."), and the same picker.
-- **Class pick for existing and new accounts:** the Hero tab shows "Pick your class to start fighting" (a link to Battle) until a class is chosen, and the Battle tab opens on the picker. **Not at sign-up:** the sign-up form stays as it is; new accounts meet the picker on their first Hero or Battle visit. Say if it should move into onboarding.
+- **Class pick:** new accounts choose a class on the sign-up form, next to username and unit (Continue waits for it); it is saved right after the profile (`POST /api/class`, free), and if that call fails the Hero tab asks again. Existing accounts see "Pick your class to start fighting" on the Hero tab (a link to Battle) until they pick, and the Battle tab opens on the picker. `classCards()` lives in `heroClass.ts` so sign-up doesn't load the fight code. `e2e/onboarding.e2e.ts` covers it.
 - Gear effects no longer read "(not active yet)": fights use them.
 - Retried fights: the client keeps one request id per fight until it comes back, so a dropped connection returns the same stored fight.
 - Not built (piece for later): fight history (the stored `fights/{id}` records have it), an animated replay, a skip-the-confirm setting.

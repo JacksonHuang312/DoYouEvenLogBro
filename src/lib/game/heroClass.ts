@@ -10,6 +10,25 @@ import { fail, ok, type GameResult } from "./items";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface ClassCard {
+  id: ClassId;
+  name: string;
+  /** One line on what it does. */
+  blurb: string;
+  skill: string;
+  ultimate: string;
+}
+
+const BLURB: Record<ClassId, string> = {
+  vanguard: "Tough and steady. Lots of health and defense, hits softer. Strong against heavy hitters.",
+  striker: "Hits hard and fast. Less health and defense. Best against short fights.",
+  cleric: "Heals through damage from your Core. Hits softer. Best against bleeding.",
+};
+
+/** The classes as the pick screens show them (Battle and sign-up). */
+export const classCards = (): ClassCard[] =>
+  CLASS_IDS.map((id) => ({ id, name: CLASSES[id].name, blurb: BLURB[id], skill: CLASSES[id].skill.name, ultimate: CLASSES[id].ultimate.name }));
+
 export const isClassId = (id: unknown): id is ClassId => (CLASS_IDS as readonly unknown[]).includes(id);
 
 /** The class's share of the bonus pool (titles + class), 0 before a class is picked. */

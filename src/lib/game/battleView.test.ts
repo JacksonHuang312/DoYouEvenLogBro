@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { battleView, classCards, logLines, resultView, timeLeft } from "./battleView";
+import { battleView, logLines, resultView, timeLeft } from "./battleView";
+import { classCards } from "./heroClass";
 import { newGameState, type GameState } from "./claim";
 import type { FightEvent } from "./combat";
 import { BOSS_TOWER, ENDLESS_TOWER, ENERGY, STATS } from "./config";

@@ -5,7 +5,6 @@ import type { FightEvent } from "./combat";
 import {
   BOSS_TOWER,
   CAMPAIGN,
-  CLASS_IDS,
   CLASS_SWITCH,
   CLASSES,
   ENDLESS_TOWER,
@@ -28,7 +27,7 @@ import {
   type FightHero,
   type FightMode,
 } from "./fights";
-import { nextSwitchAt } from "./heroClass";
+import { classCards, nextSwitchAt, type ClassCard } from "./heroClass";
 import { equippedItems, type OwnedItem } from "./items";
 import { pointsFree, pointsOf, pointsSpent } from "./levels";
 import { bossTowerEncounter, campaignEncounter, checkMinimums, towerEncounter, weeklyEncounter, CAMPAIGN_STAGES, type Encounter } from "./bosses";
@@ -90,15 +89,6 @@ export interface ModeCard {
   floors: { floor: number; boss: string; reclear: boolean }[];
 }
 
-export interface ClassCard {
-  id: ClassId;
-  name: string;
-  /** One line on what it does. */
-  blurb: string;
-  skill: string;
-  ultimate: string;
-}
-
 export interface BattleView {
   /** Null until a class is picked: the screen shows the picker instead. */
   classId: ClassId | null;
@@ -112,15 +102,6 @@ export interface BattleView {
   points: { free: number; spent: number; perStat: { stat: Stat; label: string; points: number; boostPct: number }[]; respecCost: number; max: number };
   classSwitch: { cost: number; enabled: boolean; reason: string | null };
 }
-
-const BLURB: Record<ClassId, string> = {
-  vanguard: "Tough and steady. Lots of health and defense, hits softer. Strong against heavy hitters.",
-  striker: "Hits hard and fast. Less health and defense. Best against short fights.",
-  cleric: "Heals through damage from your Core. Hits softer. Best against bleeding.",
-};
-
-export const classCards = (): ClassCard[] =>
-  CLASS_IDS.map((id) => ({ id, name: CLASSES[id].name, blurb: BLURB[id], skill: CLASSES[id].skill.name, ultimate: CLASSES[id].ultimate.name }));
 
 const TYPE_LABEL = (t: string | undefined) => (t ? t[0].toUpperCase() + t.slice(1) : null);
 

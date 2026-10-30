@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Spinner } from "@/components/Spinner";
+import { classCards } from "@/lib/game/heroClass";
+import type { ClassId } from "@/lib/game/config";
+import { pickClass } from "@/lib/gameApi";
 import { createProfile, USERNAME_PATTERN } from "@/lib/profile";
 import type { Unit } from "@/lib/types";
 
@@ -12,6 +15,7 @@ export default function Onboarding() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [unit, setUnit] = useState<Unit>("lb");
+  const [classId, setClassId] = useState<ClassId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -23,7 +27,7 @@ export default function Onboarding() {
 
   if (loading || !user || profile) return <Spinner />;
 
-  const valid = USERNAME_PATTERN.test(username);
+  const valid = USERNAME_PATTERN.test(username) && classId != null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +37,8 @@ export default function Onboarding() {
     try {
       // The profile snapshot listener picks up the new doc and redirects.
       await createProfile(user, username, unit);
+      // The first class pick is free. If it doesn't go through, the Hero tab asks again.
+      if (classId) await pickClass(classId).catch((err) => console.warn("Couldn't save the class pick", err));
     } catch (err) {
       setError((err as Error).message);
       setSaving(false);
@@ -77,6 +83,28 @@ export default function Onboarding() {
                 className={`rounded-md py-2 font-medium ${unit === u ? "bg-accent text-on-accent" : "bg-surface-2"}`}
               >
                 {u}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm text-muted">Class</legend>
+          <p className="mt-1 text-xs text-muted">Your first pick is free. After that a switch costs 300 coins, once a week.</p>
+          <div className="mt-2 space-y-2">
+            {classCards().map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                aria-pressed={classId === c.id}
+                onClick={() => setClassId(c.id)}
+                className={`block w-full rounded-md px-3 py-2 text-left ${classId === c.id ? "bg-accent text-on-accent" : "bg-surface-2"}`}
+              >
+                <span className="font-medium">{c.name}</span>
+                <span className="mt-0.5 block text-xs opacity-80">{c.blurb}</span>
+                <span className="mt-0.5 block text-xs opacity-60">
+                  Skill: {c.skill} · Ultimate: {c.ultimate}
+                </span>
               </button>
             ))}
           </div>
