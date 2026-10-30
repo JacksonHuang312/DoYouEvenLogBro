@@ -15,8 +15,10 @@ test.describe("Shop tab", () => {
     await expect(page.getByRole("button", { name: /^Buy · / })).toHaveCount(6);
     await expect(page.getByRole("button", { name: "Reroll for 100 coins" })).toBeEnabled();
     await expect(page.getByText("Rerolls left: 2 of 2")).toBeVisible();
+    // Everything is at the buyer's level (the seed is level 80).
+    for (const offer of await offers(page).all()) await expect(offer).toContainText("Level 80");
     // The long description is behind an info button, closed by default.
-    const about = page.getByText("The shop sells Common to Epic gear at a markup", { exact: false });
+    const about = page.getByText("The shop sells Common to Epic gear at your level", { exact: false });
     await expect(about).toBeHidden();
     await page.getByRole("button", { name: "About the shop" }).click();
     await expect(about).toBeVisible();
@@ -38,6 +40,7 @@ test.describe("Shop tab", () => {
     await first.getByRole("button", { name: /^Buy · / }).click();
     const confirm = confirmDialog(page, new RegExp(`Buy ${name}`));
     await expect(confirm).toContainText(`${price.toLocaleString("en-US")} coins`);
+    await expect(confirm).toContainText("level 80");
     await shot(page, "shop-buy-confirm", { full: false });
     await expectNoOverflow(page, "Buy confirm", info);
     await confirm.getByRole("button", { name: /^Buy for/ }).click();
@@ -45,10 +48,10 @@ test.describe("Shop tab", () => {
     await expect(first).toContainText("Bought · in your Gear");
     await expect.poll(() => coins(page)).toBe(before - price);
     await hero.openTab("Gear");
-    // The seed owns 5 rings and 1 helmet; a purchase adds one more somewhere.
+    // The seed owns 5 rings, 1 helmet and 1 sword; a purchase adds one more somewhere.
     const owned = await page.getByRole("button", { name: /\d+ owned$/ }).allInnerTexts();
     const total = owned.reduce((n, t) => n + Number(t.match(/(\d+) owned/)![1]), 0);
-    expect(total).toBeGreaterThanOrEqual(7);
+    expect(total).toBeGreaterThanOrEqual(8);
   });
 
   test("a second tap on Buy while it's in flight can't double-buy", async ({ hero, page }) => {

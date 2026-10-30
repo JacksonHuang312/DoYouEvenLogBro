@@ -43,6 +43,7 @@ export const ITEM_IDS = {
   band: "e2e-copper-band",
   sunforged: "e2e-sunforged-ring",
   helm: "e2e-steelguard-helmet",
+  blade: "e2e-recruits-blade",
   pot: "e2e-scrapper-pot",
 } as const;
 
@@ -56,6 +57,7 @@ const GEAR: Record<keyof typeof ITEM_IDS, { base: string; rarity: Rarity }> = {
   band: { base: "copper-band", rarity: "common" }, // Common ring.
   sunforged: { base: "sunforged-ring", rarity: "legendary" }, // Legendary ring: salvage-only.
   helm: { base: "steelguard-helmet", rarity: "rare" }, // Rare helmet from a set.
+  blade: { base: "recruits-blade", rarity: "rare" }, // Rare sword: the Striker's own weapon.
   pot: { base: "scrapper-helmet", rarity: "common" }, // Common helmet (ATK 20 / DEF 80): the longest subtitle. Only when asked for.
 };
 

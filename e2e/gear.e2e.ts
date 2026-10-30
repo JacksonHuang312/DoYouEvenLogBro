@@ -21,12 +21,14 @@ test.describe("Gear tab", () => {
     await expect(page.getByRole("heading", { name: "Power" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Equipment" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Accessories" })).toBeVisible();
-    for (const label of ["Helmet", "Chestplate", "Gloves", "Leggings", "Boots", "Ring 1", "Ring 2", "Necklace", "Belt", "Charm 1", "Charm 2"]) {
+    for (const label of ["Weapon", "Helmet", "Chestplate", "Gloves", "Leggings", "Boots", "Ring 1", "Ring 2", "Necklace", "Belt", "Charm 1", "Charm 2"]) {
       await expect(row(page, label)).toBeVisible();
     }
     // Five rings in the seed: the helmet row says 1 owned, both ring rows say 5.
     await expect(row(page, "Ring 1")).toContainText("5 owned");
     await expect(row(page, "Helmet")).toContainText("1 owned");
+    await expect(row(page, "Weapon")).toContainText("1 owned");
+    await expect(page.getByRole("button", { name: /^Best gear/ })).toBeVisible();
     await expect(page.getByText("Body", { exact: true })).toBeVisible();
     await shot(page, "gear-tab");
     await expectNoOverflow(page, "Gear tab", info);
@@ -44,7 +46,7 @@ test.describe("Gear tab", () => {
     // No +0, no helper lines under the buttons, and the upgrade preview is gone.
     await expect(sheet(page, "Ring 1")).not.toContainText(/\+0(?![.\d])/); // no "+0" upgrade level (an effect may read "+0.5%")
     await expect(sheet(page, "Ring 1")).not.toContainText("act on one of your");
-    await expect(sheet(page, "Ring 1")).not.toContainText("Named gear can't be sold");
+    await expect(sheet(page, "Ring 1")).not.toContainText("can't be sold");
     await expect(sheet(page, "Ring 1")).not.toContainText("→");
     await expect(sheet(page, "Ring 1").getByRole("listitem")).toHaveCount(4);
     await shot(page, "gear-ring-sheet", { full: false });
@@ -157,23 +159,26 @@ test.describe("Gear tab", () => {
     await expect(row(page, "Ring 1")).toContainText("4 owned");
   });
 
-  test("named gear is salvage-only", async ({ hero, page }) => {
+  test("Legendary gear is salvage-only", async ({ hero, page }) => {
     await hero.start(undefined, "Gear");
     await row(page, "Ring 1").click();
-    const named = cardOf(page, "Ring 1", "Sunforged Ring");
-    await expect(named.getByRole("button", { name: "Can't sell" })).toBeDisabled();
-    await expect(named.getByRole("button", { name: /^Salvage/ })).toBeEnabled();
+    const legendary = cardOf(page, "Ring 1", "Sunforged Ring");
+    await expect(legendary.getByRole("button", { name: "Can't sell" })).toBeDisabled();
+    await expect(legendary.getByRole("button", { name: /^Salvage/ })).toBeEnabled();
   });
 
-  test("a low level shows what is locked", async ({ hero, page }) => {
-    await hero.start({ level: 1 }, "Gear");
+  test("an item above your level is locked, whatever its rarity", async ({ hero, page }) => {
+    await hero.start({ level: 19 }, "Gear");
     await row(page, "Ring 1").click();
-    const epic = cardOf(page, "Ring 1", "Gold Seal");
+    const common = cardOf(page, "Ring 1", "Copper Band");
     // The level sits on the Equip button as a lock and a number, not as a line of text.
-    const equip = epic.getByRole("button", { name: "Equip, needs level 35" });
+    const equip = common.getByRole("button", { name: "Equip, needs level 20" });
     await expect(equip).toBeDisabled();
-    await expect(equip).toContainText("35");
-    await expect(epic).not.toContainText("Needs level");
+    await expect(equip).toContainText("20");
+    await expect(common).not.toContainText("Needs level");
+    await expect(common).toContainText("Level 20");
+    // Below the item's level there is nothing to reforge.
+    await expect(common.getByRole("button", { name: /^Reforge/ })).toHaveCount(0);
     await shot(page, "gear-level-lock", { full: false });
   });
 });
@@ -185,10 +190,10 @@ test.describe("Gear rows", () => {
     await page.reload();
     await hero.openTab("Gear");
     const helmet = row(page, "Helmet");
-    // Two lines: rarity and power, then the stats, always attack, health, defense.
-    await expect(helmet.getByText("Common · 3 power", { exact: true })).toBeVisible();
+    // Two lines: rarity, item level and power, then the stats, always attack, health, defense.
+    await expect(helmet.getByText("Common · Level 20 · 1.5 power", { exact: true })).toBeVisible();
     await expect(helmet.getByText("ATK 20 / DEF 80", { exact: true })).toBeVisible();
-    const first = await helmet.getByText("Common · 3 power", { exact: true }).boundingBox();
+    const first = await helmet.getByText("Common · Level 20 · 1.5 power", { exact: true }).boundingBox();
     const second = await helmet.getByText("ATK 20 / DEF 80", { exact: true }).boundingBox();
     expect(second!.y).toBeGreaterThan(first!.y + first!.height - 1);
     // Nothing inside the row is clipped: no text wider than its box.
@@ -205,7 +210,7 @@ test.describe("Gear card wording", () => {
     await hero.start(undefined, "Gear");
     await row(page, "Ring 1").click();
     const card = cardOf(page, "Ring 1", "Copper Band");
-    await expect(card).toContainText("Common · 1 power");
+    await expect(card).toContainText("Common · Level 20 · 0.6 power");
     await card.getByRole("button", { name: "Upgrade" }).click();
     await page.getByRole("dialog", { name: "Upgrade Copper Band?" }).getByRole("button", { name: "Upgrade" }).click();
     await expect(cardOf(page, "Ring 1", "Copper Band")).toContainText("Common (+1)");
@@ -220,5 +225,67 @@ test.describe("Gear card wording", () => {
 
     await card.getByRole("button", { name: "Equip", exact: true }).click();
     await expect(cardOf(page, "Ring 1", "Ring 1")).toContainText("Unequip it to sell or salvage it.");
+  });
+});
+
+test.describe("Item rework (13.5, 13.6, 13.9)", () => {
+  test("the weapon sheet shows the type, the class it suits and its level, at 390px", async ({ hero, page }, info) => {
+    await hero.start({ classId: "striker" }, "Gear");
+    await row(page, "Weapon").click();
+    const blade = cardOf(page, "Weapon", "Recruit's Blade");
+    await expect(blade).toContainText("Rare · Level 20");
+    await expect(blade).toContainText("Sword · Striker weapon (+10% power)");
+    await expect(blade).toContainText("Crit damage");
+    await shot(page, "gear-weapon-sheet", { full: false });
+    await expectNoOverflow(page, "Weapon sheet", info);
+    await expectTapTargets(sheet(page, "Weapon"), "Weapon sheet", info);
+  });
+
+  test("cards compare against what is worn: green up, red down", async ({ hero, page }, info) => {
+    await hero.start(undefined, "Gear");
+    expect((await hero.api("/api/items", { action: "equip", itemId: ITEM_IDS.seal, position: "ring1" })).status).toBe(200);
+    await page.reload();
+    await hero.openTab("Gear");
+    await row(page, "Ring 1").click();
+    // The worn Epic Gold Seal has no arrow; the Common Copper Band is weaker, the Legendary Sunforged Ring stronger.
+    await expect(cardOf(page, "Ring 1", "Gold Seal").getByLabel(/against what you wear/)).toHaveCount(0);
+    await expect(cardOf(page, "Ring 1", "Copper Band").getByLabel(/^-[\d.]+ power against what you wear$/)).toBeVisible();
+    await expect(cardOf(page, "Ring 1", "Sunforged Ring").getByLabel(/^\+[\d.]+ power against what you wear$/)).toBeVisible();
+    await shot(page, "gear-compare", { full: false });
+    await expectNoOverflow(page, "Compare arrows", info);
+  });
+
+  test("reforge raises an item to your level for scrap", async ({ hero, page }, info) => {
+    await hero.start({ level: 30, scrap: 1000 }, "Gear");
+    await row(page, "Ring 1").click();
+    const seal = cardOf(page, "Ring 1", "Gold Seal");
+    const header = sheet(page, "Ring 1").getByText(/coins · .* scrap/);
+    const scrapBefore = numberBefore(await header.innerText(), "scrap");
+    // Epic: 3 scrap a level, 10 levels.
+    await seal.getByRole("button", { name: "Reforge to level 30 for 30 scrap" }).click();
+    const confirm = page.getByRole("dialog", { name: "Reforge Gold Seal?" });
+    await expect(confirm).toContainText("from level 20 to 30");
+    await expectNoOverflow(page, "Reforge confirm", info);
+    await confirm.getByRole("button", { name: /^Reforge for/ }).click();
+    await expect(cardOf(page, "Ring 1", "Gold Seal")).toContainText("Level 30");
+    await expect(cardOf(page, "Ring 1", "Gold Seal").getByRole("button", { name: /^Reforge/ })).toHaveCount(0);
+    expect(numberBefore(await header.innerText(), "scrap")).toBe(scrapBefore - 30);
+  });
+
+  test("best gear equips the strongest wearable loadout in one tap", async ({ hero, page }, info) => {
+    await hero.start({ classId: "striker" }, "Gear");
+    await expect.poll(() => battle(page)).toBeGreaterThan(0);
+    const before = await battle(page);
+    await page.getByRole("button", { name: /^Best gear/ }).click();
+    await expect(row(page, "Weapon")).toContainText("Recruit's Blade");
+    await expect(row(page, "Helmet")).toContainText("Steelguard Helm");
+    // The two strongest rings: the Legendary and the Epic.
+    await expect(page.getByRole("button", { name: /^Ring \d/ }).filter({ hasText: "Sunforged Ring" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /^Ring \d/ }).filter({ hasText: "Gold Seal" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /^Best gear/ })).toHaveCount(0);
+    await expect.poll(() => battle(page)).toBeGreaterThan(before);
+    await shot(page, "gear-best");
+    await expectNoOverflow(page, "Best gear", info);
+    await expectTapTargets(page.getByRole("tabpanel"), "Best gear", info);
   });
 });
