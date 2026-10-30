@@ -11,6 +11,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     // The e2e suite's own build and run output.
     ".next-e2e/**",
+    ".next-emu/**",
     "e2e/.output/**",
     "out/**",
     "build/**",

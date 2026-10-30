@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { replayAt, type ReplayRound } from "@/lib/game/battleView";
+import {
+  replayAt,
+  replayCooldowns,
+  type CooldownRow,
+  type ReplayRound,
+} from "@/lib/game/battleView";
+import { ActionIcon } from "./ActionIcon";
 import { EnemyIcon } from "./EnemyIcon";
 
 /** Fight seconds that pass per real second at 1×; the speed button multiplies it. */
-const PACE = 3;
+const PACE = 1.5;
 const SPEEDS = [1, 2, 4];
-/** How long a finished round holds before the next one (or the result) starts. */
-const HOLD_SEC = 1.2;
+/** Real seconds a finished round holds, showing how it ended, before the next one (or the result) starts. */
+const HOLD_SEC = 1.3;
 
 function Bar({
   label,
@@ -44,10 +50,40 @@ function Bar({
   );
 }
 
+/** One action: its icon, name and how ready it is. The fill empties on use and refills; a ready one is lit. */
+function ActionRow({ row }: { row: CooldownRow }) {
+  const ready = row.fill >= 0.995;
+  const pct = Math.round(row.fill * 100);
+  return (
+    <li
+      className={`flex items-center gap-3 ${row.warn ? "text-rpg-warn" : ready ? "text-rpg-text" : "text-rpg-muted"}`}
+    >
+      <ActionIcon id={row.icon} />
+      <span className="w-24 shrink-0 text-xs">
+        {row.warn ? "Winding up" : row.label}
+      </span>
+      <div
+        role="progressbar"
+        aria-label={`${row.label} ${row.key === "ultimate" ? "charge" : "cooldown"}`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        className="h-1.5 flex-1 bg-rpg-line"
+      >
+        <div
+          className={`h-full ${row.warn ? "bg-rpg-warn" : ready ? "bg-rpg-text" : "bg-rpg-text-2"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </li>
+  );
+}
+
 /**
- * Plays a stored fight back (GAME_DESIGN.md 13.14): both health bars follow the events, with a
- * speed button and Skip. Presentation only, from the events the server already decided; it hands
- * over to the result screen when it ends or is skipped.
+ * Plays a stored fight back (GAME_DESIGN.md 13.14 and 13.17): both health bars and every action's
+ * cooldown follow the events, with a speed button and Skip. Presentation only, from what the server
+ * already decided; each round ends on a short beat saying how it went, and the last hands over to
+ * the result screen (or Skip does).
  */
 export function FightReplay({
   rounds,
@@ -63,7 +99,9 @@ export function FightReplay({
   const round = rounds[index];
   const pace = PACE * SPEEDS[speed];
   const last = index === rounds.length - 1;
-  const finished = last && clock >= round.seconds + HOLD_SEC * PACE;
+  // The hold is real time, so it reads the same at every speed.
+  const holdFor = HOLD_SEC * pace;
+  const finished = last && clock >= round.seconds + holdFor;
 
   useEffect(() => {
     skip.current?.focus();
@@ -77,7 +115,7 @@ export function FightReplay({
     const id = window.setInterval(() => {
       setPos((p) => {
         const c = p.clock + (50 / 1000) * pace;
-        const over = c >= rounds[p.index].seconds + HOLD_SEC * PACE;
+        const over = c >= rounds[p.index].seconds + HOLD_SEC * pace;
         return over && p.index + 1 < rounds.length
           ? { index: p.index + 1, clock: 0 }
           : { index: p.index, clock: c };
@@ -92,6 +130,15 @@ export function FightReplay({
   }, [finished, onDone]);
 
   const now = replayAt(round, clock);
+  const rows = replayCooldowns(round, clock);
+  const over = clock >= round.seconds;
+  const beat = last
+    ? round.won
+      ? "Victory"
+      : "Defeat"
+    : round.won
+      ? "Cleared"
+      : "You fell";
   return (
     <div
       role="dialog"
@@ -132,22 +179,57 @@ export function FightReplay({
           />
         </section>
 
-        <ol
-          className="flex flex-1 flex-col justify-end gap-1.5 px-5 py-5 text-[13px]"
-          aria-label="What is happening"
-          aria-live="off"
+        <section
+          className="flex flex-col gap-4 border-b border-rpg-line px-5 py-4"
+          aria-label="Actions"
         >
-          {now.lines.map((line, i) => (
-            <li
-              key={`${index}-${i}-${line}`}
-              className={
-                i === now.lines.length - 1 ? "text-rpg-text" : "text-rpg-muted"
-              }
+          <ul className="flex flex-col gap-2.5" aria-label="Your actions">
+            {rows
+              .filter((r) => r.side === "you")
+              .map((r) => (
+                <ActionRow key={r.key} row={r} />
+              ))}
+          </ul>
+          <ul
+            className="flex flex-col gap-2.5"
+            aria-label={`${round.foe}'s actions`}
+          >
+            {rows
+              .filter((r) => r.side === "foe")
+              .map((r) => (
+                <ActionRow key={r.key} row={r} />
+              ))}
+          </ul>
+        </section>
+
+        <div className="flex flex-1 flex-col justify-end gap-2 px-5 py-5">
+          {over && (
+            <p
+              key={index}
+              className={`rpg-fade font-rpg-head text-[44px] font-bold uppercase leading-none ${round.won ? "text-rpg-good" : "text-rpg-bad"}`}
             >
-              {line}
-            </li>
-          ))}
-        </ol>
+              {beat}
+            </p>
+          )}
+          <ol
+            className="flex flex-col gap-1.5 text-[13px]"
+            aria-label="What is happening"
+            aria-live="off"
+          >
+            {now.lines.map((line, i) => (
+              <li
+                key={`${index}-${i}-${line}`}
+                className={
+                  i === now.lines.length - 1
+                    ? "text-rpg-text"
+                    : "text-rpg-muted"
+                }
+              >
+                {line}
+              </li>
+            ))}
+          </ol>
+        </div>
 
         <div className="sticky bottom-0 flex gap-2 bg-rpg-bg px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <button

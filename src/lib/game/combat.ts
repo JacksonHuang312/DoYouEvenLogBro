@@ -1,5 +1,14 @@
 import type { BattlePower } from "./battle";
-import { CLASSES, COMBAT, POWER_MULTIPLIERS, SKILLS, STATS, type ClassId, type MythicEffect, type Stat } from "./config";
+import {
+  CLASSES,
+  COMBAT,
+  POWER_MULTIPLIERS,
+  SKILLS,
+  STATS,
+  type ClassId,
+  type MythicEffect,
+  type Stat,
+} from "./config";
 import type { GearEffects } from "./effects";
 import { seeded } from "./random";
 import type { StatLine } from "./score";
@@ -42,7 +51,16 @@ export interface Hero {
 /** The gear effects the fight engine reads. */
 export type CombatEffects = Pick<
   GearEffects,
-  "haste" | "ultCharge" | "lifesteal" | "critDamage" | "finisher" | "guardDuration" | "bastionShield" | "thorns" | "healPower" | "bleedResist"
+  | "haste"
+  | "ultCharge"
+  | "lifesteal"
+  | "critDamage"
+  | "finisher"
+  | "guardDuration"
+  | "bastionShield"
+  | "thorns"
+  | "healPower"
+  | "bleedResist"
 >;
 
 const statTotal = (stats: StatLine, s: Stat) => stats[s];
@@ -52,9 +70,15 @@ const statTotal = (stats: StatLine, s: Stat) => stats[s];
  * COMBAT.statAttributes, plus the gear's counted power split by each piece's focus, all times
  * (1 + the bonus pool). Body and gear match battle power, so a hero's points add up to it.
  */
-export function attributePoints(stats: StatLine, battle: BattlePower): Attributes {
+export function attributePoints(
+  stats: StatLine,
+  battle: BattlePower,
+): Attributes {
   const points: Attributes = { hp: 0, atk: 0, def: 0 };
-  const bodyRaw = STATS.reduce((sum, s) => sum + Math.max(0, statTotal(stats, s)) * POWER_MULTIPLIERS[s], 0);
+  const bodyRaw = STATS.reduce(
+    (sum, s) => sum + Math.max(0, statTotal(stats, s)) * POWER_MULTIPLIERS[s],
+    0,
+  );
   // Body power can differ slightly from the stats (rounding, a clamped negative); scale to match it.
   const scale = bodyRaw > 0 ? Math.max(0, battle.body) / bodyRaw : 0;
   for (const s of STATS) {
@@ -66,7 +90,11 @@ export function attributePoints(stats: StatLine, battle: BattlePower): Attribute
   }
   const gear = battle.gear.attributes;
   const pool = 1 + battle.bonus.total;
-  return { hp: (points.hp + gear.hp) * pool, atk: (points.atk + gear.atk) * pool, def: (points.def + gear.def) * pool };
+  return {
+    hp: (points.hp + gear.hp) * pool,
+    atk: (points.atk + gear.atk) * pool,
+    def: (points.def + gear.def) * pool,
+  };
 }
 
 /** The hero as they fight: attributes weighted by class, plus the gear effects that act in combat. */
@@ -84,7 +112,9 @@ export function buildHero({
   const pts = attributePoints(stats, battle);
   const w = CLASSES[classId].weights;
   const core = Math.max(0, statTotal(stats, "core"));
-  const average = STATS.reduce((sum, s) => sum + Math.max(0, statTotal(stats, s)), 0) / STATS.length;
+  const average =
+    STATS.reduce((sum, s) => sum + Math.max(0, statTotal(stats, s)), 0) /
+    STATS.length;
   const mend = SKILLS.mend;
   return {
     classId,
@@ -94,8 +124,16 @@ export function buildHero({
     def: pts.def * w.def,
     critChance: COMBAT.baseCrit + effects.crit,
     damageReduction: effects.damageReduction,
-    regenPct: effects.healing * (classId === "cleric" ? 1 : COMBAT.necklaceNonClericFactor),
-    mendPct: classId === "cleric" ? Math.min(mend.maxPct, mend.basePct + mend.perCorePct * (average > 0 ? core / average : 0)) : 0,
+    regenPct:
+      effects.healing *
+      (classId === "cleric" ? 1 : COMBAT.necklaceNonClericFactor),
+    mendPct:
+      classId === "cleric"
+        ? Math.min(
+            mend.maxPct,
+            mend.basePct + mend.perCorePct * (average > 0 ? core / average : 0),
+          )
+        : 0,
     fx: {
       haste: effects.haste,
       ultCharge: effects.ultCharge,
@@ -142,7 +180,11 @@ export interface Foe {
 }
 
 /** An enemy of recommended battle power `power`. */
-export function buildFoe(name: string, power: number, m: FoeMechanics = {}): Foe {
+export function buildFoe(
+  name: string,
+  power: number,
+  m: FoeMechanics = {},
+): Foe {
   const f = COMBAT.foe;
   return {
     name,
@@ -186,6 +228,17 @@ export interface FightEvent {
   /** Each side's health right after this event, for the replay's health bars. Older fight records lack them. */
   hh?: number;
   fh?: number;
+  /** The hero's ultimate charge (0 to COMBAT.energy.full) right after this event, for the replay's charge bar. */
+  en?: number;
+}
+
+/** How often each side acts, in seconds, so the replay can show cooldowns. `first` is when the first one comes. */
+export interface FightTiming {
+  attack: { every: number; first: number };
+  skill: { every: number; first: number };
+  foeAttack: { every: number; first: number };
+  /** The enemy's big hit, or null if it has none. `warn` is how long before it the wind-up shows. */
+  foeHeavy: { every: number; first: number; warn: number } | null;
 }
 
 export interface FightResult {
@@ -199,8 +252,16 @@ export interface FightResult {
   /** Full health of each side, the replay's bar length. Older fight records lack them. */
   heroMaxHp?: number;
   foeMaxHp?: number;
+  /** Older fight records lack it. */
+  timing?: FightTiming;
   /** For leaderboards later (Phase 6): damage dealt, damage absorbed (by DEF, Guard, the belt and shields), healing done (lifesteal included). */
-  stats: { dealt: number; taken: number; absorbed: number; healed: number; crits: number };
+  stats: {
+    dealt: number;
+    taken: number;
+    absorbed: number;
+    healed: number;
+    crits: number;
+  };
   log: FightEvent[];
 }
 
@@ -230,7 +291,11 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
   const foeForm = 1 + (rand() * 2 - 1) * COMBAT.formSpread;
 
   const log: FightEvent[] = [];
-  const hpNow = () => ({ hh: Math.max(0, Math.round(heroHp)), fh: Math.max(0, Math.round(foeHp)) });
+  const hpNow = () => ({
+    hh: Math.max(0, Math.round(heroHp)),
+    fh: Math.max(0, Math.round(foeHp)),
+    en: Math.min(COMBAT.energy.full, Math.round(energy)),
+  });
   const stats = { dealt: 0, taken: 0, absorbed: 0, healed: 0, crits: 0 };
   let heroHp = hero.maxHp;
   let foeHp = foe.maxHp;
@@ -243,13 +308,17 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
   let basicCount = 0;
   // Dawn Censer: healing past full HP, kept as a shield that doesn't expire.
   let ward = 0;
-  const wardMax = has("dawn-censer") ? Math.round(hero.maxHp * M.censerShieldMaxPct) : 0;
+  const wardMax = has("dawn-censer")
+    ? Math.round(hero.maxHp * M.censerShieldMaxPct)
+    : 0;
 
   // Haste: basic attacks and the skill come faster (not the ultimate).
   const heroEvery = Math.max(1, ticks(cls.attackEverySec * (1 - fx.haste)));
   const skillEvery = ticks(cls.skill.cooldownSec * (1 - fx.haste));
   const chargeFactor = 1 + fx.ultCharge;
-  const shieldFactor = (1 + fx.bastionShield) * (has("oathkeeper-belt") ? M.oathkeeperShieldFactor : 1);
+  const shieldFactor =
+    (1 + fx.bastionShield) *
+    (has("oathkeeper-belt") ? M.oathkeeperShieldFactor : 1);
   const foeEvery = ticks(foe.attackEverySec);
   let nextHeroAttack = Math.max(1, Math.round(heroEvery / 2));
   let nextSkill = ticks(cls.skill.firstAtSec);
@@ -257,19 +326,39 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
   const heavyEvery = foe.heavy ? ticks(foe.heavy.everySec) : 0;
   const heavyWarn = foe.heavy ? ticks(foe.heavy.telegraphSec) : 0;
   let nextHeavy = foe.heavy ? heavyEvery : Infinity;
+  const sec = (tk: number) => Math.round((tk * COMBAT.tickMs) / 10) / 100;
+  const timing: FightTiming = {
+    attack: { every: sec(heroEvery), first: sec(nextHeroAttack) },
+    skill: { every: sec(skillEvery), first: sec(nextSkill) },
+    foeAttack: { every: sec(foeEvery), first: sec(nextFoeAttack) },
+    foeHeavy: foe.heavy
+      ? { every: sec(heavyEvery), first: sec(heavyEvery), warn: sec(heavyWarn) }
+      : null,
+  };
   const bleedStart = foe.bleed ? ticks(foe.bleed.startSec) : Infinity;
   const second = ticks(1);
-  const enrageAt = ticks(foe.enrageSec + (has("unbroken-path") ? M.pathEnrageSec : 0));
+  const enrageAt = ticks(
+    foe.enrageSec + (has("unbroken-path") ? M.pathEnrageSec : 0),
+  );
 
   /** Heals the hero. `quiet` (lifesteal) heals without a log line, so the log stays readable. */
   const heal = (t: number, amount: number, name?: string, quiet = false) => {
     const wanted = Math.round(amount);
     const gained = Math.min(wanted, hero.maxHp - heroHp);
-    if (wardMax > 0 && wanted > gained) ward = Math.min(wardMax, ward + wanted - Math.max(0, gained));
+    if (wardMax > 0 && wanted > gained)
+      ward = Math.min(wardMax, ward + wanted - Math.max(0, gained));
     if (gained <= 0) return;
     heroHp += gained;
     stats.healed += gained;
-    if (!quiet) log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "heal", amount: gained, ...(name ? { name } : {}) });
+    if (!quiet)
+      log.push({
+        t: secs(t),
+        ...hpNow(),
+        actor: "hero",
+        action: "heal",
+        amount: gained,
+        ...(name ? { name } : {}),
+      });
   };
 
   /** Damage dealt back to the enemy (Thorns, the Heart, Bulwark Plate). */
@@ -277,7 +366,13 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     const back = Math.max(1, Math.round(amount));
     foeHp -= back;
     stats.dealt += back;
-    log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "reflect", amount: back });
+    log.push({
+      t: secs(t),
+      ...hpNow(),
+      actor: "hero",
+      action: "reflect",
+      amount: back,
+    });
   };
 
   /** Damage to the hero. `physical` hits are reduced by DEF and Guard; bleeding isn't. */
@@ -319,26 +414,54 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
   };
 
   /** A hero hit at `mult` × attack. Returns the damage. */
-  const strike = (t: number, mult: number, action: FightAction, name?: string, forceCrit = false) => {
+  const strike = (
+    t: number,
+    mult: number,
+    action: FightAction,
+    name?: string,
+    forceCrit = false,
+  ) => {
     const low = foeHp < foe.maxHp * COMBAT.finisherBelowPct;
     const roll = rand();
-    const crit = forceCrit || (has("executioners-ring") && foeHp < foe.maxHp * M.executionerBelowPct) || roll < hero.critChance;
-    let dmg = hero.atk * heroForm * mult * spread() * through(foe.def, foe.power);
+    const crit =
+      forceCrit ||
+      (has("executioners-ring") && foeHp < foe.maxHp * M.executionerBelowPct) ||
+      roll < hero.critChance;
+    let dmg =
+      hero.atk * heroForm * mult * spread() * through(foe.def, foe.power);
     if (crit) dmg *= COMBAT.critMultiplier * (1 + fx.critDamage);
     if (low) dmg *= 1 + fx.finisher;
     dmg = Math.max(1, Math.round(dmg));
     foeHp -= dmg;
     stats.dealt += dmg;
     if (crit) stats.crits++;
-    if (action !== "ultimate") energy += COMBAT.energy.perHitLanded * chargeFactor;
-    log.push({ t: secs(t), ...hpNow(), actor: "hero", action, amount: dmg, ...(crit ? { crit } : {}), ...(name ? { name } : {}) });
-    const drain = fx.lifesteal + (crit && has("bloodletter-gauntlets") ? M.bloodletterHealPct : 0);
+    if (action !== "ultimate")
+      energy += COMBAT.energy.perHitLanded * chargeFactor;
+    log.push({
+      t: secs(t),
+      ...hpNow(),
+      actor: "hero",
+      action,
+      amount: dmg,
+      ...(crit ? { crit } : {}),
+      ...(name ? { name } : {}),
+    });
+    const drain =
+      fx.lifesteal +
+      (crit && has("bloodletter-gauntlets") ? M.bloodletterHealPct : 0);
     if (drain > 0) heal(t, dmg * drain, undefined, true);
   };
 
   const end = (t: number, how: FightResult["end"]): FightResult => {
-    if (how === "enrage") log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "enrage" });
-    else log.push({ t: secs(t), ...hpNow(), actor: how === "foe-down" ? "foe" : "hero", action: "down" });
+    if (how === "enrage")
+      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "enrage" });
+    else
+      log.push({
+        t: secs(t),
+        ...hpNow(),
+        actor: how === "foe-down" ? "foe" : "hero",
+        action: "down",
+      });
     return {
       won: how === "foe-down",
       end: how,
@@ -347,6 +470,7 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
       foeHpLeft: Math.max(0, foeHp),
       heroMaxHp: hero.maxHp,
       foeMaxHp: foe.maxHp,
+      timing,
       stats,
       log,
     };
@@ -354,14 +478,29 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
 
   for (let t = 1; t <= enrageAt; t++) {
     // Over-time effects.
-    if (t >= bleedStart && (t - bleedStart) % second === 0 && t > bleedFreeUntil) {
+    if (
+      t >= bleedStart &&
+      (t - bleedStart) % second === 0 &&
+      t > bleedFreeUntil
+    ) {
       const hp = heroHp;
       const dead = hurtHero(t, foe.atk * foe.bleed!.perSec, false);
-      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "bleed", amount: Math.max(0, hp - heroHp) });
+      log.push({
+        t: secs(t),
+        ...hpNow(),
+        actor: "foe",
+        action: "bleed",
+        amount: Math.max(0, hp - heroHp),
+      });
       if (dead) return end(t, "hero-down");
     }
-    if (hero.regenPct > 0 && t % ticks(COMBAT.necklaceEverySec) === 0) heal(t, hero.maxHp * hero.regenPct);
-    if (has("unbroken-pillars") && t % ticks(M.pillarsEverySec) === 0 && heroHp < hero.maxHp * M.pillarsBelowPct) {
+    if (hero.regenPct > 0 && t % ticks(COMBAT.necklaceEverySec) === 0)
+      heal(t, hero.maxHp * hero.regenPct);
+    if (
+      has("unbroken-pillars") &&
+      t % ticks(M.pillarsEverySec) === 0 &&
+      heroHp < hero.maxHp * M.pillarsBelowPct
+    ) {
       heal(t, hero.maxHp * M.pillarsPct);
     }
 
@@ -369,15 +508,34 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     if (energy >= COMBAT.energy.full) {
       energy = 0;
       const name = cls.ultimate.name;
-      if (hero.classId === "striker") strike(t, SKILLS.execution.multiplier, "ultimate", name);
+      if (hero.classId === "striker")
+        strike(t, SKILLS.execution.multiplier, "ultimate", name);
       else if (hero.classId === "vanguard") {
         strike(t, SKILLS.bastion.strikeMultiplier, "ultimate", name);
-        shield = Math.round(hero.maxHp * SKILLS.bastion.shieldPct * shieldFactor);
+        shield = Math.round(
+          hero.maxHp * SKILLS.bastion.shieldPct * shieldFactor,
+        );
         shieldUntil = t + ticks(SKILLS.bastion.durationSec);
-        log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "shield", amount: shield });
+        log.push({
+          t: secs(t),
+          ...hpNow(),
+          actor: "hero",
+          action: "shield",
+          amount: shield,
+        });
       } else {
-        log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "ultimate", name });
-        heal(t, hero.maxHp * SKILLS.radiance.healPct * (1 + fx.healPower), name);
+        log.push({
+          t: secs(t),
+          ...hpNow(),
+          actor: "hero",
+          action: "ultimate",
+          name,
+        });
+        heal(
+          t,
+          hero.maxHp * SKILLS.radiance.healPct * (1 + fx.healPower),
+          name,
+        );
         bleedFreeUntil = t + ticks(SKILLS.radiance.bleedFreeSec);
       }
       if (foeHp <= 0) return end(t, "foe-down");
@@ -389,34 +547,67 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
         nextSkill = t + skillEvery;
       } else if (hero.classId === "vanguard") {
         // Held for a telegraphed big hit; with none coming, used once hurt.
-        const heavySoon = foe.heavy && nextHeavy - t <= ticks(SKILLS.guard.durationSec) / 2;
-        if (foe.heavy ? heavySoon : heroHp < hero.maxHp * SKILLS.guard.useBelowPct) {
-          guardUntil = t + ticks(SKILLS.guard.durationSec * (1 + fx.guardDuration));
-          log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "skill", name });
+        const heavySoon =
+          foe.heavy && nextHeavy - t <= ticks(SKILLS.guard.durationSec) / 2;
+        if (
+          foe.heavy ? heavySoon : heroHp < hero.maxHp * SKILLS.guard.useBelowPct
+        ) {
+          guardUntil =
+            t + ticks(SKILLS.guard.durationSec * (1 + fx.guardDuration));
+          log.push({
+            t: secs(t),
+            ...hpNow(),
+            actor: "hero",
+            action: "skill",
+            name,
+          });
           nextSkill = t + skillEvery;
         }
       } else if (heroHp < hero.maxHp * SKILLS.mend.useBelowPct) {
-        log.push({ t: secs(t), ...hpNow(), actor: "hero", action: "skill", name });
+        log.push({
+          t: secs(t),
+          ...hpNow(),
+          actor: "hero",
+          action: "skill",
+          name,
+        });
         heal(t, hero.maxHp * hero.mendPct * (1 + fx.healPower), name);
-        if (has("saints-locket")) bleedFreeUntil = Math.max(bleedFreeUntil, t + ticks(M.saintsBleedFreeSec));
+        if (has("saints-locket"))
+          bleedFreeUntil = Math.max(
+            bleedFreeUntil,
+            t + ticks(M.saintsBleedFreeSec),
+          );
         nextSkill = t + skillEvery;
       }
       if (foeHp <= 0) return end(t, "foe-down");
     }
     if (t >= nextHeroAttack) {
       basicCount++;
-      strike(t, 1, "attack", undefined, has("unbroken-hands") && basicCount % M.handsEvery === 0);
+      strike(
+        t,
+        1,
+        "attack",
+        undefined,
+        has("unbroken-hands") && basicCount % M.handsEvery === 0,
+      );
       nextHeroAttack += heroEvery;
       if (foeHp <= 0) return end(t, "foe-down");
     }
 
     // The enemy: telegraph, big hit, basic attack.
-    if (foe.heavy && t === nextHeavy - heavyWarn) log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "telegraph" });
+    if (foe.heavy && t === nextHeavy - heavyWarn)
+      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "telegraph" });
     if (foe.heavy && t >= nextHeavy) {
       const raw = foe.atk * foe.heavy.multiplier * spread();
       const hp = heroHp;
       const dead = hurtHero(t, raw, true);
-      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "heavy", amount: Math.max(0, hp - heroHp) });
+      log.push({
+        t: secs(t),
+        ...hpNow(),
+        actor: "foe",
+        action: "heavy",
+        amount: Math.max(0, hp - heroHp),
+      });
       nextHeavy += heavyEvery;
       if (dead) return end(t, "hero-down");
       if (foeHp <= 0) return end(t, "foe-down");
@@ -424,7 +615,13 @@ export function simulateFight(hero: Hero, foe: Foe, seed: string): FightResult {
     if (t >= nextFoeAttack) {
       const hp = heroHp;
       const dead = hurtHero(t, foe.atk * spread(), true);
-      log.push({ t: secs(t), ...hpNow(), actor: "foe", action: "attack", amount: Math.max(0, hp - heroHp) });
+      log.push({
+        t: secs(t),
+        ...hpNow(),
+        actor: "foe",
+        action: "attack",
+        amount: Math.max(0, hp - heroHp),
+      });
       nextFoeAttack += foeEvery;
       if (dead) return end(t, "hero-down");
       if (foeHp <= 0) return end(t, "foe-down");

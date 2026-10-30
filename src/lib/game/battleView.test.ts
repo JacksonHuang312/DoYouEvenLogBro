@@ -3,6 +3,7 @@ import {
   battleView,
   logLines,
   replayAt,
+  replayCooldowns,
   replayRounds,
   resultView,
   timeLeft,
@@ -326,14 +327,45 @@ describe("result view", () => {
 
 describe("replay view", () => {
   const events: FightEvent[] = [
-    { t: 1.5, actor: "hero", action: "attack", amount: 40, hh: 100, fh: 160 },
-    { t: 3, actor: "foe", action: "attack", amount: 25, hh: 75, fh: 160 },
-    { t: 4.5, actor: "hero", action: "attack", amount: 160, hh: 75, fh: 0 },
-    { t: 4.5, actor: "foe", action: "down", hh: 75, fh: 0 },
+    {
+      t: 1.5,
+      actor: "hero",
+      action: "attack",
+      amount: 40,
+      hh: 100,
+      fh: 160,
+      en: 5,
+    },
+    {
+      t: 3,
+      actor: "foe",
+      action: "attack",
+      amount: 25,
+      hh: 75,
+      fh: 160,
+      en: 13,
+    },
+    { t: 3.5, actor: "foe", action: "telegraph", hh: 75, fh: 160, en: 13 },
+    {
+      t: 4.5,
+      actor: "hero",
+      action: "attack",
+      amount: 160,
+      hh: 75,
+      fh: 0,
+      en: 18,
+    },
+    { t: 4.5, actor: "foe", action: "down", hh: 75, fh: 0, en: 18 },
   ];
+  const timing = {
+    attack: { every: 1.5, first: 1.5 },
+    skill: { every: 6, first: 3 },
+    foeAttack: { every: 3, first: 3 },
+    foeHeavy: { every: 7, first: 7, warn: 3 },
+  };
   const rounds = (
     log: FightEvent[],
-    max = { heroMaxHp: 100, foeMaxHp: 200 },
+    extra: object = { heroMaxHp: 100, foeMaxHp: 200, timing },
   ) => [
     {
       key: 1,
@@ -347,20 +379,22 @@ describe("replay view", () => {
         seconds: 4.5,
         heroHpLeft: 75,
         foeHpLeft: 0,
-        ...max,
+        ...extra,
         stats: { dealt: 1, taken: 1, absorbed: 0, healed: 0, crits: 0 },
         log,
       },
     },
   ];
+  const replay = () => replayRounds(rounds(events), "striker")![0];
 
   test("each event becomes a line with both sides' health after it", () => {
-    const [r] = replayRounds(rounds(events))!;
+    const r = replay();
     expect(r).toMatchObject({
       foe: "Ironmaw",
       heroMax: 100,
       foeMax: 200,
       seconds: 4.5,
+      classId: "striker",
     });
     expect(r.events[1]).toMatchObject({
       text: "Ironmaw hits you for 25",
@@ -369,19 +403,25 @@ describe("replay view", () => {
     });
   });
 
-  test("fights stored before health was recorded have no replay", () => {
+  test("fights stored before the replay existed have none", () => {
+    const bare = events.map((e) => ({
+      t: e.t,
+      actor: e.actor,
+      action: e.action,
+    }));
+    expect(replayRounds(rounds(bare), "striker")).toBeNull();
+    expect(replayRounds(rounds(events, {}), "striker")).toBeNull();
+    // Health recorded but no timing (the first replay version): no replay either.
     expect(
       replayRounds(
-        rounds(
-          events.map((e) => ({ t: e.t, actor: e.actor, action: e.action })),
-        ),
+        rounds(events, { heroMaxHp: 100, foeMaxHp: 200 }),
+        "striker",
       ),
     ).toBeNull();
-    expect(replayRounds(rounds(events, {} as never))).toBeNull();
   });
 
   test("health follows the clock, and starts full", () => {
-    const [r] = replayRounds(rounds(events))!;
+    const r = replay();
     expect(replayAt(r, 0)).toEqual({ hh: 100, fh: 200, lines: [] });
     expect(replayAt(r, 3.2)).toMatchObject({ hh: 75, fh: 160 });
     expect(replayAt(r, 3.2).lines).toEqual([
@@ -392,6 +432,47 @@ describe("replay view", () => {
     expect(replayAt(r, 99, 2).lines).toEqual([
       "You hit Ironmaw for 160",
       "Ironmaw is down",
+    ]);
+  });
+
+  test("cooldowns refill after each use, and the ultimate follows its charge", () => {
+    const r = replay();
+    const row = (clock: number, key: string) =>
+      replayCooldowns(r, clock).find((c) => c.key === key)!;
+    // Before its first swing the attack is filling toward `first`.
+    expect(row(0.75, "attack").fill).toBeCloseTo(0.5);
+    // Just after a swing it is empty, then refills over its 1.5 s.
+    expect(row(1.5, "attack").fill).toBe(0);
+    expect(row(2.25, "attack").fill).toBeCloseTo(0.5);
+    expect(row(3, "attack").fill).toBe(1);
+    // The Striker's skill (6 s, first at 3 s) is ready at its first time, since it hasn't fired.
+    expect(row(3, "skill")).toMatchObject({
+      label: "Power Strike",
+      icon: "powerStrike",
+      fill: 1,
+    });
+    // The ultimate is the charge so far out of 100.
+    expect(row(3.2, "ultimate")).toMatchObject({
+      label: "Execution",
+      icon: "execution",
+      fill: 0.13,
+    });
+  });
+
+  test("the enemy's big hit shows its wind-up, and only enemies with one get the row", () => {
+    const r = replay();
+    expect(
+      replayCooldowns(r, 3.2).find((c) => c.key === "foeHeavy")!.warn,
+    ).toBe(false);
+    expect(
+      replayCooldowns(r, 3.6).find((c) => c.key === "foeHeavy")!.warn,
+    ).toBe(true);
+    const plain = { ...r, timing: { ...timing, foeHeavy: null } };
+    expect(replayCooldowns(plain, 1).map((c) => c.key)).toEqual([
+      "attack",
+      "skill",
+      "ultimate",
+      "foeAttack",
     ]);
   });
 });

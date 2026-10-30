@@ -1,12 +1,13 @@
 import { activePause } from "./breaks";
 import { baseItem } from "./catalog";
 import { energyOf, type GameState } from "./claim";
-import type { FightEvent } from "./combat";
+import type { FightEvent, FightTiming } from "./combat";
 import {
   BOSS_TOWER,
   CAMPAIGN,
   CLASS_SWITCH,
   CLASSES,
+  COMBAT,
   ENDLESS_TOWER,
   ENERGY,
   LEVEL_POINTS,
@@ -445,33 +446,39 @@ export interface ResultView {
   replay: ReplayRound[] | null;
 }
 
-/** One round of a fight as the replay plays it: each event with both sides' health right after it. */
+/** One round of a fight as the replay plays it: each event with both sides' health and the hero's ultimate charge right after it. */
 export interface ReplayRound {
   foe: string;
   won: boolean;
   seconds: number;
   heroMax: number;
   foeMax: number;
+  classId: ClassId;
+  timing: FightTiming;
   events: {
     t: number;
     text: string;
     actor: "hero" | "foe";
+    action: FightEvent["action"];
     hh: number;
     fh: number;
+    en: number;
   }[];
 }
 
-/** The replay's rounds, or null when any round lacks health (fights stored before the replay existed). */
+/** The replay's rounds, or null when any round lacks what the replay needs (fights stored before it existed). */
 export function replayRounds(
   rounds: FightRecord["rounds"],
+  classId: ClassId,
 ): ReplayRound[] | null {
   const out: ReplayRound[] = [];
   for (const r of rounds) {
-    const { heroMaxHp, foeMaxHp, log } = r.result;
+    const { heroMaxHp, foeMaxHp, timing, log } = r.result;
     if (
       !heroMaxHp ||
       !foeMaxHp ||
-      log.some((e) => e.hh == null || e.fh == null)
+      !timing ||
+      log.some((e) => e.hh == null || e.fh == null || e.en == null)
     )
       return null;
     const lines = logLines(log, r.foe);
@@ -481,12 +488,16 @@ export function replayRounds(
       seconds: r.result.seconds,
       heroMax: heroMaxHp,
       foeMax: foeMaxHp,
+      classId,
+      timing,
       events: log.map((e, i) => ({
         t: e.t,
         text: lines[i].text,
         actor: e.actor,
+        action: e.action,
         hh: e.hh!,
         fh: e.fh!,
+        en: e.en!,
       })),
     });
   }
@@ -598,6 +609,106 @@ export function resultView(
       lines: logLines(r.result.log, r.foe),
     })),
     energyLeft: energy,
-    replay: replayRounds(rounds),
+    replay: replayRounds(rounds, fight.classId),
   };
+}
+
+/** What the replay's action icon draws. */
+export type ActionIconId =
+  | "slash"
+  | "guard"
+  | "powerStrike"
+  | "mend"
+  | "bastion"
+  | "execution"
+  | "radiance"
+  | "claw"
+  | "heavy";
+
+export interface CooldownRow {
+  side: "you" | "foe";
+  /** Stable key for the row. */
+  key: string;
+  label: string;
+  icon: ActionIconId;
+  /** 0 just used, 1 ready. */
+  fill: number;
+  /** The enemy's big hit is winding up. */
+  warn?: boolean;
+}
+
+const SKILL_ICON: Record<ClassId, ActionIconId> = {
+  vanguard: "guard",
+  striker: "powerStrike",
+  cleric: "mend",
+};
+const ULT_ICON: Record<ClassId, ActionIconId> = {
+  vanguard: "bastion",
+  striker: "execution",
+  cleric: "radiance",
+};
+
+/** How ready each action is `clock` seconds into a round: the hero's attack, skill and ultimate, the enemy's attack and big hit. */
+export function replayCooldowns(
+  round: ReplayRound,
+  clock: number,
+): CooldownRow[] {
+  const { timing, classId } = round;
+  const seen = round.events.filter((e) => e.t <= clock);
+  const lastAt = (actor: "hero" | "foe", action: FightEvent["action"]) =>
+    seen.findLast((e) => e.actor === actor && e.action === action)?.t;
+  /** Time since the last use as a share of the cooldown; before the first use, since the fight began. */
+  const ready = (
+    cd: { every: number; first: number },
+    last: number | undefined,
+  ) =>
+    Math.max(
+      0,
+      Math.min(1, (clock - (last ?? cd.first - cd.every)) / cd.every),
+    );
+  const cls = CLASSES[classId];
+  const charge = seen.at(-1)?.en ?? 0;
+  const rows: CooldownRow[] = [
+    {
+      side: "you",
+      key: "attack",
+      label: "Attack",
+      icon: "slash",
+      fill: ready(timing.attack, lastAt("hero", "attack")),
+    },
+    {
+      side: "you",
+      key: "skill",
+      label: cls.skill.name,
+      icon: SKILL_ICON[classId],
+      fill: ready(timing.skill, lastAt("hero", "skill")),
+    },
+    {
+      side: "you",
+      key: "ultimate",
+      label: cls.ultimate.name,
+      icon: ULT_ICON[classId],
+      fill: Math.min(1, charge / COMBAT.energy.full),
+    },
+    {
+      side: "foe",
+      key: "foeAttack",
+      label: "Attack",
+      icon: "claw",
+      fill: ready(timing.foeAttack, lastAt("foe", "attack")),
+    },
+  ];
+  if (timing.foeHeavy) {
+    const lastHeavy = lastAt("foe", "heavy");
+    const lastWarn = lastAt("foe", "telegraph");
+    rows.push({
+      side: "foe",
+      key: "foeHeavy",
+      label: "Heavy blow",
+      icon: "heavy",
+      fill: ready(timing.foeHeavy, lastHeavy),
+      warn: lastWarn != null && (lastHeavy == null || lastWarn > lastHeavy),
+    });
+  }
+  return rows;
 }

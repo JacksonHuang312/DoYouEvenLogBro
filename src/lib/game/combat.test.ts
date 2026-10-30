@@ -9,7 +9,14 @@ import {
   type Hero,
 } from "./combat";
 import { balancedHero, winRate } from "./combatTuning";
-import { CLASS_IDS, COMBAT, SKILLS, STATS, type ClassId } from "./config";
+import {
+  CLASS_IDS,
+  CLASSES,
+  COMBAT,
+  SKILLS,
+  STATS,
+  type ClassId,
+} from "./config";
 import { NO_EFFECTS, type GearEffects } from "./effects";
 import type { StatLine } from "./score";
 
@@ -112,6 +119,36 @@ describe("a fight", () => {
     expect(foeHp).toEqual([...foeHp].sort((a, b) => b - a));
     expect(r.log.at(-1)!.fh).toBe(Math.round(r.foeHpLeft));
     expect(r.log.at(-1)!.hh).toBe(Math.round(r.heroHpLeft));
+  });
+
+  test("records how often each side acts and the hero's ultimate charge, for the replay's cooldowns", () => {
+    const hero = balancedHero(350, "striker");
+    const foe = buildFoe("Dummy", 350, BOSS_TYPES.brute);
+    const r = simulateFight(hero, foe, "timing");
+    expect(r.timing!.attack.every).toBeCloseTo(
+      CLASSES.striker.attackEverySec * (1 - hero.fx.haste),
+      1,
+    );
+    expect(r.timing!.skill.every).toBeCloseTo(
+      CLASSES.striker.skill.cooldownSec * (1 - hero.fx.haste),
+      1,
+    );
+    expect(r.timing!.foeAttack.every).toBeCloseTo(foe.attackEverySec, 1);
+    expect(r.timing!.foeHeavy).toMatchObject({
+      every: foe.heavy!.everySec,
+      warn: foe.heavy!.telegraphSec,
+    });
+    expect(
+      simulateFight(hero, buildFoe("Plain", 350, BOSS_TYPES.plain), "timing")
+        .timing!.foeHeavy,
+    ).toBeNull();
+    expect(
+      r.log.every(
+        (e) => e.en != null && e.en >= 0 && e.en <= COMBAT.energy.full,
+      ),
+    ).toBe(true);
+    // Hits charge the ultimate, so by the end it has charged (or fired and started over).
+    expect(Math.max(...r.log.map((e) => e.en!))).toBeGreaterThan(0);
   });
 
   test("differs between seeds", () => {

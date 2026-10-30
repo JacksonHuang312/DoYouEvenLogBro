@@ -235,6 +235,24 @@ test.describe("Battle tab", () => {
     const foe = replay.getByRole("progressbar").nth(1);
     await expect(hero_).toBeVisible();
     await expect(foe).toBeVisible();
+    // Every action shows an icon and a cooldown (the ultimate a charge), for you and for the enemy.
+    for (const name of [
+      /^Attack cooldown$/,
+      /Strike cooldown$/,
+      /Execution charge$/,
+    ])
+      await expect(
+        replay.getByRole("progressbar", { name }).first(),
+      ).toBeVisible();
+    await expect(
+      replay.getByRole("list", { name: "Your actions" }).locator("svg"),
+    ).toHaveCount(3);
+    await expect(
+      replay
+        .getByRole("list", { name: /'s actions$/ })
+        .locator("svg")
+        .first(),
+    ).toBeVisible();
     await shot(page, "battle-replay");
     await expectNoOverflow(page, "Fight replay", info);
     await expectTapTargets(replay, "Fight replay", info);

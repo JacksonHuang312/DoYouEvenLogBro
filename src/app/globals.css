@@ -158,6 +158,20 @@ textarea,
     box-shadow: 0 0 0 0 transparent;
   }
 }
+/* A screen or a beat arriving: it fades in and rises a little, once (the replay's ending and the result screen). */
+@keyframes rpg-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rpg-fade {
+  animation: rpg-fade 0.3s ease-out 1 both;
+}
 .rpg-reveal {
   animation: rpg-settle 0.35s ease-out 1 both;
 }
@@ -167,6 +181,7 @@ textarea,
     rpg-ring 1.1s ease-out 0.2s 1 both;
 }
 @media (prefers-reduced-motion: reduce) {
+  .rpg-fade,
   .rpg-reveal,
   .rpg-reveal-big {
     animation: none;
