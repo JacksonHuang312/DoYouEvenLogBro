@@ -666,6 +666,13 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 ### 13.11 Measure real players
 - A script reads stored fight records (emulator now, production later) and reports real win rates per boss, months to each tier and coin income, so tuning uses data, not only the pacing model.
 - **Real training history:** Jackson may export his old workouts from Hevy (CSV). An import script would load them into the **emulator only** (never production, never committed) to check the stat and level curves against a real person's training.
+- **First run (2026-10-30, `npx tsx scripts/hevy-pacing.ts <csv>...`, both of Jackson's accounts, 161 workouts over 10.6 months, no duplicates):**
+  - Overall 3.1 counted workouts a week and 13.7 working sets each (model: 4 and 16). Two phases: Dec-Apr about 2.3 a week at 6-8 sets (a beginner ramp), May-Oct about 4.5 a week at 12-16 sets.
+  - In the steady phase, body power grew about 34 a month, a little faster than the model (about 30), so the model's steady player matches real steady training.
+  - **Exercises that beat their last session: 52%**, against the model's 15% of sets. With repMin 1 any extra rep counts, so real players progress far more often than assumed; the model under-counts points by about 8%.
+  - Real split per workout: chest 1.7, back 3.1, shoulders 1.6, arms 3.5, legs 3.5, core 0.3 (model 3 / 3.5 / 2.5 / 3 / 3 / 1). Chest and shoulders run well under the model, so the per-stat boss minimums (`typicalStats`) ask more Chest than this player has.
+  - After 10.6 months: level 9 and body power 239, against the model's level 16 and 328 (56% of its XP), almost all from the slow first five months.
+  - **For the level curve (13.2):** early levels should come mostly from showing up (workout XP), not stat XP, since beginners log small workouts; tune the model's `progressedShare` up (about 0.45) before fitting the curve.
 
 ### 13.12 Notifications
 - Web push for an installed web app: "Your weekly fight is ready", "The tower is open again", "1 workout from levelling up".
