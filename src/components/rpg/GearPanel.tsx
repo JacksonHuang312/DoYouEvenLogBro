@@ -1,21 +1,23 @@
 "use client";
 
-import { ChevronRight, Lock } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
 import { isAccessory, positionsOf, type Position } from "@/lib/game/config";
 import { equippedItems, type OwnedItem } from "@/lib/game/items";
 import {
+  bestGear,
   mythicCoresOf,
   positionViews,
   powerView,
   scrapOf,
   setProgress,
   type PositionView,
+  type ItemView,
   type StackView,
 } from "@/lib/game/itemsView";
 import type { LoadStatus } from "@/lib/game/view";
-import { equipItem, salvageItem, sellItem, unequipPosition, upgradeItem } from "@/lib/gameApi";
+import { equipItem, equipMany, reforgeItem, salvageItem, sellItem, unequipPosition, upgradeItem } from "@/lib/gameApi";
 import { confirmRpgDialog } from "@/lib/rpgDialog";
 import { useRunner } from "@/lib/useRunner";
 import { OfflineNote } from "./Disclosure";
@@ -30,10 +32,10 @@ const PRIMARY = "min-h-11 border border-rpg-text bg-rpg-text px-3 text-[13px] fo
 const HEADING = "font-rpg-head text-xl font-semibold uppercase tracking-[0.02em]";
 
 /**
- * Hero · Gear: the power block, scrap and set progress, one row per armor slot and one per
- * accessory position. Tapping a row opens a sheet with everything owned for its slot, identical
- * unequipped copies stacked as one card. Every action is a server call, so the controls turn off
- * offline and while a request is in flight.
+ * Hero · Gear: the power block, scrap and set progress, a "best gear" button, one row for the weapon and
+ * each armor slot and one per accessory position. Tapping a row opens a sheet with everything owned for
+ * its slot, identical unequipped copies stacked as one card, each with arrows against what is worn there.
+ * Every action is a server call, so the controls turn off offline and while a request is in flight.
  */
 export function GearPanel({
   state,
@@ -56,6 +58,7 @@ export function GearPanel({
   const positions = useMemo(() => positionViews(state, items, now), [state, items, now]);
   const power = useMemo(() => powerView(bodyPower, state, items), [bodyPower, state, items]);
   const sets = useMemo(() => setProgress(equippedItems(state ?? { equipped: {} }, items)), [state, items]);
+  const best = useMemo(() => bestGear(state, items), [state, items]);
 
   if (itemsStatus === "unavailable") {
     return (
@@ -114,8 +117,19 @@ export function GearPanel({
       )}
 
       <section className="px-5 pt-3">
-        <h2 className={HEADING}>Equipment</h2>
-        {!online && <OfflineNote what="Equipping, upgrading, selling and salvaging" />}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className={HEADING}>Equipment</h2>
+          {best.moves.length > 0 && (
+            <button
+              onClick={() => void run("Couldn't equip", () => equipMany(best.moves))}
+              disabled={busy || !online}
+              className={SECONDARY}
+            >
+              Best gear{best.gain > 0 ? ` · +${best.gain}` : ""}
+            </button>
+          )}
+        </div>
+        {!online && <OfflineNote what="Equipping, upgrading, reforging, selling and salvaging" />}
         <PositionList rows={positions.filter((p) => !isAccessory(p.slot))} onOpen={setOpenPosition} />
         {owned === 0 && (
           <p className="pt-3 text-xs leading-relaxed text-rpg-text-2">
@@ -157,7 +171,7 @@ function PositionList({ rows, onOpen }: { rows: PositionView[]; onOpen: (p: Posi
                     {s.equipped.name}
                   </span>
                   <span className="text-[11px] text-rpg-text-2">
-                    {s.equipped.title} · {s.equipped.power} power
+                    {s.equipped.title} · Level {s.equipped.itemLevel} · {s.equipped.power} power
                   </span>
                   <span className="break-words text-[11px] text-rpg-text-2">{s.equipped.focus}</span>
                 </>
@@ -237,10 +251,21 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
     if (ok) await run("Couldn't upgrade", () => upgradeItem(item.id, item.rarity, item.plus));
   }
 
+  async function reforge({ item }: StackView) {
+    const r = item.reforge;
+    if (!r) return;
+    const ok = await confirmRpgDialog({
+      title: `Reforge ${item.name}?`,
+      message: `Raises it from level ${item.itemLevel} to ${r.to}, your level, for ${number(r.scrap)} scrap. It keeps its rarity, upgrades and effects.`,
+      confirmLabel: `Reforge for ${number(r.scrap)} scrap`,
+    });
+    if (ok) await run("Couldn't reforge", () => reforgeItem(item.id, item.itemLevel));
+  }
+
   async function sell({ item, count }: StackView) {
     const ok = await confirmRpgDialog({
       title: `Sell ${item.name}?`,
-      message: `You get ${number(item.sell.price ?? 0)} coins for one: a quarter of its original value, whatever you have upgraded it to. It can't be bought back.${count > 1 ? ` You keep your other ${count - 1}.` : ""}`,
+      message: `You get ${number(item.sell.price ?? 0)} coins for one: a quarter of its value, whatever you have upgraded it to. It can't be bought back.${count > 1 ? ` You keep your other ${count - 1}.` : ""}`,
       confirmLabel: `Sell for ${number(item.sell.price ?? 0)}`,
       destructive: true,
     });
@@ -287,9 +312,11 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
                       {count > 1 && <span className="ml-1.5 text-base text-rpg-text-2">×{count}</span>}
                     </span>
                     <span className="text-xs text-rpg-text-2">
-                      {item.title} · {item.power} power{item.setName ? ` · ${item.setName}` : ""}
+                      {item.title} · Level {item.itemLevel} · {item.power} power <Compare item={item} />
+                      {item.setName ? ` · ${item.setName}` : ""}
                     </span>
                     <span className="text-xs text-rpg-text-2">{item.focus}</span>
+                    {item.weapon && <span className="text-[11px] text-rpg-muted">{item.weapon}</span>}
                     {item.effect && <span className="text-[11px] text-rpg-muted">{item.effect}</span>}
                     {item.tags.length > 0 && <span className="text-[11px] text-rpg-muted">{item.tags.join(" · ")}</span>}
                   </div>
@@ -335,11 +362,17 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
                   <button onClick={() => void salvage(card)} disabled={off || !item.salvage.enabled} className={SECONDARY}>
                     Salvage · +{number(item.salvage.scrap)}
                   </button>
+                  {item.reforge && (
+                    <button onClick={() => void reforge(card)} disabled={off || !item.reforge.enabled} className={`${SECONDARY} col-span-2`}>
+                      {item.reforge.label}
+                    </button>
+                  )}
                 </div>
 
-                {(item.equipped || (item.upgrade && !item.upgrade.enabled && item.upgrade.reason)) && (
+                {(item.equipped || (item.upgrade && !item.upgrade.enabled && item.upgrade.reason) || (item.reforge && !item.reforge.enabled)) && (
                   <div className="flex flex-col gap-0.5 text-[11px] text-rpg-muted">
                     {item.upgrade && !item.upgrade.enabled && item.upgrade.reason && <span>{item.upgrade.reason}</span>}
+                    {item.reforge && !item.reforge.enabled && item.reforge.reason && <span>Reforge: {item.reforge.reason}</span>}
                     {item.equipped && <span>Unequip it to sell or salvage it.</span>}
                   </div>
                 )}
@@ -352,5 +385,20 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
         <p className="px-5 pt-3 text-xs text-rpg-muted">Nothing is equipped in {view.label.toLowerCase()}.</p>
       )}
     </div>
+  );
+}
+
+/** Green up or red down: this item's power against what is worn in the position. Nothing for the worn item or an even match. */
+function Compare({ item }: { item: ItemView }) {
+  if (item.compare == null || item.compare === 0) return null;
+  const up = item.compare > 0;
+  return (
+    <span
+      aria-label={`${up ? "+" : ""}${item.compare} power against what you wear`}
+      className={`inline-flex items-center gap-0.5 ${up ? "text-rpg-good" : "text-rpg-bad"}`}
+    >
+      {up ? <ArrowUp size={11} aria-hidden /> : <ArrowDown size={11} aria-hidden />}
+      {Math.abs(item.compare)}
+    </span>
   );
 }
