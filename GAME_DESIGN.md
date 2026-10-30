@@ -608,8 +608,10 @@ Agreed in conversation after Phase 5 piece 2. Numbers marked *draft* get tuned w
 ### 13.1 Build order
 1. ~~**Levels 1-100 and level rewards** (13.2, 13.3), plus fight energy from workouts (13.7) and the anti-farming guard (13.8)~~ (built 2026-10-30, see 13.13).
 2. ~~**Battle screens** (Phase 5 piece 3) on the current items, with the loot moments of 13.9~~ (built 2026-10-30, see 13.14).
+2b. **Enemy icons** (13.15), in stages: fallbacks first, then chapter and weekly bosses, then the rest. Sonnet, one session to start. (Agreed as the next session.)
+2c. *Optional, not yet agreed:* a live fight replay (play the stored events back with health bars, speed toggle and skip; needs health values on each fight event).
 3. **Two weeks of real use**, then retune from real fight records (13.11).
-4. **Item rework:** item level + rarity (13.5), weapons (13.6). One or two sessions; the Gear and Shop tabs are reworked with it.
+4. **Item rework:** item level + rarity (13.5), weapons (13.6). One or two sessions, **on Opus**; the Gear and Shop tabs are reworked with it. Gear and weapon icons (13.15) follow once the item list settles.
 5. **Phase 6:** party raids (13.10) and friend leaderboards.
 
 ### 13.2 Levels 1-100
