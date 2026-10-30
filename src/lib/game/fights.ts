@@ -1,9 +1,9 @@
 import { battlePower, type BattlePower } from "./battle";
 import { activePause, freezeFor, injuredStats } from "./breaks";
 import { baseItem } from "./catalog";
-import type { GameState } from "./claim";
+import { energyOf, type GameState } from "./claim";
 import { buildHero, simulateFight, type FightResult, type Hero } from "./combat";
-import { BOSS_TOWER, ENDLESS_TOWER, WEEKLY_BOSS, type Rarity, type Stat } from "./config";
+import { BOSS_TOWER, ENDLESS_TOWER, ENERGY, WEEKLY_BOSS, type Rarity, type Stat } from "./config";
 import {
   bossTowerEncounter,
   CAMPAIGN_STAGES,
@@ -161,6 +161,8 @@ export interface FightOutcome {
   coins: number;
   scrap: number;
   mythicCores: number;
+  /** Fight energy this request spent (Campaign and endless tower: 1). */
+  energySpent: number;
   /** Gear won, before duplicates turn into scrap (`applyFightRewards`). */
   drops: { baseId: string; rarity: Rarity; guaranteed: boolean }[];
   /** For a Boss Tower win: whether it was the floor's first clear. */
@@ -216,7 +218,11 @@ const dropOf = (d: Drop) => (d.baseId && d.rarity ? [{ baseId: d.baseId, rarity:
 export function runFight(input: FightInput): GameResult<FightOutcome> {
   const { mode, doc, state, fighter: f, now, timeZone, seed } = input;
   const loot = seeded(`loot:${seed}`);
-  const base = { mode, rounds: [] as FightRound[], coins: 0, scrap: 0, mythicCores: 0, drops: [] as FightOutcome["drops"] };
+  const base = { mode, rounds: [] as FightRound[], coins: 0, scrap: 0, mythicCores: 0, energySpent: 0, drops: [] as FightOutcome["drops"] };
+  // The Campaign and the endless tower run on energy from workouts, so playing pulls you to the gym.
+  if ((mode === "campaign" || mode === "endless") && energyOf(state) < 1) {
+    return fail(`Out of fight energy. Each workout gives ${ENERGY.perWorkout}`);
+  }
 
   switch (mode) {
     case "weekly": {
@@ -244,7 +250,7 @@ export function runFight(input: FightInput): GameResult<FightOutcome> {
     case "endless": {
       if (state.level < ENDLESS_TOWER.minLevel) return fail(`The tower opens at level ${ENDLESS_TOWER.minLevel}`);
       if (now < doc.endless.cooldownUntil) return fail(`The tower opens again in ${hoursLabel(doc.endless.cooldownUntil - now)}`);
-      const out = { ...base };
+      const out = { ...base, energySpent: 1 };
       let { cleared, cooldownUntil } = doc.endless;
       const floors = input.climb ? ENDLESS_TOWER.autoClimbMax : 1;
       for (let i = 0; i < floors; i++) {
@@ -299,7 +305,7 @@ export function runFight(input: FightInput): GameResult<FightOutcome> {
       const minimums = minimumsFor(encounter, f);
       if (!minimums.ok) return minimums;
       const r = round(encounter, stage, f, `${seed}:0`, minimums.value);
-      const out = { ...base, rounds: [r] };
+      const out = { ...base, rounds: [r], energySpent: 1 };
       if (r.result.won) {
         const pay = campaignPay(stage);
         Object.assign(out, { coins: pay.coins, scrap: pay.scrap, drops: dropOf(campaignDrop(loot)) });
@@ -328,7 +334,7 @@ export function applyFightRewards({
   now,
 }: {
   state: GameState;
-  outcome: Pick<FightOutcome, "coins" | "scrap" | "mythicCores" | "drops">;
+  outcome: Pick<FightOutcome, "coins" | "scrap" | "mythicCores" | "drops"> & Partial<Pick<FightOutcome, "energySpent">>;
   /** The inventory items with the dropped bases (only those are needed). */
   owned: Pick<OwnedItem, "baseId" | "removed">[];
   fightId: string;
@@ -356,6 +362,7 @@ export function applyFightRewards({
     state: {
       ...state,
       coins: state.coins + outcome.coins,
+      energy: energyOf(state) - (outcome.energySpent ?? 0),
       materials: { ...m, scrap: (m.scrap ?? 0) + scrap, mythicCore: (m.mythicCore ?? 0) + outcome.mythicCores },
       updatedAt: now,
     },

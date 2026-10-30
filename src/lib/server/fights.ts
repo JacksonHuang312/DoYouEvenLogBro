@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { MusclesDoc } from "../game/claim";
+import { energyOf, type MusclesDoc } from "../game/claim";
 import { DEFAULT_TIME_ZONE, type ClassId, type Rarity } from "../game/config";
 import { applyFightRewards, fightHero, newBattleDoc, runFight, type BattleDoc, type FightMode, type FightRound } from "../game/fights";
 import { pickClass, switchClass } from "../game/heroClass";
@@ -45,6 +45,8 @@ export interface FightResponse {
   battle: BattleDoc;
   coins: number;
   materials: Materials;
+  /** Fight energy left (Campaign and endless tower). */
+  energy: number;
 }
 
 /**
@@ -65,7 +67,7 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
     const state = stateOf(stateSnap, now, DEFAULT_TIME_ZONE);
     const doc = battleSnap.exists ? (battleSnap.data() as BattleDoc) : newBattleDoc(now);
     if (fightSnap.exists) {
-      return { status: "already-fought", fight: fightSnap.data() as FightRecord, battle: doc, coins: state.coins, materials: materialsOf(state) };
+      return { status: "already-fought", fight: fightSnap.data() as FightRecord, battle: doc, coins: state.coins, materials: materialsOf(state), energy: energyOf(state) };
     }
 
     const muscles = musclesSnap.exists ? (musclesSnap.data() as MusclesDoc).muscles : {};
@@ -101,7 +103,7 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
     tx.set(fightRef, fight);
     tx.set(r.battle, outcome.doc);
     tx.set(r.state, rewards.state);
-    return { status: "fought", fight, battle: outcome.doc, coins: rewards.state.coins, materials: materialsOf(rewards.state) };
+    return { status: "fought", fight, battle: outcome.doc, coins: rewards.state.coins, materials: materialsOf(rewards.state), energy: energyOf(rewards.state) };
   });
 }
 

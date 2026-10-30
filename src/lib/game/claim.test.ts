@@ -11,7 +11,7 @@ import {
   type ClaimableWorkout,
   type GameState,
 } from "./claim";
-import { COINS, LEVEL_REWARDS, MAX_FUTURE_MS, POWER_MULTIPLIERS, STAT_POINTS, XP } from "./config";
+import { COINS, DAILY_WORKOUTS, ENERGY, LEVEL_REWARDS, MAX_FUTURE_MS, POWER_MULTIPLIERS, STAT_POINTS, XP } from "./config";
 import type { MusclesFacts, PreviousSession } from "./facts";
 import { BENCH, benchDay, CRUNCH, CURL, DAY, lookup, set, SQUAT, T0, workout } from "./test-helpers";
 
@@ -90,7 +90,8 @@ describe("applyClaim", () => {
   });
 
   test("the daily cap applies per claim day and resets the next day", () => {
-    const sameDay = Array.from({ length: 4 }, (_, i) => benchDay(T0 + i * 60_000));
+    // Four workouts on four days, all claimed on the same day.
+    const sameDay = Array.from({ length: 4 }, (_, i) => benchDay(T0 - (3 - i) * DAY));
     const { state, results } = claimAll(sameDay, { at: T0 + DAY / 4 });
     expect(results.map((r) => r.coins.total)).toEqual([50, 50, 50, 0]);
     expect(results[3].coins.capped).toBe(COINS.base);
@@ -189,6 +190,35 @@ describe("applyClaim", () => {
     const state = { ...newGameState(T0, UTC), xp: xpToReach(2) - 5 };
     const outcome = claim(benchDay(T0), { state });
     expect(outcome.counted && outcome.result.level).toEqual({ before: 1, after: 2 });
+  });
+});
+
+describe("daily limit and fight energy", () => {
+  test("at most two workouts count on one workout day; the next day counts again", () => {
+    const day = [benchDay(T0), benchDay(T0 + 60 * 60_000)];
+    const { state } = claimAll(day);
+    const third = claim(benchDay(T0 + 2 * 60 * 60_000), { state });
+    expect(third).toMatchObject({ counted: false, reason: "daily-limit" });
+    expect(claim(benchDay(T0 + DAY), { state }).counted).toBe(true);
+    expect(state.countedDays).toEqual({ "2026-10-14": DAILY_WORKOUTS.max });
+  });
+
+  test("old day counts are dropped", () => {
+    const state = { ...newGameState(T0, UTC), countedDays: { "2026-08-01": 2, "2026-10-13": 1 } };
+    const outcome = claim(benchDay(T0), { state });
+    expect(outcome.counted && outcome.state.countedDays).toEqual({ "2026-10-13": 1, "2026-10-14": 1 });
+  });
+
+  test("each counted workout gives fight energy, up to the cap", () => {
+    const first = claim(benchDay(T0));
+    expect(first.counted && first.state.energy).toBe(ENERGY.start + ENERGY.perWorkout);
+    const full = claim(benchDay(T0), { state: { ...newGameState(T0, UTC), energy: ENERGY.max - 1 } });
+    expect(full.counted && full.state.energy).toBe(ENERGY.max);
+  });
+
+  test("a replay skips the third workout of a day too", () => {
+    const r = replayMuscles([benchDay(T0), benchDay(T0 + 60_000), benchDay(T0 + 120_000)], lookup, UTC, T0 + DAY);
+    expect(r.muscles.chest?.sets).toBe(8);
   });
 });
 

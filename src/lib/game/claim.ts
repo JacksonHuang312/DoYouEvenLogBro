@@ -1,6 +1,6 @@
 import type { LoggedSet, Workout } from "../types";
 import type { Injury, Pause } from "./breaks";
-import { COINS, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type ClassId, type Stat } from "./config";
+import { COINS, DAILY_WORKOUTS, ENERGY, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type ClassId, type Stat } from "./config";
 import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./economy";
 import { exerciseSessions, mergeFacts, workoutFacts, type MusclesFacts, type PreviousSession } from "./facts";
 import { statOf } from "./muscles";
@@ -8,7 +8,7 @@ import type { Equipped, Materials } from "./items";
 import type { QuestUpdate } from "./quests";
 import { computeStats, power, type StatLine } from "./score";
 import { workingSets, type ExerciseLookup } from "./sets";
-import { dayId, weekId } from "./time";
+import { dayId, daysBetween, weekId } from "./time";
 import type { TitleId, TitlesState } from "./titles";
 import { payLevelRewards, type LevelReward, type StatPoints } from "./levels";
 
@@ -49,6 +49,10 @@ export interface GameState {
   levelRewardsTo?: number;
   /** Stat points put into each stat (fights only). Missing means none. */
   statPoints?: StatPoints;
+  /** Counted workouts per workout day (dayId), for the daily limit; the last DAILY_WORKOUTS.keepDays days. */
+  countedDays?: Record<string, number>;
+  /** Fight energy for the Campaign and endless tower. Missing means ENERGY.start. */
+  energy?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -107,7 +111,7 @@ export interface ClaimResult {
   backfilled?: boolean;
 }
 
-export type NotCountedReason = "too-few-sets" | "future";
+export type NotCountedReason = "too-few-sets" | "future" | "daily-limit";
 
 export type ClaimOutcome =
   | { counted: false; reason: NotCountedReason; workingSets: number }
@@ -176,6 +180,10 @@ export function applyClaim({
   const sets = workingSets(workout, lookup).length;
   if (workout.startedAt > now + MAX_FUTURE_MS) return { counted: false, reason: "future", workingSets: sets };
   if (sets < MIN_WORKING_SETS) return { counted: false, reason: "too-few-sets", workingSets: sets };
+  const workoutDay = dayId(workout.startedAt, timeZone);
+  const countedDays = recentDays(state.countedDays ?? {}, workoutDay);
+  if ((countedDays[workoutDay] ?? 0) >= DAILY_WORKOUTS.max) return { counted: false, reason: "daily-limit", workingSets: sets };
+  countedDays[workoutDay] = (countedDays[workoutDay] ?? 0) + 1;
 
   const facts = workoutFacts(workout, lookup, previous, timeZone);
   const nextMuscles = mergeFacts(muscles, facts.muscles);
@@ -202,6 +210,8 @@ export function applyClaim({
     coinsToday: payCoins ? earnedToday + coins.total : state.coinsToday,
     workoutXpAt: completionXp > 0 ? now : (state.workoutXpAt ?? null),
     mostStatsBeaten: Math.max(state.mostStatsBeaten ?? 0, facts.progressedStats.length),
+    countedDays,
+    energy: Math.min(ENERGY.max, energyOf(state) + ENERGY.perWorkout),
     timeZone,
     updatedAt: now,
   };
@@ -221,6 +231,14 @@ export function applyClaim({
   };
 
   return { counted: true, state: nextState, muscles: nextMuscles, result, snapshot: snapshotOf(after, now, timeZone) };
+}
+
+/** Fight energy now: ENERGY.start before any is stored. */
+export const energyOf = (state: Pick<GameState, "energy">): number => state.energy ?? ENERGY.start;
+
+/** The day counts kept for the daily limit: those within DAILY_WORKOUTS.keepDays of `day`. */
+function recentDays(days: Record<string, number>, day: string): Record<string, number> {
+  return Object.fromEntries(Object.entries(days).filter(([d]) => Math.abs(daysBetween(d, day)) < DAILY_WORKOUTS.keepDays));
 }
 
 /** Oldest first, without workouts a claim would reject as being in the future. */
@@ -263,8 +281,11 @@ export function replayMuscles(workouts: ClaimableWorkout[], lookup: ExerciseLook
   let mostStatsBeaten = 0;
   const snapshots = new Map<string, Snapshot>();
   const sessions = sessionTracker(lookup);
+  const perDay = new Map<string, number>();
   for (const w of claimable(workouts, now)) {
-    if (workingSets(w, lookup).length >= MIN_WORKING_SETS) {
+    const day = dayId(w.startedAt, timeZone);
+    if (workingSets(w, lookup).length >= MIN_WORKING_SETS && (perDay.get(day) ?? 0) < DAILY_WORKOUTS.max) {
+      perDay.set(day, (perDay.get(day) ?? 0) + 1);
       const facts = workoutFacts(w, lookup, sessions.previous, timeZone);
       muscles = mergeFacts(muscles, facts.muscles);
       mostStatsBeaten = Math.max(mostStatsBeaten, facts.progressedStats.length);

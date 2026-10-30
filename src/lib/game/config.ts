@@ -456,6 +456,19 @@ export const LEVEL_REWARDS = { coins: 25, scrap: 5, tenth: { coins: 250, scrap: 
  */
 export const LEVEL_POINTS = { perLevel: 1, pctPerPoint: 0.005, maxPerStat: 30, respecCost: 500 };
 
+/**
+ * Anti-farming (GAME_DESIGN.md 13.8): at most this many counted workouts on one calendar day (the
+ * workout's own day in the user's zone, so a week of offline workouts syncing at once still counts).
+ * Day counts are kept for `keepDays`.
+ */
+export const DAILY_WORKOUTS = { max: 2, keepDays: 30 };
+
+/**
+ * Fight energy (GAME_DESIGN.md 13.7): each counted workout gives `perWorkout`, up to `max`. A
+ * Campaign or endless tower request spends one (an auto-climb is one). New players start with `start`.
+ */
+export const ENERGY = { perWorkout: 3, max: 9, start: 3 };
+
 // ---- Combat (sections 4 and 10, Phase 5) ----
 // First draft of every combat number. After the fight engine is built, scripts/combat-table.ts prints
 // win chances by class, boss type and power ratio so these can be tuned.

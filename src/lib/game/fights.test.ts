@@ -162,6 +162,20 @@ describe("the Campaign", () => {
   });
 });
 
+describe("fight energy", () => {
+  test("the Campaign and endless tower need energy and spend one a request, a climb included", () => {
+    expect(fight({ mode: "campaign", state: state({ energy: 0 }) })).toMatchObject({ ok: false });
+    expect(fight({ mode: "endless", state: state({ energy: 0 }) })).toMatchObject({ ok: false });
+    expect(won({ mode: "endless", climb: true }).energySpent).toBe(1);
+    expect(won({ mode: "campaign" }).energySpent).toBe(1);
+    // The weekly boss and the Boss Tower don't use it.
+    expect(won({ mode: "weekly", state: state({ energy: 0 }) }).energySpent).toBe(0);
+    expect(won({ mode: "bossTower", state: state({ energy: 0 }) }).energySpent).toBe(0);
+    const paid = applyFightRewards({ state: state({ energy: 4 }), outcome: { ...won({ mode: "campaign" }) }, owned: [], fightId: "e", now: T0 });
+    expect(paid.state.energy).toBe(3);
+  });
+});
+
 describe("fight rewards and the hero", () => {
   test("coins, scrap and cores are paid; a duplicate drop becomes scrap; ids come from the fight", () => {
     const r = applyFightRewards({

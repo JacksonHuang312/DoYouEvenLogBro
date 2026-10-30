@@ -176,7 +176,9 @@ export function rewardsView(input: RewardsInput): RewardsView {
       notCounted:
         reason === "future"
           ? { headline: "Starts too far ahead", message: "This workout is dated too far in the future to count." }
-          : {
+          : reason === "daily-limit"
+            ? { headline: "Two workouts a day count", message: "That day already has two counted workouts. This one is saved; it earns nothing." }
+            : {
               headline: `${workingSets} of ${required} working sets`,
               message: `A workout counts from ${required} working sets. Warm-ups don't count. It's saved either way.`,
             },
