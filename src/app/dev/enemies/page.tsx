@@ -12,7 +12,8 @@ export default function EnemyContactSheet() {
         Enemy icons
       </h1>
       <p className="mt-1 text-xs text-rpg-muted">
-        {ENEMIES.length} enemies. Enemies without their own art show their kind’s icon.
+        {ENEMIES.length} enemies. Enemies without their own art show their
+        kind’s icon.
       </p>
       {groups.map((group) => (
         <section key={group} className="mt-6" aria-label={group}>
