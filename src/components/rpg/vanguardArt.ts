@@ -74,7 +74,8 @@ const HELMET: Record<Band, string> = {
   `,
   // A horned black helm with a glowing visor slit and a crimson crest
   80: `
-    m* M6.2 6.8C3.4 6.2 2 4 2 .8c2.2 1 3.8 2 4.6 3.6z
+    m* M6.4 9.4C2.8 8.8 .8 5.6 1 .2c1.2 2.2 3.2 3.4 5.8 4.2zM1 .2c.6 3.4 2.6 5 5.4 5.4
+    l* M2.4 3.6l2.4.6M1.8 5.6l2.6.2
     b M12 2.4c3.8 0 6.4 2.6 6.4 6.6v5.4l-2.6 5.6H8.2l-2.6-5.6V9c0-4 2.6-6.6 6.4-6.6z
     s M12.6 2.5c3.4.3 5.8 2.8 5.8 6.5v5.4l-2.6 5.6h-3.2z
     t M11.3 2.4h1.4v5.2h-1.4z
