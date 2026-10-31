@@ -15,7 +15,7 @@ import { OfflineNote } from "./Disclosure";
 import { InfoButton, InfoText, useInfo } from "./InfoToggle";
 import { RARITY_BORDER, RARITY_TEXT } from "./rarity";
 import { Skeleton } from "./RpgScreen";
-import { GearIcon } from "./GearIcon";
+import { ItemTile } from "./ItemTile";
 
 const number = (n: number) => n.toLocaleString("en-US");
 const HEADING = "font-rpg-head text-xl font-semibold uppercase tracking-[0.02em]";
@@ -150,7 +150,7 @@ export function ShopPanel({
               <span className="text-rpg-muted">{SLOT_LABEL[o.slot]}</span>
             </div>
             <div className="flex h-14 items-center justify-center">
-              <GearIcon slot={o.slot} weapon={o.weapon} baseId={o.baseId} itemLevel={o.itemLevel} size={44} className={RARITY_TEXT[o.rarity]} />
+              <ItemTile slot={o.slot} weapon={o.weapon} baseId={o.baseId} itemLevel={o.itemLevel} rarity={o.rarity} size={56} />
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="break-words font-rpg-head text-lg font-semibold leading-tight">{o.name}</span>

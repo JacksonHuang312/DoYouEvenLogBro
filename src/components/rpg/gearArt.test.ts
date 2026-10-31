@@ -7,7 +7,13 @@ describe("gear art", () => {
   it("draws every band for each piece type it covers", () => {
     for (const [piece, bands] of Object.entries(BAND_ART)) {
       expect(PIECE_TYPES, piece).toContain(piece);
-      for (const b of LEVEL_BANDS) expect(bands[b], `${piece} ${b}`).toBeTruthy();
+      for (const b of LEVEL_BANDS) {
+        expect(bands[b].length, `${piece} ${b}`).toBeGreaterThan(3);
+        for (const [tone, d] of bands[b]) {
+          expect("bsmtakhledp".includes(tone), `${piece} ${b} tone ${tone}`).toBe(true);
+          expect(d, `${piece} ${b}`).toMatch(/^M/);
+        }
+      }
     }
   });
 

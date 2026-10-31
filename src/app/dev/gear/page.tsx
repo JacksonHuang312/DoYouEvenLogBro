@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
-import { GearIcon } from "@/components/rpg/GearIcon";
+import { ItemTile } from "@/components/rpg/ItemTile";
 import { BAND_ART, PIECE_TYPES, UNIQUE_ART } from "@/components/rpg/gearArt";
-import { RARITY_TEXT } from "@/components/rpg/rarity";
 import { LEVEL_BANDS, RARITIES, type Slot } from "@/lib/game/config";
 import { ITEMS } from "@/lib/game/catalogData";
 
@@ -19,7 +18,7 @@ export default function GearContactSheet() {
       <h1 className="font-rpg-head text-3xl font-bold uppercase">Gear icons</h1>
       <p className="mt-1 text-xs text-rpg-muted">
         {drawn.length} of {PIECE_TYPES.length} piece types drawn, {Object.keys(UNIQUE_ART).length} of {mythics.length} Mythics.
-        Missing art shows the plain slot icon (dimmed).
+        Missing art shows the plain slot icon (dimmed, line art).
       </p>
       <h2 className="mt-6 font-rpg-head text-xl font-semibold uppercase">By piece type and band</h2>
       <table className="mt-3 border-separate border-spacing-x-3 border-spacing-y-2 text-xs">
@@ -37,18 +36,18 @@ export default function GearContactSheet() {
               <td className="text-[13px]">{p}</td>
               {LEVEL_BANDS.map((b) => (
                 <td key={b} className={BAND_ART[p] ? "" : "opacity-40"}>
-                  <GearIcon {...slotOf(p)} itemLevel={b} size={72} className="text-rpg-text-2" />
+                  <ItemTile {...slotOf(p)} itemLevel={b} rarity="rare" size={72} />
                 </td>
               ))}
             </tr>
           ))}
         </tbody>
       </table>
-      <h2 className="mt-8 font-rpg-head text-xl font-semibold uppercase">Rarity colours (level 40 helmet)</h2>
+      <h2 className="mt-8 font-rpg-head text-xl font-semibold uppercase">Rarity tiles (level 40 helmet)</h2>
       <ul className="mt-3 flex flex-wrap gap-4">
         {RARITIES.map((r) => (
           <li key={r} className="flex flex-col items-center gap-1 text-xs">
-            <GearIcon slot="helmet" itemLevel={40} size={72} className={RARITY_TEXT[r]} />
+            <ItemTile slot="helmet" itemLevel={40} rarity={r} size={72} />
             {r}
           </li>
         ))}
@@ -57,7 +56,7 @@ export default function GearContactSheet() {
       <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
         {mythics.map((m) => (
           <li key={m.id} className="flex items-center gap-3">
-            <GearIcon slot={m.slot} weapon={m.weapon} baseId={m.id} itemLevel={80} size={72} className={RARITY_TEXT.mythic} />
+            <ItemTile slot={m.slot} weapon={m.weapon} baseId={m.id} itemLevel={80} rarity="mythic" size={72} />
             <span className="min-w-0 text-[13px] leading-tight">
               {m.name}
               <span className="block text-xs text-rpg-muted">{m.id}</span>
