@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { ItemTile } from "@/components/rpg/ItemTile";
 import { BAND_ART, PIECE_TYPES, UNIQUE_ART } from "@/components/rpg/gearArt";
-import { LEVEL_BANDS, RARITIES, type Slot } from "@/lib/game/config";
-import { ITEMS } from "@/lib/game/catalogData";
+import { ARMOR_SLOTS, CLASS_IDS, LEVEL_BANDS, RARITIES, type Slot } from "@/lib/game/config";
+import { ITEMS, SETS } from "@/lib/game/catalogData";
 
 const SWORD_STAFF_SHIELD = ["sword", "staff", "shield"];
 
@@ -43,6 +43,29 @@ export default function GearContactSheet() {
           ))}
         </tbody>
       </table>
+      <h2 className="mt-8 font-rpg-head text-xl font-semibold uppercase">Class sets (armor)</h2>
+      {CLASS_IDS.map((c) => (
+        <section key={c} className="mt-4" aria-label={`${c} sets`}>
+          <h3 className="text-sm uppercase text-rpg-muted">{c}</h3>
+          <table className="mt-2 border-separate border-spacing-x-3 border-spacing-y-2 text-xs">
+            <tbody>
+              {ARMOR_SLOTS.map((slot) => (
+                <tr key={slot}>
+                  <td className="text-[13px]">{slot}</td>
+                  {LEVEL_BANDS.map((b) => {
+                    const set = SETS.find((x) => x.classId === c && x.band === b);
+                    return (
+                      <td key={b}>
+                        <ItemTile slot={slot} baseId={set ? `${set.id}-${slot}` : undefined} itemLevel={b} rarity="rare" size={72} />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
       <h2 className="mt-8 font-rpg-head text-xl font-semibold uppercase">Rarity tiles (level 40 helmet)</h2>
       <ul className="mt-3 flex flex-wrap gap-4">
         {RARITIES.map((r) => (

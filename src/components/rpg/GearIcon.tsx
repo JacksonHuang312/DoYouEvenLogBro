@@ -1,14 +1,14 @@
 import type { Slot } from "@/lib/game/config";
-import { PALETTE, gearArt, type Palette, type Tone } from "./gearArt";
+import { gearArt, type Palette, type Tone } from "./gearArt";
 import { SlotIcon } from "./SlotIcon";
 
 const OUTLINE = "#1a130d";
 
 /** Paint for each tone: fill, stroke, and any extra attributes. */
-function paint(tone: Tone, p: Palette, band: number): React.SVGProps<SVGPathElement> {
+function paint(tone: Tone, p: Palette, key: string): React.SVGProps<SVGPathElement> {
   const edge = { stroke: OUTLINE, strokeOpacity: 0.85, strokeWidth: 0.45 };
   switch (tone) {
-    case "b": return { fill: `url(#gear-grad-${band})`, ...edge };
+    case "b": return { fill: `url(#gear-grad-${key})`, ...edge };
     case "s": return { fill: p.dark, ...edge };
     case "m": return { fill: p.light, ...edge };
     case "t": return { fill: p.trim, ...edge };
@@ -44,7 +44,7 @@ export function GearIcon({
 }) {
   const art = gearArt({ slot, weapon, baseId, itemLevel });
   if (!art) return <SlotIcon slot={slot} size={size} className={className} />;
-  const p = PALETTE[art.band];
+  const p = art.palette;
   return (
     <svg
       width={size}
@@ -57,7 +57,7 @@ export function GearIcon({
       data-gear-icon={art.source}
     >
       <defs>
-        <linearGradient id={`gear-grad-${art.band}`} x1="0.15" y1="0" x2="0.85" y2="1">
+        <linearGradient id={`gear-grad-${art.key}`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0" stopColor={p.light} />
           <stop offset="0.3" stopColor={p.base} />
           <stop offset="0.75" stopColor={p.base} stopOpacity="0.85" />
@@ -74,7 +74,7 @@ export function GearIcon({
       </defs>
       {art.layers.map(([tone, d], i) => (
         <g key={i}>
-          <path d={d} {...paint(tone, p, art.band)} />
+          <path d={d} {...paint(tone, p, art.key)} />
           {(tone === "b" || tone === "m" || tone === "s") && <path d={d} fill="url(#gear-vol)" />}
         </g>
       ))}

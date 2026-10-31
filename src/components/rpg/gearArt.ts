@@ -1,4 +1,7 @@
-import { LEVEL_BANDS, type Slot, type WeaponType } from "@/lib/game/config";
+import { ITEMS, SETS } from "@/lib/game/catalogData";
+import { LEVEL_BANDS, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
+import { art, type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
+import { VANGUARD_ART, VANGUARD_PALETTE } from "./vanguardArt";
 
 /*
  * Gear art: small filled, shaded vector pictures (24×24) drawn on a rarity tile (GAME_DESIGN.md 7.1, 13.15).
@@ -8,39 +11,11 @@ import { LEVEL_BANDS, type Slot, type WeaponType } from "@/lib/game/config";
  * leather, chain, plate, ornate) while rarity shows in the tile and in the one accent layer.
  */
 
-/** A piece type: an armor or accessory slot, or one of the three weapon types. */
-export type PieceType = Exclude<Slot, "weapon"> | WeaponType;
-export type Band = (typeof LEVEL_BANDS)[number];
+export type { Band, Layer, Palette, PieceType, Tone } from "./gearLayers";
 
 export const PIECE_TYPES: PieceType[] = [
   "helmet", "chestplate", "gloves", "leggings", "boots", "ring", "necklace", "belt", "charm", "sword", "staff", "shield",
 ];
-
-/**
- * How a layer is painted:
- *   b body (the band's shaded gradient)  s shadow  m light metal  t trim  a accent (the rarity colour)
- *   k cavity (near black)  h soft highlight  l dark detail line  e light detail line  d dark dots  p trim dots
- */
-export type Tone = "b" | "s" | "m" | "t" | "a" | "k" | "h" | "l" | "e" | "d" | "p";
-export type Layer = readonly [Tone, string];
-
-/** One layer per line: a tone, a space, then the path. */
-const art = (s: string): Layer[] =>
-  s
-    .trim()
-    .split("\n")
-    .map((l) => {
-      const line = l.trim();
-      const at = line.indexOf(" ");
-      return [line.slice(0, at) as Tone, line.slice(at + 1)] as const;
-    });
-
-export interface Palette {
-  light: string;
-  base: string;
-  dark: string;
-  trim: string;
-}
 
 /** Material per level band: cloth, leather, chain, plate, ornate. */
 export const PALETTE: Record<Band, Palette> = {
@@ -52,7 +27,7 @@ export const PALETTE: Record<Band, Palette> = {
 };
 
 /** Shared art per piece type, one picture per level band (LEVEL_BANDS order). Missing types fall back. */
-export const BAND_ART: Partial<Record<PieceType, Record<Band, Layer[]>>> = {
+export const BAND_ART: PieceArt = {
   helmet: {
     // Cloth hood, tied at the throat
     1: art(`
@@ -353,22 +328,36 @@ export const BAND_ART: Partial<Record<PieceType, Record<Band, Layer[]>>> = {
 /** Art for individual items, by base id. Mythics only. */
 export const UNIQUE_ART: Record<string, Layer[]> = {};
 
+/** Set armor is drawn per class (GAME_DESIGN.md 13.15); loose armor, accessories and weapons share the neutral art. */
+export const CLASS_ART: Partial<Record<ClassId, { art: PieceArt; palette: Record<Band, Palette> }>> = {
+  vanguard: { art: VANGUARD_ART, palette: VANGUARD_PALETTE },
+};
+
+const classOfSet = new Map(SETS.map((s) => [s.id, s.classId]));
+const classOfBase = new Map(ITEMS.filter((i) => i.set).map((i) => [i.id, classOfSet.get(i.set!)!]));
+
 export const bandOfLevel = (level: number): Band => [...LEVEL_BANDS].reverse().find((b) => level >= b) ?? LEVEL_BANDS[0];
 
 export const pieceOf = (slot: Slot, weapon?: string | null): PieceType | null =>
   slot === "weapon" ? ((weapon as WeaponType | null | undefined) ?? null) : slot;
 
-/** The art for an item, or null if there is none for it yet. `band` picks the palette. */
+/** The art for an item, or null if there is none for it yet. */
 export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | null; itemLevel?: number }): {
   layers: Layer[];
-  band: Band;
+  palette: Palette;
+  /** Names the palette, so the icon's gradient has a unique id. */
+  key: string;
   source: string;
 } | null {
   const band = bandOfLevel(item.itemLevel ?? 1);
   const own = item.baseId ? UNIQUE_ART[item.baseId] : undefined;
-  if (own) return { layers: own, band: 80, source: `unique:${item.baseId}` };
+  if (own) return { layers: own, palette: PALETTE[80], key: "unique", source: `unique:${item.baseId}` };
   const piece = pieceOf(item.slot, item.weapon);
   if (!piece || item.itemLevel == null) return null;
+  const cls = item.baseId ? classOfBase.get(item.baseId) : undefined;
+  const classArt = cls ? CLASS_ART[cls] : undefined;
+  const classLayers = classArt?.art[piece]?.[band];
+  if (cls && classArt && classLayers) return { layers: classLayers, palette: classArt.palette[band], key: `${cls}-${band}`, source: `${cls}:${piece}:${band}` };
   const layers = BAND_ART[piece]?.[band];
-  return layers ? { layers, band, source: `shared:${piece}:${band}` } : null;
+  return layers ? { layers, palette: PALETTE[band], key: `n-${band}`, source: `shared:${piece}:${band}` } : null;
 }
