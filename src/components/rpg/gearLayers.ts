@@ -10,9 +10,10 @@ export type Band = (typeof LEVEL_BANDS)[number];
  *   k cavity (near black)  h soft highlight  l dark detail line  e light detail line  d dark dots  p trim dots
  */
 export type Tone = "b" | "s" | "m" | "t" | "a" | "k" | "h" | "l" | "e" | "d" | "p";
-export type Layer = readonly [Tone, string];
+/** A tone, a path, and whether to draw the path mirrored left to right as well (a "*" after the tone). */
+export type Layer = readonly [Tone, string, boolean?];
 
-/** One layer per line: a tone, a space, then the path. */
+/** One layer per line: a tone (add "*" to mirror it across the middle), a space, then the path. */
 export const art = (s: string): Layer[] =>
   s
     .trim()
@@ -20,7 +21,8 @@ export const art = (s: string): Layer[] =>
     .map((l) => {
       const line = l.trim();
       const at = line.indexOf(" ");
-      return [line.slice(0, at) as Tone, line.slice(at + 1)] as const;
+      const raw = line.slice(0, at);
+      return [raw.replace("*", "") as Tone, line.slice(at + 1), raw.includes("*")] as const;
     });
 
 export interface Palette {
