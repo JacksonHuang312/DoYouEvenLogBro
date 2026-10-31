@@ -2,11 +2,11 @@ import type { Slot } from "@/lib/game/config";
 import { PALETTE, gearArt, type Palette, type Tone } from "./gearArt";
 import { SlotIcon } from "./SlotIcon";
 
-const OUTLINE = "#120e0a";
+const OUTLINE = "#1a130d";
 
 /** Paint for each tone: fill, stroke, and any extra attributes. */
 function paint(tone: Tone, p: Palette, band: number): React.SVGProps<SVGPathElement> {
-  const edge = { stroke: OUTLINE, strokeWidth: 0.7 };
+  const edge = { stroke: OUTLINE, strokeOpacity: 0.85, strokeWidth: 0.45 };
   switch (tone) {
     case "b": return { fill: `url(#gear-grad-${band})`, ...edge };
     case "s": return { fill: p.dark, ...edge };
@@ -14,9 +14,9 @@ function paint(tone: Tone, p: Palette, band: number): React.SVGProps<SVGPathElem
     case "t": return { fill: p.trim, ...edge };
     case "a": return { fill: "currentColor", ...edge };
     case "k": return { fill: "#0a0809" };
-    case "h": return { fill: "#ffffff", fillOpacity: 0.28 };
-    case "l": return { fill: "none", stroke: OUTLINE, strokeOpacity: 0.75, strokeWidth: 0.55 };
-    case "e": return { fill: "none", stroke: p.light, strokeOpacity: 0.7, strokeWidth: 0.5 };
+    case "h": return { fill: "url(#gear-gloss)" };
+    case "l": return { fill: "none", stroke: OUTLINE, strokeOpacity: 0.6, strokeWidth: 0.4 };
+    case "e": return { fill: "none", stroke: p.light, strokeOpacity: 0.75, strokeWidth: 0.4 };
     case "d": return { fill: "none", stroke: p.dark, strokeWidth: 1.1 };
     case "p": return { fill: "none", stroke: p.trim, strokeWidth: 1.1 };
   }
@@ -59,12 +59,24 @@ export function GearIcon({
       <defs>
         <linearGradient id={`gear-grad-${art.band}`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0" stopColor={p.light} />
-          <stop offset="0.5" stopColor={p.base} />
+          <stop offset="0.3" stopColor={p.base} />
+          <stop offset="0.75" stopColor={p.base} stopOpacity="0.85" />
           <stop offset="1" stopColor={p.dark} />
+        </linearGradient>
+        <radialGradient id="gear-vol" cx="0.42" cy="0.35" r="0.75">
+          <stop offset="0.45" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#0b0705" stopOpacity="0.5" />
+        </radialGradient>
+        <linearGradient id="gear-gloss" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.6" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0.05" />
         </linearGradient>
       </defs>
       {art.layers.map(([tone, d], i) => (
-        <path key={i} d={d} {...paint(tone, p, art.band)} />
+        <g key={i}>
+          <path d={d} {...paint(tone, p, art.band)} />
+          {(tone === "b" || tone === "m" || tone === "s") && <path d={d} fill="url(#gear-vol)" />}
+        </g>
       ))}
     </svg>
   );

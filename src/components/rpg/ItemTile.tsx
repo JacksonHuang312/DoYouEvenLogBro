@@ -40,11 +40,11 @@ export function ItemTile({
         height: size,
         background: empty
           ? "#0e0f11"
-          : "radial-gradient(circle at 50% 36%, color-mix(in srgb, currentColor 46%, #0c0d10) 0%, #0c0d10 80%)",
+          : "radial-gradient(circle at 50% 38%, color-mix(in srgb, currentColor 62%, #0c0d10) 0%, color-mix(in srgb, currentColor 22%, #0c0d10) 55%, #0a0b0d 100%)",
         border: `1px solid color-mix(in srgb, currentColor ${empty ? 35 : 75}%, transparent)`,
         boxShadow: empty
           ? "none"
-          : "inset 0 0 10px color-mix(in srgb, currentColor 30%, transparent), 0 0 8px color-mix(in srgb, currentColor 24%, transparent)",
+          : "inset 0 0 12px color-mix(in srgb, currentColor 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18), 0 0 10px color-mix(in srgb, currentColor 30%, transparent)",
       }}
       data-item-tile={empty ? "empty" : rarity}
     >
