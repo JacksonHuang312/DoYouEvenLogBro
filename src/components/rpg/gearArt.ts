@@ -1,6 +1,7 @@
 import { ITEMS, SETS } from "@/lib/game/catalogData";
 import { LEVEL_BANDS, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
 import { art, type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
+import { STRIKER_ART, STRIKER_PALETTE } from "./strikerArt";
 import { VANGUARD_ART, VANGUARD_PALETTE } from "./vanguardArt";
 
 /*
@@ -331,6 +332,7 @@ export const UNIQUE_ART: Record<string, Layer[]> = {};
 /** Set armor is drawn per class (GAME_DESIGN.md 13.15); loose armor, accessories and weapons share the neutral art. */
 export const CLASS_ART: Partial<Record<ClassId, { art: PieceArt; palette: Record<Band, Palette> }>> = {
   vanguard: { art: VANGUARD_ART, palette: VANGUARD_PALETTE },
+  striker: { art: STRIKER_ART, palette: STRIKER_PALETTE },
 };
 
 const classOfSet = new Map(SETS.map((s) => [s.id, s.classId]));
