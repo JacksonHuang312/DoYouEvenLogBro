@@ -8,7 +8,7 @@ import { art } from "./gearLayers";
  *   20 Guardian: the classic knight: a closed T-visor helm, layered pauldrons, smooth greaves
  *   40 Vanguard: sleek and angular: a swept open helm with fins, spiked pauldrons, blue enamel
  *   60 Dusk: a flat-topped bucket helm with a mane, a lopsided heavy plate, big bronze knee cops
- *   80 Temple: a tall gothic helm with a glowing visor and a cross, spiked, near-black with gold
+ *   80 Temple: black plate with crimson trim: a horned helm with a glowing visor, stacked spiked pauldrons, a ragged cape
  * A "*" after a tone mirrors that layer across the middle.
  */
 
@@ -17,7 +17,7 @@ export const VANGUARD_PALETTE: Record<Band, Palette> = {
   20: { light: "#eef2f5", base: "#8f99a5", dark: "#394049", trim: "#bcc7d3" },
   40: { light: "#f7f9fd", base: "#bac4d2", dark: "#4e5970", trim: "#7fa6f0" },
   60: { light: "#cdd2dc", base: "#6a6f7b", dark: "#23262d", trim: "#cb914c" },
-  80: { light: "#8a92b6", base: "#2c2f41", dark: "#0a0c15", trim: "#dcb04a" },
+  80: { light: "#9aa0b4", base: "#2a2b36", dark: "#08090e", trim: "#b3243a" },
 };
 
 const GLOSS = "h M6.4 5.8c1.2-2 3.2-3.2 5.4-3.5-2 2-2.8 4-3 6.4-1.6 0-2.8-1.4-2.4-2.9z";
@@ -72,16 +72,19 @@ const HELMET: Record<Band, string> = {
     h M6.4 5.6l.2 3.6M7.6 5l3.2.2
     p M6.4 13.5h.01M17.6 13.5h.01M12 11.1h.01
   `,
-  // A tall gothic helm with a glowing visor, a gold cross and horn blades
+  // A horned black helm with a glowing visor slit and a crimson crest
   80: `
-    t* M5.4 8L2 3.2l4.6 2.4z
-    b M12 .8l3.2 5.2c2 1.2 3.4 3.4 3.4 6.4 0 2.4-.6 4.6-1.8 6.2l-3.2 3.4h-3.2l-3.2-3.4C5.8 17 5.2 14.8 5.2 12.4c0-3 1.4-5.2 3.4-6.4z
-    s M12.6 .9l2.6 5.1c2 1.2 3.4 3.4 3.4 6.4 0 2.4-.6 4.6-1.8 6.2l-3.2 3.4H12z
-    a M6.8 10.6l5.2 1.2 5.2-1.2v1.8L12 13.8l-5.2-1.4z
-    t M11.2 2.6h1.6v5h-1.6zM9.6 4.4h4.8v1.4H9.6z
-    t M11.2 15h1.6v5.6h-1.6zM9.4 16.6h5.2v1.4H9.4z
-    l M12 7.6v2.6M7.4 15l-.8 2.4M16.6 15l.8 2.4
-    h M7.8 8.2c.6-1.2 1.4-2 2.4-2.6-.8 1.4-1 2.8-1 4.4-1 0-1.6-.8-1.4-1.8z
+    m* M6.2 6.8C3.4 6.2 2 4 2 .8c2.2 1 3.8 2 4.6 3.6z
+    b M12 2.4c3.8 0 6.4 2.6 6.4 6.6v5.4l-2.6 5.6H8.2l-2.6-5.6V9c0-4 2.6-6.6 6.4-6.6z
+    s M12.6 2.5c3.4.3 5.8 2.8 5.8 6.5v5.4l-2.6 5.6h-3.2z
+    t M11.3 2.4h1.4v5.2h-1.4z
+    a M6.8 9.8l5.2.9 5.2-.9v1.8L12 12.6l-5.2-1z
+    k M12 13.4v6.2M9.4 14.6l1.6.6M14.6 14.6l-1.6.6M9.4 17l1.6.6M14.6 17l-1.6.6
+    t M5.6 13.4h12.8v1H5.6z
+    m M9.6 21.6h4.8
+    l M6 9.2c.4-1.8 1.4-3 3-3.8M18 9.2c-.4-1.8-1.4-3-3-3.8
+    h M7.4 6c1-1.6 2.4-2.6 4.2-3-1.6 1.6-2.2 3.4-2.4 5.6-1.4 0-2.2-1.2-1.8-2.6z
+    p M6.6 12.4h.01M17.4 12.4h.01
   `,
 };
 
@@ -137,20 +140,22 @@ const CHESTPLATE: Record<Band, string> = {
     p M3.6 8h.01M20.6 8.4h.01M9 9.4h.01M15 9.4h.01M9 19.6h.01M15 19.6h.01
     h M2.4 8.4c.8-2 2.6-3 5-3-1.6 1.2-2.4 3-2.6 5.2z
   `,
-  // Dark plate with a gold cross, spiked pauldrons and a glowing core
+  // Black plate with crimson trim: stacked spiked pauldrons, a ragged crimson tabard and cape
   80: `
-    b M7.6 6.4h8.8l1.4 4.4-1.6 3.6 1 7.1H7.8l1-7.1-1.6-3.6z
-    s M12.4 6.4h4l1.4 4.4-1.6 3.6 1 7.1h-4.8z
-    m M9.2 3.2h5.6l1.2 3.2H8z
-    m* M1 11C1 6.4 3 4 6.6 4l1.8 2-.4 7L3.6 15C2 14.2 1 12.8 1 11z
-    s* M5.2 4.6l2.4 1.6-.4 6.6-2 1.4z
-    t* M2.4 5.8L.8 1.6l4.4 2.6zM5.4 4.4L4.6 1.2l2.6 2.2z
-    t M11 8h2v7h-2zM8.8 10h6.4v1.8H8.8z
-    a M12 12.8l1.2 1.3-1.2 1.4-1.2-1.4z
-    t M8.4 16.8h7.2v1.2H8.4zM9 19.8h6v1H9z
-    l M12 15.4v5.4
-    p M3 8h.01M9.6 6.4h.01M14.4 6.4h.01
-    h M8.4 7.4l-.6 4.2.4 1.8
+    t M5 8L2 21.4l2-1 1 2 1.5-1.5 1.5 1.5V10zM19 8l3 13.4-2-1-1 2-1.5-1.5-1.5 1.5V10z
+    b M7.4 6.4h9.2l1.4 4.4-1.8 3.8.8 4.2H7.6l.8-4.2-1.8-3.8z
+    s M12.4 6.4h4.2l1.4 4.4-1.8 3.8.8 4.2h-4.8z
+    t M10.2 11.4h3.6l.6 10.6-2.4-1.4-2.4 1.4z
+    m M9 3h6l1.2 3.4H7.8z
+    m* M1 9.2C1 5.6 3.2 3.4 6.8 3.6l2 1.6-.4 3.8-7.2.6zM1.2 10.2l7.2-.4-.2 2.8-6.6 1c-.4-1-.5-2.2-.4-3.4zM1.8 13.4l6.2-.6-.2 2.6-4.6 1.2c-.8-.8-1.2-2-1.4-3.2z
+    s* M5.2 4.4l3.6.8-.4 3.8-3.4.4zM5.4 10.2l3-.2-.2 2.8-2.8.4z
+    t* M1.8 6L.2 3 3.8 4.6zM1.2 9.2L.2 7.6l3 .4zM1.6 12.6L.2 12.4l2.4-.8zM6.6 3.6L6 .8l2.2 2.2z
+    t M7.6 16.4h8.8v1.6H7.6z
+    m M10.6 17.2a1.4 1.4 0 1 1 2.8 0 1.4 1.4 0 0 1-2.8 0z
+    a M12 11.8l.9 1-.9 1.1-.9-1.1z
+    l M12 6.4v5M8.2 9.4c2.4.8 5.2.8 7.6 0
+    p M3.4 7.4h.01M3.2 10.6h.01M9.4 6.2h.01M14.6 6.2h.01
+    h M8.2 7.2l-.6 4 .4 1.8
   `,
 };
 
@@ -202,11 +207,11 @@ const GLOVES: Record<Band, string> = {
     p M7.6 9.6h.01M11.2 9.6h.01M14.8 9.6h.01M7.6 12.8h.01M11.2 12.8h.01M14.8 12.8h.01M8.4 20h.01M14.8 20h.01
     h M6.4 8.6h2.6
   `,
-  // A clawed dark gauntlet with a glowing gem
+  // A black spiked gauntlet with crimson trim and a glowing gem
   80: `${GAUNTLET}
     t M8.6 4.4L8.2 1.2 10 3.8zM11.6 4l-.4-3.4L13 3.6zM14.6 4.8l.4-3.4 1.4 3z
     s M5.5 16.8h11.2l-1.2 4.4H6.8z
-    t M5.5 16.8h11.2v1H5.5z
+    t M5.5 16.8h11.2v1.1H5.5zM7.6 9.6h9.4v.9H7.6z
     a M11 18.4l1.2 1.3-1.2 1.4-1.2-1.4z
     p M8.4 11.4h.01M12.3 11.4h.01M16 11.4h.01
   `,
@@ -257,16 +262,17 @@ const LEGGINGS: Record<Band, string> = {
     m* M3.4 19h7.2l-.4 2.8H4z
     p* M4.6 4.4h.01M5.6 14.6h.01M9 14.6h.01
   `,
-  // Spiked flared greaves with gems
+  // Black greaves with a big spiked knee cop, stacked lames and crimson edges
   80: `
-    b* M2.6 2.6h8.4l.8 9.4-.6 9.6H5l-3-9.6z
-    s* M7.2 2.6h3.8l.8 9.4-.6 9.6H7.4z
-    t* M2.8 4L.8 1.6 4.4 2.6zM2.8 9.4L.6 8.2l2 4zM2.2 14.6L0 15l2.4 3.4z
-    a* M6.4 5l1.3 1.5L6.4 8 5.1 6.5z
-    t* M3 12.4h8v1.3H3zM5.4 15h1.6v3.4H5.4z
-    m* M3.4 18.6h7.2l-.5 3.6H4.4z
-    l* M7 9l.4 3.4
-    p* M5 20.4h.01M9 20.4h.01
+    b* M2.6 2.6h8.4l.6 9.4-.8 9.8H4.2l-1.2-9.8z
+    s* M7.2 2.6h3.8l.6 9.4-.8 9.8H7.4z
+    m* M2.4 3.2h8.6v5.2c-1 1.2-2.6 1.8-4.3 1.8S3.4 9.6 2.4 8.4z
+    t* M6.6 3.2L5 .2l3.4 2.4zM2.4 4.6L.2 3.6l1.6 2.6z
+    m* M3 10.6h7.6l-.4 2.6H3.4zM3.2 13.4h7.2l-.4 2.6H3.6zM3.4 16.2h6.8l-.4 2.6H3.8z
+    t* M3 12.8h7.6M3.2 15.6h7.2M3.4 18.4h6.8
+    b* M3.2 18.8h7.8l.4 3H3.8z
+    a* M6.4 5.2l1 1.1-1 1.1-1-1.1z
+    p* M4.4 11.8h.01M8.6 11.8h.01M4.8 17h.01M9 17h.01
   `,
 };
 
@@ -323,20 +329,20 @@ const BOOTS: Record<Band, string> = {
     p M7 18.2h.01M12 18.2h.01M17 18.2h.01
     h M7.4 3.6v1.4M7.4 12l-2 2.4
   `,
-  // Spiked dark boots with a gold cross, crest blades and a gem
+  // Black stacked-lame sabatons with a toe spike and crimson edges
   80: `
     s M3.9 1.5h6v9.5l7 3a2.4 2.4 0 0 1 1.5 2.2V19H.2v-3.6l3.7-2.2z
-    t M4.4 1.8L3 .2 6.4 1zM9.8 1.8L11.2.2 7.8 1z
     b M7.5 2.5h6v9.5l7 3a2.4 2.4 0 0 1 1.5 2.2V20H3.8v-3.6l3.7-2.2z
     s M12.5 2.5h1v9.5l7 3a2.4 2.4 0 0 1 1.5 2.2V20h-6z
-    t M7.7 2.6L6 .4l3.6 1.4zM13.3 2.6L15 .4l-3.6 1.4z
-    m M7.5 5.2h6v1.8h-6z
-    t M9.6 8h1.6v4.4H9.6zM8.2 9.4h4.4v1.4H8.2z
-    t M13.4 13l6 2.4.4 1.8-6.2-2.4zM3.8 17h17.8v1.2H3.8zM21 17.8l2.4.6-2 1.2z
-    a M10.4 14.4l.9 1-.9 1-.9-1z
+    m M7.5 2.5h6v2.2h-6zM7.7 5.2h5.6v2.2H7.7zM7.9 7.9h5.2v2.2H7.9z
+    t M7.5 4.7h6v.7h-6zM7.7 7.4h5.6v.7H7.7zM7.9 10.1h5.2v.7H7.9z
+    t M7.8 2.6L6.4.2l3.2 1.4zM13.2 2.6L14.6.2l-3.2 1.4z
+    m M13.4 13l6 2.4.4 1.8-6.2-2.4zM15.2 14.8l3.6 1.5-.4 1.8-3.4-1.5z
+    t M21.2 16.4l2.6 1.2-2.4.8zM3.8 17h17.8v1.1H3.8z
+    a M10.4 12.4l.9 1-.9 1-.9-1z
     s M3.4 20h18.8v2.2H3.4z
     p M7 18.8h.01M12 18.8h.01M17 18.8h.01
-    h M8.2 3v2M5 18.2l2-.4
+    h M8.2 3v1.4M5 18.2l2-.4
   `,
 };
 
