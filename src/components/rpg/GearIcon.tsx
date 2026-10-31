@@ -6,7 +6,7 @@ const OUTLINE = "#1a130d";
 
 /** Paint for each tone: fill, stroke, and any extra attributes. */
 function paint(tone: Tone, p: Palette, key: string): React.SVGProps<SVGPathElement> {
-  const edge = { stroke: OUTLINE, strokeOpacity: 0.85, strokeWidth: 0.45 };
+  const edge = { stroke: OUTLINE, strokeOpacity: 0.95, strokeWidth: 0.8 };
   switch (tone) {
     case "b": return { fill: `url(#gear-grad-${key})`, ...edge };
     case "s": return { fill: p.dark, ...edge };
@@ -15,7 +15,7 @@ function paint(tone: Tone, p: Palette, key: string): React.SVGProps<SVGPathEleme
     case "a": return { fill: "currentColor", ...edge };
     case "k": return { fill: "#0a0809" };
     case "h": return { fill: "url(#gear-gloss)" };
-    case "l": return { fill: "none", stroke: OUTLINE, strokeOpacity: 0.6, strokeWidth: 0.4 };
+    case "l": return { fill: "none", stroke: OUTLINE, strokeOpacity: 0.65, strokeWidth: 0.5 };
     case "e": return { fill: "none", stroke: p.light, strokeOpacity: 0.75, strokeWidth: 0.4 };
     case "d": return { fill: "none", stroke: p.dark, strokeWidth: 1.1 };
     case "p": return { fill: "none", stroke: p.trim, strokeWidth: 1.1 };
@@ -65,7 +65,7 @@ export function GearIcon({
         </linearGradient>
         <radialGradient id="gear-vol" cx="0.42" cy="0.35" r="0.75">
           <stop offset="0.45" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#0b0705" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#0b0705" stopOpacity="0.35" />
         </radialGradient>
         <linearGradient id="gear-gloss" x1="0" y1="0" x2="0.6" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity="0.6" />
