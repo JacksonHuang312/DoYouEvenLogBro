@@ -62,10 +62,13 @@ test.describe("Gear tab", () => {
 
     await row(page, "Ring 1").click();
     await cardOf(page, "Ring 1", "Silver Loop").first().getByRole("button", { name: "Equip", exact: true }).click();
+    // Equipping closes the sheet, back to the Gear list.
+    await expect(sheet(page, "Ring 1")).toBeHidden();
+    await expect(row(page, "Ring 1")).toContainText("Silver Loop");
     // The worn copy and the leftover copy are now two separate Silver Loop cards.
+    await row(page, "Ring 1").click();
     await expect(cardOf(page, "Ring 1", "Silver Loop")).toHaveCount(2);
     await closeSheet(page, "Ring 1");
-    await expect(row(page, "Ring 1")).toContainText("Silver Loop");
     await expect(row(page, "Ring 2")).toContainText("Nothing equipped");
     await expect.poll(() => battle(page)).toBeGreaterThan(before);
     const withOne = await battle(page);
@@ -74,7 +77,7 @@ test.describe("Gear tab", () => {
     const spare = cardOf(page, "Ring 2", "Silver Loop").filter({ has: page.getByRole("button", { name: "Equip", exact: true }) });
     await expect(spare).toHaveCount(1);
     await spare.getByRole("button", { name: "Equip", exact: true }).click();
-    await closeSheet(page, "Ring 2");
+    await expect(sheet(page, "Ring 2")).toBeHidden();
     await expect(row(page, "Ring 1")).toContainText("Silver Loop");
     await expect(row(page, "Ring 2")).toContainText("Silver Loop");
     await expect.poll(() => battle(page)).toBeGreaterThan(withOne);
@@ -224,6 +227,8 @@ test.describe("Gear card wording", () => {
     await expect(card).toContainText(/scrap/i);
 
     await card.getByRole("button", { name: "Equip", exact: true }).click();
+    await expect(sheet(page, "Ring 1")).toBeHidden();
+    await row(page, "Ring 1").click();
     await expect(cardOf(page, "Ring 1", "Ring 1")).toContainText("Unequip it to sell or salvage it.");
   });
 });

@@ -145,7 +145,7 @@ export function GearPanel({
 
       {open && (
         <Sheet title={open.label} onClose={() => setOpenPosition(null)}>
-          <SlotSheet view={open} state={state} online={online} busy={busy} run={run} />
+          <SlotSheet view={open} state={state} online={online} busy={busy} run={run} onEquipped={() => setOpenPosition(null)} />
         </Sheet>
       )}
     </>
@@ -236,7 +236,22 @@ function Row({ label, value, note }: { label: string; value: string; note: strin
 
 type Run = ReturnType<typeof useRunner>["run"];
 
-function SlotSheet({ view, state, online, busy, run }: { view: PositionView; state: GameState | null; online: boolean; busy: boolean; run: Run }) {
+function SlotSheet({
+  view,
+  state,
+  online,
+  busy,
+  run,
+  onEquipped,
+}: {
+  view: PositionView;
+  state: GameState | null;
+  online: boolean;
+  busy: boolean;
+  run: Run;
+  /** Called after a successful equip: the sheet closes back to the Gear list. */
+  onEquipped: () => void;
+}) {
   const off = busy || !online;
   const level = state?.level ?? 1;
 
@@ -333,7 +348,9 @@ function SlotSheet({ view, state, online, busy, run }: { view: PositionView; sta
                     </button>
                   ) : (
                     <button
-                      onClick={() => void run("Couldn't equip", () => equipItem(item.id, view.position))}
+                      onClick={async () => {
+                        if (await run("Couldn't equip", () => equipItem(item.id, view.position))) onEquipped();
+                      }}
                       disabled={off || !item.equip.enabled}
                       aria-label={item.locked ? `Equip, needs level ${item.locked.level}` : undefined}
                       className={PRIMARY}
