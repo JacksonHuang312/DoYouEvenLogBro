@@ -1,6 +1,7 @@
 import { ITEMS, SETS } from "@/lib/game/catalogData";
 import { LEVEL_BANDS, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
 import { art, type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
+import { CLERIC_ART, CLERIC_PALETTE } from "./clericArt";
 import { STRIKER_ART, STRIKER_PALETTE } from "./strikerArt";
 import { VANGUARD_ART, VANGUARD_PALETTE } from "./vanguardArt";
 
@@ -333,6 +334,7 @@ export const UNIQUE_ART: Record<string, Layer[]> = {};
 export const CLASS_ART: Partial<Record<ClassId, { art: PieceArt; palette: Record<Band, Palette> }>> = {
   vanguard: { art: VANGUARD_ART, palette: VANGUARD_PALETTE },
   striker: { art: STRIKER_ART, palette: STRIKER_PALETTE },
+  cleric: { art: CLERIC_ART, palette: CLERIC_PALETTE },
 };
 
 const classOfSet = new Map(SETS.map((s) => [s.id, s.classId]));
