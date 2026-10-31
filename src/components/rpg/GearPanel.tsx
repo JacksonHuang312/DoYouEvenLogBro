@@ -24,6 +24,7 @@ import { OfflineNote } from "./Disclosure";
 import { RARITY_BORDER, RARITY_TEXT } from "./rarity";
 import { Skeleton } from "./RpgScreen";
 import { Sheet } from "./Sheet";
+import { GearIcon } from "./GearIcon";
 import { SlotIcon } from "./SlotIcon";
 
 const number = (n: number) => n.toLocaleString("en-US");
@@ -162,7 +163,11 @@ function PositionList({ rows, onOpen }: { rows: PositionView[]; onOpen: (p: Posi
             aria-haspopup="dialog"
             className="flex min-h-[60px] w-full items-center gap-3 py-2 text-left"
           >
-            <SlotIcon slot={s.slot} className={s.equipped ? RARITY_TEXT[s.equipped.rarity] : "text-rpg-muted"} />
+            {s.equipped ? (
+              <GearIcon slot={s.slot} weapon={s.equipped.weapon} baseId={s.equipped.baseId} itemLevel={s.equipped.itemLevel} className={RARITY_TEXT[s.equipped.rarity]} />
+            ) : (
+              <SlotIcon slot={s.slot} className="text-rpg-muted" />
+            )}
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="text-[11px] text-rpg-muted">{s.label}</span>
               {s.equipped ? (
@@ -320,7 +325,7 @@ function SlotSheet({
             return (
               <li key={card.key} className={`flex flex-col gap-2.5 border bg-rpg-surface p-3.5 ${RARITY_BORDER[item.rarity]}`}>
                 <div className="flex items-start gap-3">
-                  <SlotIcon slot={item.slot} size={36} className={RARITY_TEXT[item.rarity]} />
+                  <GearIcon slot={item.slot} weapon={item.weapon} baseId={item.baseId} itemLevel={item.itemLevel} size={36} className={RARITY_TEXT[item.rarity]} />
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className={`break-words font-rpg-head text-xl font-semibold leading-tight ${RARITY_TEXT[item.rarity]}`}>
                       {item.name}
