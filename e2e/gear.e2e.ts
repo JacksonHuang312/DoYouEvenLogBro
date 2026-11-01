@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { expectNoOverflow, expectTapTargets, numberBefore, shot } from "./helpers";
+import { expectItemTiles, expectNoOverflow, expectTapTargets, numberBefore, shot } from "./helpers";
 import { ITEM_IDS } from "./seed";
 
 const row = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^${label}\\b`) });
@@ -33,6 +33,8 @@ test.describe("Gear tab", () => {
     await shot(page, "gear-tab");
     await expectNoOverflow(page, "Gear tab", info);
     await expectTapTargets(page.getByRole("tabpanel"), "Gear tab", info);
+    // One tile per position (12), drawn with gear art, inside the screen.
+    await expectItemTiles(page.getByRole("tabpanel"), "Gear tab", info, 12);
   });
 
   test("a slot sheet stacks identical copies as ×N", async ({ hero, page }, info) => {
@@ -52,6 +54,7 @@ test.describe("Gear tab", () => {
     await shot(page, "gear-ring-sheet", { full: false });
     await expectNoOverflow(page, "Ring sheet", info);
     await expectTapTargets(sheet(page, "Ring 1"), "Ring sheet", info);
+    await expectItemTiles(sheet(page, "Ring 1"), "Ring sheet", info, 4);
   });
 
   test("equip across ring1 and ring2, then unequip", async ({ hero, page }) => {

@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { expectNoOverflow, expectTapTargets, numberBefore, shot } from "./helpers";
+import { expectItemTiles, expectNoOverflow, expectTapTargets, numberBefore, shot } from "./helpers";
 
 const offers = (page: Page) => page.getByRole("tabpanel").getByRole("listitem");
 const coins = async (page: Page) => numberBefore(await page.getByRole("tabpanel").getByText(/^[\d,]+ coins$/).innerText(), "coins");
@@ -28,6 +28,7 @@ test.describe("Shop tab", () => {
     await shot(page, "shop-tab");
     await expectNoOverflow(page, "Shop tab", info);
     await expectTapTargets(page.getByRole("tabpanel"), "Shop tab", info);
+    await expectItemTiles(page.getByRole("tabpanel"), "Shop tab", info, 6);
   });
 
   test("buying an offer spends coins and adds it to Gear", async ({ hero, page }, info) => {
