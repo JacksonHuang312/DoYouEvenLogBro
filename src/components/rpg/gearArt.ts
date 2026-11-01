@@ -1,6 +1,7 @@
 import { ITEMS, SETS } from "@/lib/game/catalogData";
 import { LEVEL_BANDS, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
 import { art, type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
+import { ACCESSORY_ART, ACCESSORY_PALETTE } from "./accessoryArt";
 import { CLERIC_ART, CLERIC_PALETTE } from "./clericArt";
 import { STRIKER_ART, STRIKER_PALETTE } from "./strikerArt";
 import { VANGUARD_ART, VANGUARD_PALETTE } from "./vanguardArt";
@@ -362,6 +363,8 @@ export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | n
   const classArt = cls ? CLASS_ART[cls] : undefined;
   const classLayers = classArt?.art[piece]?.[band];
   if (cls && classArt && classLayers) return { layers: classLayers, palette: classArt.palette[band], key: `${cls}-${band}`, source: `${cls}:${piece}:${band}` };
+  const accessory = ACCESSORY_ART[piece]?.[band];
+  if (accessory) return { layers: accessory, palette: ACCESSORY_PALETTE[band], key: `acc-${band}`, source: `accessory:${piece}:${band}` };
   const layers = BAND_ART[piece]?.[band];
   return layers ? { layers, palette: PALETTE[band], key: `n-${band}`, source: `shared:${piece}:${band}` } : null;
 }

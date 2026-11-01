@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ItemTile } from "@/components/rpg/ItemTile";
+import { ACCESSORY_ART } from "@/components/rpg/accessoryArt";
 import { BAND_ART, PIECE_TYPES, UNIQUE_ART } from "@/components/rpg/gearArt";
 import { ARMOR_SLOTS, CLASS_IDS, LEVEL_BANDS, RARITIES, type Slot } from "@/lib/game/config";
 import { ITEMS, SETS } from "@/lib/game/catalogData";
@@ -12,7 +13,7 @@ export default function GearContactSheet() {
   const slotOf = (p: string): { slot: Slot; weapon?: "sword" | "staff" | "shield" } =>
     SWORD_STAFF_SHIELD.includes(p) ? { slot: "weapon", weapon: p as "sword" } : { slot: p as Slot };
   const mythics = ITEMS.filter((i) => i.mythic);
-  const drawn = PIECE_TYPES.filter((p) => BAND_ART[p]);
+  const drawn = PIECE_TYPES.filter((p) => BAND_ART[p] || ACCESSORY_ART[p]);
   return (
     <main className="min-h-screen bg-rpg-bg px-5 py-6 font-rpg-body text-rpg-text">
       <h1 className="font-rpg-head text-3xl font-bold uppercase">Gear icons</h1>
@@ -35,7 +36,7 @@ export default function GearContactSheet() {
             <tr key={p}>
               <td className="text-[13px]">{p}</td>
               {LEVEL_BANDS.map((b) => (
-                <td key={b} className={BAND_ART[p] ? "" : "opacity-40"}>
+                <td key={b} className={BAND_ART[p] || ACCESSORY_ART[p] ? "" : "opacity-40"}>
                   <ItemTile {...slotOf(p)} itemLevel={b} rarity="rare" size={72} />
                 </td>
               ))}
