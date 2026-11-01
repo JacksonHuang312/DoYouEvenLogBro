@@ -24,20 +24,18 @@ const SWORD: Record<Band, string> = {
   // A crude curved knife with a leather-bound grip
   1: `
     @rotate 45
-    @edge 0.5
-    b M13.2 2.6c1.6 4.4 1.8 9.8.6 13.6h-3.6c-.8-5 0-10 3-13.6z
-    s M13.2 2.6c1.6 4.4 1.8 9.8.6 13.6h-1.6c1.2-4.2 1-9-.4-13.6z
-    m M13.2 2.6c-3 3.6-3.8 8.6-3 13.6h.8c-.6-4.6.2-9.6 2.2-13.6z
-    t M9 16.2h6.4v1.3H9z
-    t M10.8 17.5h2.8v5h-2.8z
-    l M10.8 18.8h2.8M10.8 20.2h2.8M10.8 21.6h2.8M12.6 5c.8 3.4.8 7 0 9.8
-    m M10.4 22.5h3.6v1.4h-3.6z
-    d M12.8 9h.01M11.8 12.2h.01
+    b M13.4-1.4c1.8 5.4 2 11.6.6 17.6h-3.8c-.8-6.2 0-12 3.2-17.6z
+    s M13.4-1.4c1.8 5.4 2 11.6.6 17.6h-1.8c1.4-5.4 1.2-11.6 1.2-17.6z
+    m M13.4-1.4c-3.2 5.6-4 11.4-3.2 17.6h.8c-.6-5.8.2-11.6 2.4-17.6z
+    t M8.8 16.2h6.8v1.4H8.8z
+    t M10.8 17.6h2.8v5h-2.8z
+    l M10.8 18.9h2.8M10.8 20.2h2.8M10.8 21.5h2.8M12.6 1.6c.8 4.2.8 8.8 0 12.6
+    m M10.4 22.6h3.6v1.6h-3.6z
+    d M12.8 7h.01M11.8 11h.01
   `,
   // A straight steel longsword with a crossguard and a round pommel
   20: `
     @rotate 45
-    @edge 0.5
     b M12-3.4l1.7 2.6V16h-3.4V-.8z
     s M12-3.4l1.7 2.6V16H12z
     l M12-1.4V15
@@ -51,7 +49,6 @@ const SWORD: Record<Band, string> = {
   // A broad blade with glowing runes, a winged guard and a gem pommel
   40: `
     @rotate 45
-    @edge 0.5
     b M12-3.8l2.4 3V16H9.6V-.8z
     s M12-3.8l2.4 3V16H12z
     a M12 .6l.9 1.2-.9 1.2-.9-1.2zM12 5l.9 1.2-.9 1.2-.9-1.2zM12 9.4l.9 1.2-.9 1.2-.9-1.2z
@@ -68,7 +65,6 @@ const SWORD: Record<Band, string> = {
   // A curved dark saber with a fang-shaped crescent guard
   60: `
     @rotate 45
-    @edge 0.5
     b M10.2-3c3.6 3.2 5 10 3.8 19h-3.6c.4-6.4.2-12.6-.2-19z
     s M11.4-2.4c3 3.4 3.8 9.8 2.6 18.4h-1.8c1-6.4.8-12.6-.8-18.4z
     m M10.2-3c-.2 6.4-.2 12.6.2 19h.8c-.6-6.4-.6-12.6-.4-18z
@@ -83,7 +79,6 @@ const SWORD: Record<Band, string> = {
   // A jagged black curved greatblade with glowing gems and a golden crown guard
   80: `
     @rotate 45
-    @edge 0.5
     b M13.6-3.6c2 2.6 2.6 9 1.4 19.6h-4.2l.6-1.4-1.2.1.6-1.5-1.2.1.6-1.8-1.2-.1C9.6 4.8 11.4-.8 13.6-3.6z
     s M14.2-2.4c1.8 3 2 9 .8 18.4h-2c1.2-6 1-12.4-.8-18.4z
     l M13 -1.6c.8 4 1 9 .4 13.6

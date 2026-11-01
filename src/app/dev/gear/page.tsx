@@ -68,11 +68,11 @@ export default function GearContactSheet() {
           </table>
         </section>
       ))}
-      <h2 className="mt-8 font-rpg-head text-xl font-semibold uppercase">Rarity tiles (level 40 helmet)</h2>
+      <h2 className="mt-8 font-rpg-head text-xl font-semibold uppercase">Rarity tiles (level 40 Warden helm)</h2>
       <ul className="mt-3 flex flex-wrap gap-4">
         {RARITIES.map((r) => (
           <li key={r} className="flex flex-col items-center gap-1 text-xs">
-            <ItemTile slot="helmet" itemLevel={40} rarity={r} size={72} />
+            <ItemTile slot="helmet" baseId="warden-helmet" itemLevel={40} rarity={r} size={72} />
             {r}
           </li>
         ))}

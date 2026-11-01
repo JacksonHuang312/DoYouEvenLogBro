@@ -15,7 +15,7 @@ export type Layer = readonly [Tone, string, boolean?, string?, number?];
 
 /** One layer per line: a tone (add "*" to mirror it across the middle), a space, then the path. */
 export const art = (s: string): Layer[] => {
-  const lines = s.trim().split(/\r?\n/).map((l) => l.trim());
+  const lines = s.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   let rotate: string | undefined;
   let edge: number | undefined;
   while (lines[0].startsWith("@")) {

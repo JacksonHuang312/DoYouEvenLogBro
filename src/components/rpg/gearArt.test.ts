@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { ITEMS } from "@/lib/game/catalogData";
 import { LEVEL_BANDS } from "@/lib/game/config";
-import { BAND_ART, PIECE_TYPES, UNIQUE_ART, bandOfLevel, gearArt } from "./gearArt";
+import { ACCESSORY_ART } from "./accessoryArt";
+import { BAND_ART, CLASS_ART, PIECE_TYPES, UNIQUE_ART, bandOfLevel, gearArt } from "./gearArt";
+import { WEAPON_ART } from "./weaponArt";
 
 describe("gear art", () => {
-  it("draws every band for each piece type it covers", () => {
-    for (const [piece, bands] of Object.entries(BAND_ART)) {
-      expect(PIECE_TYPES, piece).toContain(piece);
-      for (const b of LEVEL_BANDS) {
-        expect(bands[b].length, `${piece} ${b}`).toBeGreaterThan(3);
-        for (const [tone, d] of bands[b]) {
-          expect("bsmtakhledp".includes(tone), `${piece} ${b} tone ${tone}`).toBe(true);
-          expect(d, `${piece} ${b}`).toMatch(/^M/);
+  it("draws every band for each piece type it covers, with no empty layers", () => {
+    const sets = { loose: BAND_ART, accessory: ACCESSORY_ART, weapon: WEAPON_ART, ...Object.fromEntries(Object.entries(CLASS_ART).map(([c, v]) => [c, v!.art])) };
+    for (const [set, pieces] of Object.entries(sets)) {
+      for (const [piece, bands] of Object.entries(pieces)) {
+        expect(PIECE_TYPES, piece).toContain(piece);
+        for (const b of LEVEL_BANDS) {
+          expect(bands[b].length, `${set} ${piece} ${b}`).toBeGreaterThan(3);
+          for (const [tone, d] of bands[b]) {
+            expect("bsmtakhledp".includes(tone), `${set} ${piece} ${b} tone ${tone}`).toBe(true);
+            expect(d, `${set} ${piece} ${b}`).toMatch(/^M/);
+          }
         }
       }
     }
