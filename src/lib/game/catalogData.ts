@@ -201,11 +201,11 @@ export const ITEMS: ItemEntry[] = [
   { id: "hunter-boots", name: "Hunter Moccasins", slot: "boots", focus: { hp: 50, atk: 50 } },
 
   // ---- Mythic: unique items, each with its own effect. Always Mythic, at the level they drop ----
-  { id: "unbroken-helmet", name: "Crown of the Unbroken", slot: "helmet", mythic: true, focus: { hp: 100 }, effect: "unbroken-crown" },
-  { id: "unbroken-chestplate", name: "Heart of the Unbroken", slot: "chestplate", mythic: true, focus: { def: 100 }, effect: "unbroken-heart" },
-  { id: "unbroken-gloves", name: "Hands of the Unbroken", slot: "gloves", mythic: true, focus: { atk: 100 }, effect: "unbroken-hands" },
-  { id: "unbroken-leggings", name: "Pillars of the Unbroken", slot: "leggings", mythic: true, focus: { hp: 100 }, effect: "unbroken-pillars" },
-  { id: "unbroken-boots", name: "Path of the Unbroken", slot: "boots", mythic: true, focus: { atk: 100 }, effect: "unbroken-path" },
+  { id: "unbroken-helmet", name: "Revenant's Crown", slot: "helmet", mythic: true, focus: { hp: 100 }, effect: "unbroken-crown" },
+  { id: "unbroken-chestplate", name: "Thornheart Cuirass", slot: "chestplate", mythic: true, focus: { def: 100 }, effect: "unbroken-heart" },
+  { id: "unbroken-gloves", name: "Stormfist Gauntlets", slot: "gloves", mythic: true, focus: { atk: 100 }, effect: "unbroken-hands" },
+  { id: "unbroken-leggings", name: "Verdant Greaves", slot: "leggings", mythic: true, focus: { hp: 100 }, effect: "unbroken-pillars" },
+  { id: "unbroken-boots", name: "Timewarden's Treads", slot: "boots", mythic: true, focus: { atk: 100 }, effect: "unbroken-path" },
   { id: "bloodletter-gauntlets", name: "Bloodletter Gauntlets", slot: "gloves", mythic: true, focus: { atk: 100 }, effect: "bloodletter-gauntlets" },
   { id: "bulwark-plate", name: "Bulwark Plate", slot: "chestplate", mythic: true, focus: { def: 100 }, effect: "bulwark-plate" },
   { id: "executioners-ring", name: "Executioner's Ring", slot: "ring", mythic: true, focus: { atk: 100 }, effect: "executioners-ring" },

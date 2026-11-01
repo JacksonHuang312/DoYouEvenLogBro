@@ -265,7 +265,7 @@ describe("gear effects in a fight", () => {
   const foe = buildFoe("Test", 350);
   const fight = (h: Hero, seed = "fx") => simulateFight(h, foe, seed);
 
-  test("Crown of the Unbroken survives one killing blow at 1 HP", () => {
+  test("Revenant's Crown survives one killing blow at 1 HP", () => {
     const weak = balancedHero(
       200,
       "striker",
@@ -282,7 +282,7 @@ describe("gear effects in a fight", () => {
     ).toBe(false);
   });
 
-  test("Hands of the Unbroken makes every 4th basic attack a crit", () => {
+  test("Stormfist Gauntlets makes every 4th basic attack a crit", () => {
     const h = {
       ...balancedHero(
         350,
@@ -299,7 +299,7 @@ describe("gear effects in a fight", () => {
     );
   });
 
-  test("Heart of the Unbroken reflects damage taken", () => {
+  test("Thornheart Cuirass reflects damage taken", () => {
     const r = fight(
       balancedHero(
         350,
@@ -312,7 +312,7 @@ describe("gear effects in a fight", () => {
     ).toBe(true);
   });
 
-  test("Pillars of the Unbroken regenerates only below half HP", () => {
+  test("Verdant Greaves regenerates only below half HP", () => {
     const r = fight(
       balancedHero(
         300,
@@ -326,7 +326,7 @@ describe("gear effects in a fight", () => {
     ).toBe(false);
   });
 
-  test("Path of the Unbroken pushes the enrage back", () => {
+  test("Timewarden's Treads pushes the enrage back", () => {
     const tank = balancedHero(
       350,
       "vanguard",

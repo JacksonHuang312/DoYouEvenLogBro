@@ -3,8 +3,13 @@ import { art } from "./gearLayers";
 
 /*
  * Mythic items each have their own picture and palette (GAME_DESIGN.md 13.15), in the most dramatic tier:
- * spikes, wings, beast faces, gold, glowing gems. The accent layer glows in the Mythic colour.
- *   The Unbroken set (crown, heart, hands, pillars, path): radiant gold over obsidian, a sun motif
+ * spikes, wings, beast faces, gold, glowing gems. No two share a look: Mythics are never a set. The accent
+ * layer glows in the Mythic colour.
+ *   Revenant's Crown: a bone skull helm with spectral eyes
+ *   Thornheart Cuirass: dark plate in a thorny vine around a bleeding heart
+ *   Stormfist Gauntlets: storm blue with lightning
+ *   Verdant Greaves: living bark with leaves and gold
+ *   Timewarden's Treads: bronze clockwork with an hourglass and a gear
  *   Bloodletter Gauntlets: crimson with bone claws and a blood drop
  *   Bulwark Plate: massive steel and gold with a lion's face
  *   Executioner's Ring: black iron with a skull and crossed axes
@@ -15,8 +20,6 @@ import { art } from "./gearLayers";
  *   Staff of First Light: white-gold with a radiant star
  *   The Unyielding Wall: a fortress-walled tower shield with a sun boss
  */
-
-const UNBROKEN: Palette = { light: "#fff1c4", base: "#d4a23c", dark: "#5e3c10", trim: "#2a1f2e" };
 
 const GAUNTLET = `
   b M7 21v-5.5L5 12V8.2a1.5 1.5 0 0 1 3 0V4.6a1.5 1.5 0 0 1 3 0V4a1.5 1.5 0 0 1 3 0v1.6a1.5 1.5 0 0 1 3 0V14.5l-2 3V21z
@@ -32,73 +35,83 @@ const BOOT = `
 `;
 
 export const MYTHIC_ART: Record<string, { palette: Palette; layers: Layer[] }> = {
+  // Revenant's Crown (Last Stand): a bone skull helm with a jagged crown and spectral eyes
   "unbroken-helmet": {
-    palette: UNBROKEN,
+    palette: { light: "#efe8d6", base: "#a89f86", dark: "#3a362e", trim: "#34d0bd" },
     layers: art(`
-      t* M7 6.6L5 1.6l3.6 3.8zM9.6 5L9.2.6l2.2 4.2z
-      b M12 .4l1.2 4.4h-2.4z
-      b M12 4.4c4.4 0 7.4 3.2 7.4 8v5l-3.2 4.8H7.8l-3.2-4.8v-5c0-4.8 3-8 7.4-8z
-      s M13.4 4.6c3.6.6 6 3.6 6 7.8v5l-3.2 4.8h-2.8z
-      m M5 9.2c2.2-1 4.6-1.4 7-1.4s4.8.4 7 1.4v1.4c-2.2-1-4.6-1.4-7-1.4s-4.8.4-7 1.4z
-      t M6.4 11.6c1.8-.8 3.6-1.2 5.6-1.2s3.8.4 5.6 1.2v3.4c-1.8 1.2-3.6 1.8-5.6 1.8s-3.8-.6-5.6-1.8z
-      a M8 12.6l2.6.6-.2 1-2.4-.6zM16 12.6l-2.6.6.2 1 2.4-.6z
-      a M12 6.8l1 1.1-1 1.2-1-1.2z
-      l M7.6 17.4l1.6 3.4M16.4 17.4l-1.6 3.4M12 16.8v4.6
-      h M7.2 8c.8-1.4 2-2.4 3.6-2.8-1 1-1.4 2-1.6 3.2-1.2.2-2-.2-2-.4z
+      b* M6.4 6.2L5.4 1.2l2.6 3.4zM9.2 4.6L9 .4l1.8 3.8z
+      b M12 .2l1.2 4h-2.4z
+      b M12 3.6c4.6 0 7.6 3.2 7.6 7.8 0 2.4-.8 4.2-2.2 5.6v3.2l-2.2 1.8H8.8l-2.2-1.8V17c-1.4-1.4-2.2-3.2-2.2-5.6 0-4.6 3-7.8 7.6-7.8z
+      s M13.4 3.8c3.6.6 6.2 3.6 6.2 7.6 0 2.4-.8 4.2-2.2 5.6v3.2l-2.2 1.8h-1.8z
+      s M4.8 7.4c2.2-1.2 4.6-1.8 7.2-1.8s5 .6 7.2 1.8l-.4 1.6c-2.2-1-4.4-1.6-6.8-1.6S7.4 8 5.2 9z
+      k M7.2 10.4c1-.6 2.4-.6 3.4.2l-.4 2.6c-1 .4-2.2.2-3-.6zM16.8 10.4c-1-.6-2.4-.6-3.4.2l.4 2.6c1 .4 2.2.2 3-.6z
+      t M8.2 11.2h1.4v1.3H8.2zM14.4 11.2h1.4v1.3h-1.4z
+      k M11.4 13.6h1.2l-.6 1.4z
+      m M8.8 18h6.4v1.8H8.8z
+      l M10.4 18v1.8M12 18v1.8M13.6 18v1.8M15.8 5.4l-1 2 .8 1
+      a M12 6.2l.8.9-.8 1-.8-1z
+      h M6.8 9.6c.6-1.8 1.8-3 3.6-3.6
     `),
   },
+  // Thornheart Cuirass (reflects damage): dark plate bound in a thorny vine around a bleeding heart
   "unbroken-chestplate": {
-    palette: UNBROKEN,
+    palette: { light: "#7fae74", base: "#2c4a30", dark: "#0c1a10", trim: "#b0262f" },
     layers: art(`
-      t* M2.6 6.4L.8 3.2l3.6 1.8zM5.4 4.8L5 1.4l2.2 2.8z
-      b M6.4 6h11.2l1.6 4.4-2.4 4 .8 6.8H6.4l.8-6.8-2.4-4z
-      s M12.6 6h5l1.6 4.4-2.4 4 .8 6.8h-5z
-      b* M1.6 10.6C1.6 6.8 3.8 4.6 7 4.8l1 1.8-.6 4.6-4.8 1.6c-.6-.6-1-1.4-1-2.2z
-      m M9 3h6l1.2 3H7.8z
-      t M8 15h8v1.2H8zM8.4 17.6h7.2v1.2H8.4z
-      a M12 14.2l-3.2-3.2c-.9-1-.4-2.8 1-3 1-.1 1.7.6 2.2 1.3.5-.7 1.2-1.4 2.2-1.3 1.4.2 1.9 2 1 3z
-      e M12 6.6v.8M8 8l.6.6M16 8l-.6.6
-      p M3.4 8.4h.01M20.6 8.4h.01M9 20h.01M15 20h.01
-      h M2.8 8.4c.6-1.6 1.8-2.6 3.4-2.8M8 7l-.6 4.4
+      b M6.6 5.6h10.8l1.6 4.4-2.4 4 .8 7.2H6.6l.8-7.2-2.4-4z
+      s M12.6 5.6h4.8l1.6 4.4-2.4 4 .8 7.2h-4.8z
+      b* M1.4 10.2c0-3.6 2.2-5.8 5.6-5.6l1 1.6-.6 5-4.8 1.6c-.8-.6-1.2-1.6-1.2-2.6z
+      m* M2.2 6.6L.6 4.2l2.6 1zM4 4.8l-.4-2.8 1.6 2.2zM1.4 9.4L.2 8.4l1.6-.2z
+      m M9 2.8h6l1.2 2.8H7.8z
+      m M6.4 9.4c2 1.2 3.6 2.8 4.6 4.8 1-2 2.6-3.6 4.6-4.8l.6.8c-1.8 1.2-3.4 2.8-4.4 4.8L12 16l-.2-.2c-1-2-2.6-3.6-4.4-4.8z
+      m M8 10.4l-.6-1.4 1.2.8zM16 10.4l.6-1.4-1.2.8zM9.6 12.4l-1 .4 1.2.4zM14.4 12.4l1 .4-1.2.4z
+      t M12 19.6l-3.2-3.2c-.9-1-.4-2.8 1-3 1-.1 1.7.6 2.2 1.3.5-.7 1.2-1.4 2.2-1.3 1.4.2 1.9 2 1 3z
+      a M12 16l.7.8-.7.8-.7-.8z
+      l M7.4 19h9.2
+      h M2.6 8.4c.6-1.6 1.8-2.6 3.4-2.8M8 7l-.6 4
     `),
   },
+  // Stormfist Gauntlets (every 4th hit crits): a storm-blue gauntlet crackling with lightning
   "unbroken-gloves": {
-    palette: UNBROKEN,
+    palette: { light: "#e6eefc", base: "#5e7aa8", dark: "#1a2640", trim: "#ffd84a" },
     layers: art(`
-      t* M5 17.2L1.4 15.8l2.8 3.2z
+      t M19.4 2.6l-3 4.6h2.2l-2.6 4.8 5.2-6h-2.4l1.8-3.4zM4.4 3.6L2.8 6.8h1.4L2.6 9.6l3.2-3.8H4.4l1.2-2.2z
       ${GAUNTLET}
-      t M7.4 9.4h9.8v2.8H7.4z
-      a M12.2 9.6l1.1 1.2-1.1 1.2-1.1-1.2z
-      m M4.6 16.4h14l-1.6 5H6.2z
-      s M12.4 16.4h6.2l-1.6 5h-4.6z
-      t M5.2 17.6h13.2v1H5.2z
-      a M11.6 19.2l.9 1-.9 1-.9-1z
-      p M8.4 10.8h.01M16 10.8h.01
+      m M7.4 9.4h9.8v2.8H7.4z
+      d M8.8 10.8h.01M11 10.8h.01M13.2 10.8h.01M15.6 10.8h.01
+      s M4.6 16.4h14l-1.6 5H6.2z
+      t M9.6 16.8l-1 2.2h1.4l-.8 2 2.6-2.8h-1.4l.8-1.4zM14 16.8l-1 2.2h1.4l-.8 2 2.6-2.8h-1.4l.8-1.4z
+      a M12 13.2l.9 1-.9 1.1-.9-1.1z
     `),
   },
+  // Verdant Greaves (regrows below half HP): living bark greaves sprouting leaves, bound in gold
   "unbroken-leggings": {
-    palette: UNBROKEN,
+    palette: { light: "#d8f0a4", base: "#6a8a3c", dark: "#24361a", trim: "#d0a64a" },
     layers: art(`
-      b* M3 2.6h7.8l.2 19.2H3.2z
-      s* M8.4 4.6h2.4v15h-2.4z
-      l* M5 4.6v15M7 4.6v15
-      t* M2.4 2.2h9v2.6h-9zM2.6 19.4h8.8v2.6H2.6z
-      a* M6.9 9.6l1.2 1.3-1.2 1.4-1.2-1.4z
-      t* M2.8 13.6h8.2v1H2.8z
-      h* M4 5.2v6
-      p* M4 3.4h.01M10 3.4h.01
+      b* M3 3h7.8l.4 8.6-.8 9.8H4.2L3 11.6z
+      s* M7.8 3h3l.4 8.6-.8 9.8H8z
+      l* M4.6 4.6l.6 5-.4 4 .4 6M7 4.6l-.4 4.4.6 4.6-.4 6
+      m* M5.8 9c-2-1.2-3.8-1-4.8.4 1.6 1 3.4 1.2 4.8-.4zM8.2 6.8c.6-2.2 2.2-3.2 3.6-3-.4 1.8-1.6 3-3.6 3z
+      t* M3.2 13.6h7.6v1.3H3.2zM2.8 3h8.4v1.6H2.8z
+      a* M6.8 10.2l1 1-1 1.1-1-1.1z
+      t* M4.2 21.2l-1.8 1.4 2.6-.2zM10 21.2l1.6 1.4-2.4-.2z
+      h* M4.2 5l-.4 4.6
     `),
   },
+  // Timewarden's Treads (the enemy enrages later): bronze clockwork boots with an hourglass and a gear
   "unbroken-boots": {
-    palette: UNBROKEN,
+    palette: { light: "#f6d79a", base: "#b07a36", dark: "#4a2e10", trim: "#e8eef6" },
     layers: art(`
-      m M8 7.6L2.6 4.2l1.8 3.8-2.2 1.6 5.8 1.2zM8 5.6L4.2 2l.6 3.4z
       ${BOOT}
-      t M7.5 5h6v1.6h-6zM7.5 9.4h6v1.4h-6zM3.8 17h18.4v1.2H3.8z
-      a M10.5 7.4l1 1.1-1 1.2-1-1.2z
-      t M21.4 16.6l2.2-1-.6 2.4zM21.4 18.4l2.4.4-1.8 1.2z
+      m M7.5 2.5h6v1.6h-6zM7.5 10.6h6v1.6h-6z
+      t M8.6 4.4h3.8l-1.6 2.6 1.6 2.6H8.6l1.6-2.6z
+      a M9.8 8.4h1.4l.5.8h-2.4zM10.2 5.4h.6l-.3.6z
+      l M10.5 7v1.2
+      m M16.2 12.6a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z
+      d M16.2 12.2h.01M16.2 18.2h.01M13.2 15.2h.01M19.2 15.2h.01M14.1 13.1h.01M18.3 13.1h.01M14.1 17.3h.01M18.3 17.3h.01
+      k M16.2 14.4a.8.8 0 1 1 0 1.6.8.8 0 0 1 0-1.6z
+      t M3.8 17h18.4v1.2H3.8z
       s M3.4 20h18.8v2.2H3.4z
-      h M8.2 3v2M5 18.2l2-.4
+      h M8.2 3v1M5 18.2l2-.4
     `),
   },
   "bloodletter-gauntlets": {
