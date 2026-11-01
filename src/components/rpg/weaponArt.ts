@@ -92,10 +92,105 @@ const SWORD: Record<Band, string> = {
   `,
 };
 
+/** Staves (the Cleric's weapon) have their own materials: wood, then moonwood, gold and white-gold. */
+export const STAFF_PALETTE: Record<Band, Palette> = {
+  1: { light: "#dcbd8e", base: "#8a643f", dark: "#3e2a17", trim: "#6f9a4e" },
+  20: { light: "#e2c69c", base: "#7a5636", dark: "#352315", trim: "#cfd6de" },
+  40: { light: "#f0f4fa", base: "#a2b2ca", dark: "#3f4c66", trim: "#dfe4ec" },
+  60: { light: "#f6dd9a", base: "#b98d45", dark: "#4d3516", trim: "#c0303f" },
+  80: { light: "#fff6dc", base: "#e0c272", dark: "#6e5420", trim: "#7a55c8" },
+};
+
+/*
+ * Staves:
+ *   1  Willow Staff: a gnarled branch with a knot, two leaves and a cloth grip
+ *   20 Pilgrim's Staff: a walking crook with iron bands and a hanging bell
+ *   40 Moonwood Staff: pale wood with a silver crescent cradling a crystal
+ *   60 Lumen Rod: a gold rod with a spiked sun ring, a glowing orb and crimson tassels
+ *   80 Seraph Scepter: white-gold with a halo, white wings, a cross and a glowing gem
+ */
+const STAFF: Record<Band, string> = {
+  1: `
+    @rotate 45
+    @scale 0.86
+    b M11.2 4.6c.6 5.4 0 11 .2 22h2c-.2-10.8.6-16.4-.2-22z
+    s M12.6 4.6c.6 5.6-.2 11.2 0 22h.8c-.2-10.8.6-16.4-.2-22z
+    b M12-1.6c1.8 0 3 1.4 3 3.2 0 1.6-1 2.8-2.4 3.2h-1.6C9.6 4.4 9 3.2 9 1.6c0-1.8 1.2-3.2 3-3.2z
+    k M11.4.8a.9.9 0 1 1 1.8 0 .9.9 0 0 1-1.8 0z
+    t M13.6 3.4c1.6-1.6 3.6-1.8 5-.8-1.4 1.6-3.4 2-5 .8zM10.6 6c-1.8-1-3.6-.6-4.6.6 1.6 1 3.4 1 4.6-.6z
+    s M10.8 15.4h2.8v4h-2.8z
+    l M10.8 16.6h2.8M10.8 18h2.8M11.8 8l.6 3M12 21.6l-.4 2.6
+    m M11.2 26.2h2.2v1.2h-2.2z
+    h M10.2.4c.2-.8.8-1.4 1.6-1.6
+  `,
+  20: `
+    @rotate 45
+    @scale 0.86
+    b M11.2 6V2.2c0-2.8 2-4.6 4.4-4.6s4.2 1.8 4.2 4.2c0 2-1.4 3.4-3 3.4l-.2-1.6c.8 0 1.6-.8 1.6-1.8 0-1.6-1.2-2.6-2.6-2.6s-2.8 1.2-2.8 3V6z
+    b M11.2 6h1.6v20.8h-1.6z
+    s M12.2 6h.6v20.8h-.6z
+    t M10.8 5.4h2.4v1.4h-2.4zM10.8 12.6h2.4V14h-2.4zM10.8 24.6h2.4V26h-2.4z
+    m M16.4 4.4c1 0 1.6.8 1.6 1.8v1.4h-3.2V6.2c0-1 .6-1.8 1.6-1.8z
+    k M16 7.6h.8v.8H16z
+    l M16.4 3.2v1.2
+    s M10.8 16.6h2.4v3.6h-2.4z
+    h M13 -1c.6-.6 1.4-1 2.2-1
+  `,
+  40: `
+    @rotate 45
+    @scale 0.86
+    b M11.2 5.4h1.6v21.4h-1.6z
+    s M12.2 5.4h.6v21.4h-.6z
+    m M12-3.4a5.2 5.2 0 1 0 4.6 7.6 4.2 4.2 0 1 1-4.6-7.6z
+    a M12.6.4l1.4 1.6-1.4 1.8-1.4-1.8z
+    t M10.6 5.2h2.8v1.4h-2.8z
+    l M11.2 9l1.6 1.4M11.2 12l1.6 1.4M11.2 15l1.6 1.4M11.2 18l1.6 1.4
+    t M10.8 21h2.4v1.4h-2.4z
+    p M16.6-1.6h.01M17.6 1.2h.01
+    h M8.4 0c.2-1.4 1-2.4 2.2-3
+  `,
+  60: `
+    @rotate 45
+    @scale 0.86
+    b M11.2 7.4h1.6v19.4h-1.6z
+    s M12.2 7.4h.6v19.4h-.6z
+    t M8 4.6l-1.2 4.4 1.2.4 1-4.2zM16 4.6l1.2 4.4-1.2.4-1-4.2z
+    m M12-4.8l1 2h-2zM12 7.6l1-2h-2zM6.2 1.4l2 1v-2zM17.8 1.4l-2 1v-2z
+    b M12-2.8a4.2 4.2 0 1 1 0 8.4 4.2 4.2 0 0 1 0-8.4z
+    k M12-1.2a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z
+    a M12-.4a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z
+    m M10.6 6.6h2.8v1.6h-2.8z
+    t M10.8 16h2.4v3.6h-2.4z
+    l M10.8 17.2h2.4M10.8 18.4h2.4
+    m M11 25.8h2v1.4h-2z
+    h M9 -.8c.4-1 1.2-1.6 2-1.8
+  `,
+  80: `
+    @rotate 45
+    @scale 0.86
+    m* M10.6 4.4C6.4 4.8 3.2 3 2-.4c1.6.4 3 .4 4.2 0-1-.8-1.6-1.8-1.8-3 2.4 1.2 4.6 3 6.2 5.6z
+    l* M4.4 1.2l2.4.4M6 -1.4l1.8 1.2
+    t M12-4.4a5.4 5.4 0 1 1 0 10.8 5.4 5.4 0 0 1 0-10.8z
+    k M12-3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z
+    b M11-2.6h2v9.4h-2zM8.2-.2h7.6v2H8.2z
+    a M12-.2l1.1 1.1L12 2.2l-1.1-1.3z
+    b M11.2 6.8h1.6v20h-1.6z
+    s M12.2 6.8h.6v20h-.6z
+    t M10.8 9.2h2.4v1.2h-2.4zM10.8 22h2.4v1.2h-2.4z
+    m M10.8 15h2.4v3.6h-2.4z
+    t M12 26.6l1 1.6h-2z
+    p M17.8 -3.4h.01M6.2 -3.4h.01
+  `,
+};
+
 const BANDS: Band[] = [1, 20, 40, 60, 80];
 const per = (set: Record<Band, string>) =>
   Object.fromEntries(BANDS.map((b) => [b, art(set[b])])) as Record<Band, Layer[]>;
 
+/** Each weapon type's palette by band; anything missing uses WEAPON_PALETTE. */
+export const WEAPON_PALETTES: Partial<Record<string, Record<Band, Palette>>> = { staff: STAFF_PALETTE };
+
 export const WEAPON_ART: PieceArt = {
   sword: per(SWORD),
+  staff: per(STAFF),
 };

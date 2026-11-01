@@ -5,7 +5,7 @@ import { ACCESSORY_ART, ACCESSORY_PALETTE } from "./accessoryArt";
 import { LOOSE_ART, LOOSE_PALETTE } from "./looseArt";
 import { CLERIC_ART, CLERIC_PALETTE } from "./clericArt";
 import { STRIKER_ART, STRIKER_PALETTE } from "./strikerArt";
-import { WEAPON_ART, WEAPON_PALETTE } from "./weaponArt";
+import { WEAPON_ART, WEAPON_PALETTE, WEAPON_PALETTES } from "./weaponArt";
 import { VANGUARD_ART, VANGUARD_PALETTE } from "./vanguardArt";
 
 /*
@@ -62,7 +62,7 @@ export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | n
   const classLayers = classArt?.art[piece]?.[band];
   if (cls && classArt && classLayers) return { layers: classLayers, palette: classArt.palette[band], key: `${cls}-${band}`, source: `${cls}:${piece}:${band}` };
   const weapon = WEAPON_ART[piece]?.[band];
-  if (weapon) return { layers: weapon, palette: WEAPON_PALETTE[band], key: `wpn-${band}`, source: `weapon:${piece}:${band}` };
+  if (weapon) return { layers: weapon, palette: (WEAPON_PALETTES[piece] ?? WEAPON_PALETTE)[band], key: `${piece}-${band}`, source: `weapon:${piece}:${band}` };
   const accessory = ACCESSORY_ART[piece]?.[band];
   if (accessory) return { layers: accessory, palette: ACCESSORY_PALETTE[band], key: `acc-${band}`, source: `accessory:${piece}:${band}` };
   const layers = BAND_ART[piece]?.[band];

@@ -10,7 +10,7 @@ export type Band = (typeof LEVEL_BANDS)[number];
  *   k cavity (near black)  h soft highlight  l dark detail line  e light detail line  d dark dots  p trim dots
  */
 export type Tone = "b" | "s" | "m" | "t" | "a" | "k" | "h" | "l" | "e" | "d" | "p";
-/** A tone, a path, and whether to draw the path mirrored left to right as well (a "*" after the tone), and an optional transform for the whole picture ("@rotate 45" and "@edge 0.5", the outline width, as first lines). */
+/** A tone, a path, and whether to draw the path mirrored left to right as well (a "*" after the tone), and an optional transform for the whole picture ("@rotate 45", "@scale 0.9" and "@edge 0.5", the outline width, as first lines, in that order). */
 export type Layer = readonly [Tone, string, boolean?, string?, number?];
 
 /** One layer per line: a tone (add "*" to mirror it across the middle), a space, then the path. */
@@ -20,7 +20,8 @@ export const art = (s: string): Layer[] => {
   let edge: number | undefined;
   while (lines[0].startsWith("@")) {
     const [key, value] = lines.shift()!.slice(1).split(" ");
-    if (key === "rotate") rotate = `rotate(${value} 12 12)`;
+    if (key === "rotate") rotate = `rotate(${value} 12 12) ${rotate ?? ""}`.trim();
+    if (key === "scale") rotate = `${rotate ?? ""} translate(12 12) scale(${value}) translate(-12 -12)`.trim();
     if (key === "edge") edge = Number(value);
   }
   return lines.map((line) => {

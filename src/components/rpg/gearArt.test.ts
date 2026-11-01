@@ -34,6 +34,7 @@ describe("gear art", () => {
     expect(gearArt({ slot: "helmet", itemLevel: 45 })?.source).toBe("shared:helmet:40");
     expect(gearArt({ slot: "weapon", itemLevel: 45 })).toBeNull();
     expect(gearArt({ slot: "ring", itemLevel: 45 })?.source).toBe("accessory:ring:40");
-    expect(gearArt({ slot: "weapon", weapon: "staff", itemLevel: 45 })).toBeNull();
+    expect(gearArt({ slot: "weapon", weapon: "staff", itemLevel: 45 })?.source).toBe("weapon:staff:40");
+    expect(gearArt({ slot: "weapon", weapon: "shield", itemLevel: 45 })).toBeNull();
   });
 });
