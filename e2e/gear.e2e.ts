@@ -247,6 +247,8 @@ test.describe("Item rework (13.5, 13.6, 13.9)", () => {
     await shot(page, "gear-weapon-sheet", { full: false });
     await expectNoOverflow(page, "Weapon sheet", info);
     await expectTapTargets(sheet(page, "Weapon"), "Weapon sheet", info);
+    // Each weapon card shows its weapon art, not the plain slot icon.
+    await expectItemTiles(sheet(page, "Weapon"), "Weapon sheet", info, 1);
   });
 
   test("cards compare against what is worn: green up, red down", async ({ hero, page }, info) => {

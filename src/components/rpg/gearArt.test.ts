@@ -37,5 +37,11 @@ describe("gear art", () => {
     expect(gearArt({ slot: "ring", itemLevel: 45 })?.source).toBe("accessory:ring:40");
     expect(gearArt({ slot: "weapon", weapon: "staff", itemLevel: 45 })?.source).toBe("weapon:staff:40");
     expect(gearArt({ slot: "weapon", weapon: "shield", itemLevel: 45 })?.source).toBe("weapon:shield:40");
+    // The views pass a display label as `weapon`; the base id decides the type.
+    expect(gearArt({ slot: "weapon", weapon: "Staff · Cleric weapon (+10% power)", baseId: "moonwood-staff", itemLevel: 37 })?.source).toBe("weapon:staff:40");
+    // Named items keep their own band's art at any level; loose armor follows the level.
+    expect(gearArt({ slot: "helmet", baseId: "steelguard-helmet", itemLevel: 63 })?.source).toBe("vanguard:helmet:20");
+    expect(gearArt({ slot: "helmet", baseId: "ironbound-helmet", itemLevel: 63 })?.source).toBe("shared:helmet:60");
+    expect(gearArt({ slot: "weapon", weapon: "Sword · Striker weapon", itemLevel: 40 })).toBeNull();
   });
 });

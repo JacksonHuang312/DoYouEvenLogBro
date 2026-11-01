@@ -1,5 +1,5 @@
 import { ITEMS, SETS } from "@/lib/game/catalogData";
-import { LEVEL_BANDS, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
+import { LEVEL_BANDS, WEAPON_TYPES, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
 import { type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
 import { ACCESSORY_ART, ACCESSORY_PALETTE } from "./accessoryArt";
 import { MYTHIC_ART } from "./mythicArt";
@@ -39,11 +39,22 @@ export const CLASS_ART: Partial<Record<ClassId, { art: PieceArt; palette: Record
 
 const classOfSet = new Map(SETS.map((s) => [s.id, s.classId]));
 const classOfBase = new Map(ITEMS.filter((i) => i.set).map((i) => [i.id, classOfSet.get(i.set!)!]));
+/** A weapon's type by base id, so callers can pass any `weapon` text (the views pass a display label). */
+const weaponOfBase = new Map(ITEMS.filter((i) => i.weapon).map((i) => [i.id, i.weapon!]));
+/**
+ * A named item's own band (set pieces take their set's, weapons carry one), so a Moonwood Staff always looks
+ * like the Moonwood Staff whatever level it rolled or was reforged to. Loose armor and accessories have none
+ * and follow the item's level.
+ */
+const bandOfBase = new Map<string, Band>([
+  ...ITEMS.filter((i) => i.set).map((i) => [i.id, SETS.find((s) => s.id === i.set)!.band as Band] as const),
+  ...ITEMS.filter((i) => i.weapon && i.band).map((i) => [i.id, i.band as Band] as const),
+]);
 
 export const bandOfLevel = (level: number): Band => [...LEVEL_BANDS].reverse().find((b) => level >= b) ?? LEVEL_BANDS[0];
 
 export const pieceOf = (slot: Slot, weapon?: string | null): PieceType | null =>
-  slot === "weapon" ? ((weapon as WeaponType | null | undefined) ?? null) : slot;
+  slot === "weapon" ? ((WEAPON_TYPES as readonly string[]).includes(weapon ?? "") ? (weapon as WeaponType) : null) : slot;
 
 /** The art for an item, or null if there is none for it yet. */
 export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | null; itemLevel?: number }): {
@@ -53,10 +64,11 @@ export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | n
   key: string;
   source: string;
 } | null {
-  const band = bandOfLevel(item.itemLevel ?? 1);
+  const band = (item.baseId && bandOfBase.get(item.baseId)) || bandOfLevel(item.itemLevel ?? 1);
   const own = item.baseId ? UNIQUE_ART[item.baseId] : undefined;
   if (own) return { layers: own.layers, palette: own.palette, key: `u-${item.baseId}`, source: `unique:${item.baseId}` };
-  const piece = pieceOf(item.slot, item.weapon);
+  const weaponType = (item.baseId && weaponOfBase.get(item.baseId)) || item.weapon;
+  const piece = pieceOf(item.slot, weaponType);
   if (!piece || item.itemLevel == null) return null;
   const cls = item.baseId ? classOfBase.get(item.baseId) : undefined;
   const classArt = cls ? CLASS_ART[cls] : undefined;
