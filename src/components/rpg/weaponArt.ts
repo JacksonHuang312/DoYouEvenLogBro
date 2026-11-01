@@ -9,7 +9,7 @@ import { art } from "./gearLayers";
  *   20 Steel Longsword: a straight blade with a crossguard
  *   40 Runed Broadsword: a broad blade with glowing runes and a winged guard
  *   60 Duskfang Saber: a curved dark saber with a fang-shaped guard
- *   80 Sunsteel Greatsword: a jagged black curved greatblade with glowing gems
+ *   80 Sunsteel Greatsword: a long white-gold holy blade with a winged crossguard and a jewelled grip
  */
 
 export const WEAPON_PALETTE: Record<Band, Palette> = {
@@ -17,7 +17,7 @@ export const WEAPON_PALETTE: Record<Band, Palette> = {
   20: { light: "#f2f5f8", base: "#adb6c2", dark: "#454d59", trim: "#7d4c2b" },
   40: { light: "#f6f9fd", base: "#b9c5d7", dark: "#47536d", trim: "#6aa2f7" },
   60: { light: "#c6cad6", base: "#60646f", dark: "#1f2128", trim: "#c68b49" },
-  80: { light: "#8e94ac", base: "#272832", dark: "#08080c", trim: "#dbae45" },
+  80: { light: "#fffaf0", base: "#d6dbe5", dark: "#6b7080", trim: "#e3be5a" },
 };
 
 const SWORD: Record<Band, string> = {
@@ -76,19 +76,22 @@ const SWORD: Record<Band, string> = {
     t M12 22.4l1.5 1.2L12 25.2l-1.5-1.6z
     a M12 16.8l.9 1.1-.9 1.3-.9-1.3z
   `,
-  // A jagged black curved greatblade with glowing gems and a golden crown guard
+  // A long holy blade with a gold fuller, a white winged crossguard and a jewelled grip
   80: `
     @rotate 45
-    b M13.6-3.6c2 2.6 2.6 9 1.4 19.6h-4.2l.6-1.4-1.2.1.6-1.5-1.2.1.6-1.8-1.2-.1C9.6 4.8 11.4-.8 13.6-3.6z
-    s M14.2-2.4c1.8 3 2 9 .8 18.4h-2c1.2-6 1-12.4-.8-18.4z
-    l M13 -1.6c.8 4 1 9 .4 13.6
-    a M12.6 11l.9 1.2-.9 1.4-.9-1.4zM13.2 5.4l.6.9-.6 1-.6-1z
-    t M8 16h8.4l.7 1.8H7.3z
-    t M6.8 15.6l1.4.4-.5 2.2zM17.4 15.6l-1.4.4.5 2.2z
-    s M11 17.8h2.4v3.8H11z
-    l M11 19h2.4M11 20.4h2.4
-    a M12.2 21.8l1.4 1.2-1.4 1.8-1.4-1.8z
-    p M8 17h.01M16.4 17h.01
+    @scale 0.9
+    m* M10.6 14.6C8 15 5.6 14 4.4 11.6c1.2.4 2.2.4 3.2 0-.8-.6-1.4-1.4-1.6-2.4 1.8.8 3.4 2.4 4.6 5.4z
+    l* M6 12.4l2.2.6M7.2 10.6l1.6 1.4
+    t* M4.6 12.2l-2.2 1 2.4.4z
+    b M12-4.4l1.4 2.2v16.8h-2.8V-2.2z
+    s M12-4.4l1.4 2.2v16.8H12z
+    t M11.7-1.4h.6V14h-.6z
+    e M11 -1.6V13.6
+    t M10.2 14.2h3.6v2.2h-3.6z
+    a M12 14.4l.9.9-.9 1-.9-1z
+    m M11 16.4h2v1.6h-2zM11 20h2v1.6h-2z
+    a M11 18h2v2h-2zM11 21.6h2v1.6h-2z
+    t M12 23.2l1.2 1.4-1.2 1.8-1.2-1.8z
   `,
 };
 
@@ -168,17 +171,18 @@ const STAFF: Record<Band, string> = {
   80: `
     @rotate 45
     @scale 0.8
-    m* M10.6 4C8 4.4 6.2 3.4 5.6 1.4c1 .2 1.8.2 2.6-.2-.6-.6-.8-1.2-1-2 1.6.8 2.8 2.2 3.4 4.8z
-    l* M6.6 2l2 .4M7.6.2l1.4 1
-    t M12-4.4a5.4 5.4 0 1 1 0 10.8 5.4 5.4 0 0 1 0-10.8z
-    k M12-3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z
-    b M11-2.6h2v9.4h-2zM8.2-.2h7.6v2H8.2z
-    a M12-.2l1.1 1.1L12 2.2l-1.1-1.3z
-    b M11.2 6.8h1.6v20h-1.6z
-    s M12.2 6.8h.6v20h-.6z
-    t M10.8 9.2h2.4v1.2h-2.4zM10.8 22h2.4v1.2h-2.4z
-    m M10.8 15h2.4v3.6h-2.4z
-    t M12 26.6l1 1.6h-2z
+    m* M10.4 7.6C7.6 8.2 4.8 7.4 3 5.2c1.2 0 2.2-.2 3-.6-1.2-.4-2.2-1.2-2.8-2.4 1.4.2 2.6 0 3.4-.4-.8-.8-1.2-1.8-1.2-3 2.4 1.2 4.4 3.4 5.6 6.4z
+    l* M5.2 5.4l2.6.2M5.8 3l2.4.8M7.2.8l1.6 1.6
+    t M12-1.8l1 1.8h-2z
+    t M12 0a4.6 4.6 0 1 1 0 9.2 4.6 4.6 0 0 1 0-9.2z
+    k M12 1.4a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4z
+    b M11 1.2h2v7h-2zM8.8 3.6h6.4v2H8.8z
+    a M12 3.6l1 1-1 1.2-1-1.2z
+    b M11.2 9.4h1.6v15.6h-1.6z
+    s M12.2 9.4h.6v15.6h-.6z
+    t M10.8 11h2.4v1.2h-2.4zM10.8 22h2.4v1.2h-2.4z
+    m M10.8 15.4h2.4v3.6h-2.4z
+    t M12 25l1 1.6h-2z
   `,
 };
 
