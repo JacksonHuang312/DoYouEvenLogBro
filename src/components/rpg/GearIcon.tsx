@@ -72,10 +72,10 @@ export function GearIcon({
           <stop offset="1" stopColor="#fff" stopOpacity="0.05" />
         </linearGradient>
       </defs>
-      {art.layers.map(([tone, d, mirror], i) => (
+      {art.layers.map(([tone, d, mirror, rotate], i) => (
         <g key={i}>
           {[false, ...(mirror ? [true] : [])].map((flip) => (
-            <g key={String(flip)} transform={flip ? "translate(24 0) scale(-1 1)" : undefined}>
+            <g key={String(flip)} transform={[rotate, flip ? "translate(24 0) scale(-1 1)" : ""].filter(Boolean).join(" ") || undefined}>
               <path d={d} {...paint(tone, p, art.key)} />
               {(tone === "b" || tone === "m" || tone === "s") && <path d={d} fill="url(#gear-vol)" />}
             </g>

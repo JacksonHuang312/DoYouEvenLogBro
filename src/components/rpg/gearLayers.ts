@@ -10,20 +10,19 @@ export type Band = (typeof LEVEL_BANDS)[number];
  *   k cavity (near black)  h soft highlight  l dark detail line  e light detail line  d dark dots  p trim dots
  */
 export type Tone = "b" | "s" | "m" | "t" | "a" | "k" | "h" | "l" | "e" | "d" | "p";
-/** A tone, a path, and whether to draw the path mirrored left to right as well (a "*" after the tone). */
-export type Layer = readonly [Tone, string, boolean?];
+/** A tone, a path, and whether to draw the path mirrored left to right as well (a "*" after the tone), and an optional transform for the whole picture (a first line "@rotate 45"). */
+export type Layer = readonly [Tone, string, boolean?, string?];
 
 /** One layer per line: a tone (add "*" to mirror it across the middle), a space, then the path. */
-export const art = (s: string): Layer[] =>
-  s
-    .trim()
-    .split("\n")
-    .map((l) => {
-      const line = l.trim();
-      const at = line.indexOf(" ");
-      const raw = line.slice(0, at);
-      return [raw.replace("*", "") as Tone, line.slice(at + 1), raw.includes("*")] as const;
-    });
+export const art = (s: string): Layer[] => {
+  const lines = s.trim().split(/\r?\n/).map((l) => l.trim());
+  const rotate = lines[0].startsWith("@rotate ") ? `rotate(${lines.shift()!.slice(8)} 12 12)` : undefined;
+  return lines.map((line) => {
+    const at = line.indexOf(" ");
+    const raw = line.slice(0, at);
+    return [raw.replace("*", "") as Tone, line.slice(at + 1), raw.includes("*"), rotate] as const;
+  });
+};
 
 export interface Palette {
   light: string;
