@@ -16,7 +16,7 @@ import { art } from "./gearLayers";
  *   Oathkeeper Belt: royal blue with a gold lion buckle
  *   Saint's Locket: a gold heart locket under a halo
  *   Dawn Censer: a hanging gold censer pierced with suns, trailing smoke
- *   Kingsbane: a black blade with a gold crown guard
+ *   Kingsbane: a long violet blade with a horned, hooked guard, a silver core and an eye gem
  *   Staff of First Light: white-gold with a radiant star
  *   The Unyielding Wall: a fortress-walled tower shield with a sun boss
  */
@@ -205,20 +205,24 @@ export const MYTHIC_ART: Record<string, { palette: Palette; layers: Layer[] }> =
     `),
   },
   kingsbane: {
-    palette: { light: "#ece8f2", base: "#4a4660", dark: "#12101c", trim: "#e0b84c" },
+    palette: { light: "#ecc8f4", base: "#7a2f8e", dark: "#2a0c33", trim: "#f4f0f8" },
     layers: art(`
       @rotate 45
-      @scale 0.92
-      b M12-4.4l1.8 2.6v16H10.2v-16z
-      s M12-4.4l1.8 2.6v16H12z
-      t M12-4.4l1.8 2.6v16h-.6v-15.8L12-3.4z
-      e M10.8-1.4V13.6
-      a M12 3.4l.9 1.2-.9 1.3-.9-1.3zM12 8.4l.9 1.2-.9 1.3-.9-1.3z
-      t M6.4 14.2l1.2-2.6 1.6 1.8 1.4-2.6 1.4 2 1.4-2 1.4 2.6 1.6-1.8 1.2 2.6v2H6.4z
-      a M12 14.6l1 1.1-1 1.2-1-1.2z
-      s M11 16.2h2v5h-2z
-      l M11 17.4h2M11 18.8h2M11 20.2h2
-      t M12 21l1.6 1.4-1.6 2-1.6-2z
+      @scale 0.9
+      b M12-4.8l1.4 3.6.3 13h-3.4l.3-13z
+      s M12-4.8l1.4 3.6.3 13H12z
+      e M12-1.4v1.6M11.6 1.2l.8.6
+      b* M10.6 12.2C7.6 11.8 5.6 10 5 7.2c-.2-1 .4-1.6 1.2-1.2-.2 1.6.4 2.8 1.6 3.4-.4-1.2-.2-2.2.6-2.8.4 1.6 1.2 2.6 2.4 3.2z
+      b* M10.6 13.4c-2.8.2-4.8 1.4-5.6 3.6 1.2-.4 2.2-.4 3.2.2-.2-.8.2-1.4.8-1.6.2.8.8 1.2 1.6 1.2z
+      b M9.4 11.8h5.2l.6 2.4-1.2 2.8h-4l-1.2-2.8z
+      t M12 8.6l2.2 3.4-1 1v2.4L12 17.2l-1.2-1.8V13l-1-1z
+      k M11.3 12.4h.5v1.8h-.5zM12.2 12.4h.5v1.8h-.5z
+      a M12 15.2l.8.9-.8 1-.8-1z
+      b M11 17.2h2v5h-2z
+      s M12.2 17.2h.8v5h-.8z
+      l M11 18.2h2M11 19.2h2M11 20.2h2M11 21.2h2
+      b M12 22.2l1.2 1.2-1.2 2.6-1.2-2.6z
+      h M10.9-.6l.3-1.6M6.6 8c.2 1 .6 1.6 1.2 2
     `),
   },
   "staff-of-first-light": {
