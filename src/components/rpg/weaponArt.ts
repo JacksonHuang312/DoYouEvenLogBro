@@ -187,14 +187,87 @@ const STAFF: Record<Band, string> = {
   `,
 };
 
+/** Shields (the Vanguard's weapon): wood, steel, dark iron, elven silver, black. */
+export const SHIELD_PALETTE: Record<Band, Palette> = {
+  1: { light: "#dcae70", base: "#9a6438", dark: "#4a2c16", trim: "#8a909a" },
+  20: { light: "#eef2f6", base: "#a3adba", dark: "#414955", trim: "#b8423a" },
+  40: { light: "#a2aab8", base: "#4e5562", dark: "#1c1f26", trim: "#c58a3e" },
+  60: { light: "#f6f2e6", base: "#cbc3ad", dark: "#6e6650", trim: "#2f8f98" },
+  80: { light: "#8a8fa6", base: "#25262f", dark: "#07070b", trim: "#b3243a" },
+};
+
+/*
+ * Shields, drawn upright:
+ *   1  Wooden Buckler: a round plank shield with an iron rim, a bar and a boss
+ *   20 Iron Kite Shield: a steel kite with a red cross and rivets
+ *   40 Tower Shield: a tall dark iron shield with a crown of spikes and a thorned bronze cross around a glowing gem
+ *   60 Ironwall Aegis: an elven silver shield with notched sides, teal enamel, a gold spine and an oval gem
+ *   80 Titan's Bulwark: a black horned shield with a silver crest, a crimson spine and a crimson gem
+ */
+const SHIELD: Record<Band, string> = {
+  1: `
+    t M12 2.2a9.8 9.8 0 1 1 0 19.6 9.8 9.8 0 0 1 0-19.6z
+    b M12 3.6a8.4 8.4 0 1 1 0 16.8 8.4 8.4 0 0 1 0-16.8z
+    s M12 3.6a8.4 8.4 0 0 1 0 16.8 5.6 8.4 0 0 0 0-16.8z
+    l M8.4 4.2v15.6M15.6 4.2v15.6
+    t M3.6 10.8h16.8v2.4H3.6z
+    m M12 8.4a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2z
+    s M12 8.4a3.6 3.6 0 0 1 0 7.2 2.2 3.6 0 0 0 0-7.2z
+    d M12 3h.01M12 21h.01M3 12h.01M21 12h.01M5.6 5.6h.01M18.4 5.6h.01M5.6 18.4h.01M18.4 18.4h.01
+    h M5.6 8.4c1-2 2.6-3.4 4.6-4.2M10.4 9.8c.4-.6 1-.8 1.6-.8
+  `,
+  20: `
+    b M12 1.6c4 0 7.4 1 9 2.4-.2 7.6-3.4 14-9 18.4C6.4 18 3.2 11.6 3 4c1.6-1.4 5-2.4 9-2.4z
+    s M12 1.6c4 0 7.4 1 9 2.4-.2 7.6-3.4 14-9 18.4z
+    t M10.6 2h2.8v19.4h-2.8zM3.6 7.4h16.8v2.6H3.6z
+    l M4.6 5c.4 6.4 3 11.6 7.4 15.4M19.4 5c-.4 6.4-3 11.6-7.4 15.4
+    m M12 6.6a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1 0-4.4z
+    d M5 4.6h.01M8.4 3.4h.01M15.6 3.4h.01M19 4.6h.01M6 12.6h.01M18 12.6h.01M8.6 17.2h.01M15.4 17.2h.01
+    h M5 5.6c.4 4 1.6 7.4 3.4 10M11.2 7.4c.2-.4.6-.6 1-.6
+  `,
+  40: `
+    t M4 4.4L5 1l1.6 2.6L8.4.4 10 3l2-2.6L14 3l1.6-2.6 1.8 3.2L19 1l1 3.4z
+    b M4 4.2h16v13.6c0 1.6-1 2.6-2.4 3.4L12 23l-5.6-1.8C5 20.4 4 19.4 4 17.8z
+    s M12.6 4.2H20v13.6c0 1.6-1 2.6-2.4 3.4L12.6 22.8z
+    l M5.2 5.4v12.2c0 1.2.8 2 1.8 2.6l5 1.6 5-1.6c1-.6 1.8-1.4 1.8-2.6V5.4z
+    t M11 5.4h2v15h-2zM6.4 9.6h11.2v2H6.4z
+    t* M8.4 9.6l-.8-1.6 1.6.8zM8.4 11.6l-.8 1.6 1.6-.8zM12 15.4l-1.4.8 1.4.8z
+    a M12 8.4a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1 0-4.4z
+    h M5.6 6v8.4M11.4 9c.2-.4.4-.6.8-.6
+    p M5.6 19h.01M18.4 19h.01
+  `,
+  60: `
+    b M12 1l3 3.6c2.4.2 4.4 1 5.6 2.4-1.6.2-2.6 1.2-2.6 2.6s1 2.4 2.6 2.6L12 23 3.4 12.2c1.6-.2 2.6-1.2 2.6-2.6S5 7.2 3.4 7c1.2-1.4 3.2-2.2 5.6-2.4z
+    s M12 1l3 3.6c2.4.2 4.4 1 5.6 2.4-1.6.2-2.6 1.2-2.6 2.6s1 2.4 2.6 2.6L12 23z
+    t M12 4.2l2.4 2.6c1.8.2 3.2.8 4 1.6-1 .6-1.6 1.6-1.6 2.6L12 20.2l-4.8-9.2c0-1-.6-2-1.6-2.6.8-.8 2.2-1.4 4-1.6z
+    m M11.4 4.6h1.2v15.2h-1.2z
+    a M12 7.2c1.2 0 2 1.2 2 2.8s-.8 2.8-2 2.8-2-1.2-2-2.8.8-2.8 2-2.8z
+    e M8.4 8.4l1.6 1.6M15.6 8.4L14 10M9.6 14l1.4 2.6M14.4 14L13 16.6
+    h M10.6 8.6c.2-.6.6-1 1.2-1.2M5.4 6.8c1-.6 2.2-1 3.4-1.2
+    p M12 2.6h.01
+  `,
+  80: `
+    t* M3.4 12.4l-2.2.8 2.6 1.2zM4.8 16.6l-2 1.4 2.8.4z
+    b M12 1.6l2.4 2.4 3.2-2.4 1.6 3 2.4-.8-.6 4.6c0 6.4-3.6 11.6-9 15-5.4-3.4-9-8.6-9-15l-.6-4.6 2.4.8 1.6-3 3.2 2.4z
+    s M12 1.6l2.4 2.4 3.2-2.4 1.6 3 2.4-.8-.6 4.6c0 6.4-3.6 11.6-9 15z
+    t M11.2 4h1.6v17h-1.6z
+    l M5 8.4c.2 5 2.8 9.4 7 12.4M19 8.4c-.2 5-2.8 9.4-7 12.4
+    m M12 7.4l2.6 2.2 3-1-1.6 2.4 1.6 2.4-3-1L12 14.6l-2.6-2.2-3 1 1.6-2.4-1.6-2.4 3 1z
+    t M12 9.2l1.6 1.8L12 13l-1.6-2z
+    h M5.4 7.4c.2 2.4.8 4.4 1.8 6.2
+    p M6.8 5.6h.01M17.2 5.6h.01
+  `,
+};
+
 const BANDS: Band[] = [1, 20, 40, 60, 80];
 const per = (set: Record<Band, string>) =>
   Object.fromEntries(BANDS.map((b) => [b, art(set[b])])) as Record<Band, Layer[]>;
 
 /** Each weapon type's palette by band; anything missing uses WEAPON_PALETTE. */
-export const WEAPON_PALETTES: Partial<Record<string, Record<Band, Palette>>> = { staff: STAFF_PALETTE };
+export const WEAPON_PALETTES: Partial<Record<string, Record<Band, Palette>>> = { staff: STAFF_PALETTE, shield: SHIELD_PALETTE };
 
 export const WEAPON_ART: PieceArt = {
   sword: per(SWORD),
   staff: per(STAFF),
+  shield: per(SHIELD),
 };
