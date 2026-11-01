@@ -74,7 +74,7 @@ const HELMET: Record<Band, string> = {
     b M12 4.2l3.6 2.2c1.2 1.4 1.8 3 1.8 5v3.6l-2 3.2-3.4 2-3.4-2-2-3.2v-3.6c0-2 .6-3.6 1.8-5z
     s M12.6 4.4l3 1.8c1.2 1.4 1.8 3 1.8 5v3.6l-2 3.2-2.8 1.7z
     m M11.4 4.4h1.2v5.6h-1.2z
-    a M8.4 10.6l3.6.8 3.6-.8v1.6L12 13l-3.6-.8z
+    t M8.4 10.6l3.6.8 3.6-.8v1.6L12 13l-3.6-.8z
     e M9 15l3 2 3-2M10 6.4l2 1.6 2-1.6
     l M6.6 8l-1 6M17.4 8l1 6M12 13.4v5.4
     p M9.4 16.6h.01M14.6 16.6h.01M7.4 12.4h.01M16.6 12.4h.01
@@ -143,7 +143,7 @@ const CHESTPLATE: Record<Band, string> = {
     s M12.4 4.4l4.4 1.4 1.4 4.8-1.6 4 .8 6.6h-5z
     m* M2.4 9.2C2.4 6 4.4 4 7.4 4.2l1.4 1.8-.2 4.2z
     t* M3.2 5.4L1.4 2l4.2 2zM6.2 4.2L5.6 1l2.4 2.4z
-    a M12 8.4l2 3-2 3.2-2-3.2z
+    t M12 8.4l2 3-2 3.2-2-3.2z
     e M9 7.6l3 2 3-2M8.6 12.6l3.4 2.2 3.4-2.2
     t M7.8 16.4h8.4v1.6H7.8z
     m M10.8 16.2h2.4v2h-2.4z
@@ -155,40 +155,50 @@ const CHESTPLATE: Record<Band, string> = {
 
 const HAND = `
   b M7.4 21v-5L5.4 12V8.4a1.4 1.4 0 0 1 2.8 0V5a1.4 1.4 0 0 1 2.8 0V4a1.4 1.4 0 0 1 2.8 0v1.4a1.4 1.4 0 0 1 2.8 0V14l-1.8 3v4z
-  s M15.2 8.4V14l-1.8 3v4H12v-4l1.6-3V8z
+  s M15.2 4.8c.9.2 1.6.9 1.6 1.9V14l-1.8 3v4h-1.6v-4.2l1.8-3.2z
   l M8.2 9.6V12M11 5.6V10M13.8 6V10M7.2 12h9.6
   h M6 9V8M8.8 5.4V7
 `;
 
 const GLOVES: Record<Band, string> = {
-  // Cloth hand wraps
-  1: `${HAND}
-    t M6.4 17h9.6v1.2H6.4zM6.6 19.2h9.2v1.2H6.6z
-    l M6.6 15l9 1.2M6.8 13.2l8.6 .8
-    p M9.4 8.6h.01M12.2 8.6h.01
+  // Cloth hand wraps with a loose strip trailing from the wrist
+  1: `
+    t M7.4 18.2L3 20.4l.8 1.4 4.2-1.6z
+    ${HAND}
+    t M6.4 14.4l9.8 1.6-.2 1.5-9.8-1.6zM7 17.4l9 .4v1.5l-9-.4zM7.2 19.8h8.4v1.4H7.2z
+    t M5.6 10.2l2.4.6-.2 1.2-2.4-.6zM8.4 6.6h2.6v1.2H8.4zM11.2 5.4h2.6v1.2h-2.6zM14 6h2.6v1.2H14z
+    p M9.6 10.6h.01M12.4 10.6h.01
   `,
-  // Leather gloves with a folded cuff and a tie
-  20: `${HAND}
-    t M6 15.8h11.4v3.4H6z
-    m M10.2 16.4h2.2v2.2h-2.2z
-    l M7 17.4h2.4M13.4 17.4h2.8
-    p M8.8 8.6h.01M12.2 8.6h.01M15.4 9.4h.01
+  // A leather glove with a wide flared bucket cuff and a buckle
+  20: `
+    ${HAND}
+    t M4.2 14.4h14.8l-1.8 7.4H6z
+    s M12.6 14.4h6.4l-1.8 7.4h-4.6z
+    l M5 16.4h13.2
+    m M10.4 17.4h2.4v2.6h-2.4z
+    p M6.6 19.6h.01M16.4 19.6h.01M8.8 8.6h.01M12.2 8.6h.01
   `,
-  // A leather glove with a steel knuckle plate and cuff
-  40: `${HAND}
-    m M7.2 8.6h9.6v2.6H7.2z
-    t M5.8 15.6h11.6v3.6H5.8z
-    m M5.8 15.6h11.6v1H5.8z
-    p M8.6 9.9h.01M12 9.9h.01M15.4 9.9h.01M8 18h.01M14.6 18h.01
+  // A long steel-plated bracer strapped over a leather glove
+  40: `
+    ${HAND}
+    b M6.6 13h10.4l-.8 10.4H7.4z
+    s M12.6 13h4.4l-.8 10.4h-3.6z
+    m M8.4 14.4h6.8v5.4l-3.4 1.8-3.4-1.8z
+    t M6.7 15.8h10.2v1.2H6.7zM7.1 20.6h9.4v1.2H7.1z
+    p M11.8 17h.01M8.6 9.6h.01M12 9.6h.01M15.4 9.6h.01
+    h M9 14.8v3
   `,
-  // A long cuffed glove with silver trim, studs and a chain
-  60: `${HAND}
-    t M5.8 14.6h11.6v6.6H5.8z
-    s M11.6 14.6h5.8v6.6h-5.8z
-    m M5.8 14.6h11.6v1.2H5.8z
-    l M5.8 18h11.6M9 15.8v5.4M14 15.8v5.4
-    p M8 17h.01M12 17h.01M15.6 17h.01M8 19.6h.01M12 19.6h.01
-    a M10.6 9.4l.8 1-.8 1-.8-1z
+  // A navy wrap with a pointed silver hand guard and a cord around the finger
+  60: `
+    ${HAND}
+    m M7 13.6l5-6.8 5 6.8-1 2.4H8z
+    s M12 6.8l5 6.8-1 2.4h-4z
+    a M12 10.6l.8 1-.8 1.1-.8-1.1z
+    t M10.9 5.2h2.4v1.1h-2.4z
+    l M12 6.8l.01.01M9 13.8h6
+    s M6.6 16h10.6v5.4H6.6z
+    t M6.6 16h10.6v1H6.6z
+    p M8.2 18.8h.01M10.6 19.4h.01M13 18.8h.01M15.4 19.4h.01
   `,
   // A black clawed gauntlet with crimson edges
   80: `${HAND}
@@ -196,7 +206,7 @@ const GLOVES: Record<Band, string> = {
     t M5.8 15.6h11.6v1.4H5.8z
     m M5.8 17h11.6v3.8H5.8z
     s M11.6 17h5.8v3.8h-5.8z
-    a M10.8 18.2l1 1.2-1 1.2-1-1.2z
+    t M10.8 18.2l1 1.2-1 1.2-1-1.2z
     p M8.4 12h.01M12 12h.01M15.4 12h.01
   `,
 };
@@ -255,7 +265,7 @@ const LEGGINGS: Record<Band, string> = {
     t M3.4 3.2h17.2v2.2H3.4zM9.6 5.4l-1.2 6.4 1.6-.4.6-6zM14.4 5.4l1.2 6.4-1.6-.4-.6-6z
     m* M3.6 12.2h7.4l-.2 2.4c-1.2.6-2.4.8-3.5.8s-2.4-.2-3.5-.8z
     t* M3.8 12.4L1.6 11l.6 3.2zM4.4 16.8h6.2l-.2 3.4H4.6z
-    a* M7.4 13.4l.8.9-.8.9-.8-.9z
+    t* M7.4 13.4l.8.9-.8.9-.8-.9z
     e* M6 6l.8 5.4M9.4 16v4
     p* M5 18.6h.01M9.4 18.6h.01
   `,
@@ -266,16 +276,16 @@ const SHAFT = (x: number, y: number) =>
   `M${x + 8.6} ${y + 2}h5v10.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6V${y + 20}H${x + 5}v-3.4l3.6-2z`;
 
 const BOOTS: Record<Band, string> = {
-  // Plain soft red boots
+  // Short slouchy soft boots, crumpled at the top
   1: `
-    s ${SHAFT(-3, -0.8).replace(/^/, "")}
-    b ${SHAFT(0, 0)}
-    s M13.6 2h1v10.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6V20h-5.4z
-    t M8.6 2h5v1.8h-5z
+    s M5.4 5.6c1.6-.6 3.6-.6 5.4 0l-.2 6 5.4 2.6c1.2.6 1.8 1.4 1.8 2.6v2.4H2v-3.4l3.6-2z
+    b M8.4 6.4c1.6-.6 3.6-.6 5.4 0l-.2 6 5.4 2.6c1.2.6 1.8 1.4 1.8 2.6V20H5v-3.4l3.6-2z
+    s M12.6 6.2c.4 0 .8.1 1.2.2l-.2 6 5.4 2.6c1.2.6 1.8 1.4 1.8 2.6V20h-5.8z
+    t M8.2 5.6c1.8-.8 4-.8 5.8 0l-.2 1.8c-1.8-.6-3.6-.6-5.4 0z
+    l M8.6 9c1.4.6 3.4.6 5 0M8.8 11.4c1.2.4 3 .4 4.6 0M13.6 14.4l3.6 1.6
     s M5 20h16.6v2H5z
-    l M9 5.6h4.6M9 8.4h4.6M9 11h4.6M13.6 14l4 1.6
-    h M9.4 3.2v7M6.4 17l1.8-.6
-    p M11 4.6h.01
+    h M9.2 8l-.2 3.6M6.4 17l1.8-.6
+    p M11 7.8h.01
   `,
   // Tall folded boots with ties
   20: `
@@ -319,13 +329,13 @@ const BOOTS: Record<Band, string> = {
   // Black pointed boots with crimson edges, a spur and shin spikes
   80: `
     s ${SHAFT(-3, -0.8)}
-    t M5.4 1.6L4 -.2l3 .6zM9.2 .8L8.6-1l2.2 1.2z
+    t M5.6 2.2L4.4.6l2.8.8zM9.4 1.6l-.2-1.2 1.8 1.2z
     b ${SHAFT(0, 0)}
     s M13.6 2h1v10.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6V20h-5.4z
     t M8.6 2h5v1.6h-5zM5 17.2h16.6v1.2H5z
     m M13.4 13.4l6 2.4c1.4.4 2.2 1.2 2.4 2.6l-1.2.4-1.6-1.2-5.4-2.2z
     t M21.6 17.6l2 1.6-2.4.2zM8.8 6.4L7.2 5l2.6.6zM8.8 9.4L7 8.2l2.8.4z
-    a M10.6 7.2l.9 1-.9 1-.9-1z
+    t M10.6 7.2l.9 1-.9 1-.9-1z
     s M5 20h16.6v2H5z
     e M9.6 11l2.6 4M10 4.8l2.4.6
     p M7 18.8h.01M12 18.8h.01
