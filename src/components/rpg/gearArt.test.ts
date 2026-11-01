@@ -22,9 +22,10 @@ describe("gear art", () => {
     }
   });
 
-  it("only has unique art for Mythics that exist", () => {
+  it("draws every Mythic, and only Mythics", () => {
     const mythics = new Set(ITEMS.filter((i) => i.mythic).map((i) => i.id));
-    for (const id of Object.keys(UNIQUE_ART)) expect(mythics.has(id), id).toBe(true);
+    expect(Object.keys(UNIQUE_ART).sort()).toEqual([...mythics].sort());
+    for (const [id, { layers }] of Object.entries(UNIQUE_ART)) for (const [, d] of layers) expect(d, id).toMatch(/^M/);
   });
 
   it("looks art up by id, then by piece type and the item's level band", () => {

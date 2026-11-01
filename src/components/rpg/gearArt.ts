@@ -2,6 +2,7 @@ import { ITEMS, SETS } from "@/lib/game/catalogData";
 import { LEVEL_BANDS, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
 import { type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
 import { ACCESSORY_ART, ACCESSORY_PALETTE } from "./accessoryArt";
+import { MYTHIC_ART } from "./mythicArt";
 import { LOOSE_ART, LOOSE_PALETTE } from "./looseArt";
 import { CLERIC_ART, CLERIC_PALETTE } from "./clericArt";
 import { STRIKER_ART, STRIKER_PALETTE } from "./strikerArt";
@@ -26,8 +27,8 @@ export const PIECE_TYPES: PieceType[] = [
 export const PALETTE = LOOSE_PALETTE;
 export const BAND_ART: PieceArt = LOOSE_ART;
 
-/** Art for individual items, by base id. Mythics only. */
-export const UNIQUE_ART: Record<string, Layer[]> = {};
+/** Art for individual items, by base id, each with its own palette. Mythics only: see mythicArt.ts. */
+export const UNIQUE_ART = MYTHIC_ART;
 
 /** Set armor is drawn per class (GAME_DESIGN.md 13.15); loose armor, accessories and weapons share the neutral art. */
 export const CLASS_ART: Partial<Record<ClassId, { art: PieceArt; palette: Record<Band, Palette> }>> = {
@@ -54,7 +55,7 @@ export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | n
 } | null {
   const band = bandOfLevel(item.itemLevel ?? 1);
   const own = item.baseId ? UNIQUE_ART[item.baseId] : undefined;
-  if (own) return { layers: own, palette: PALETTE[80], key: "unique", source: `unique:${item.baseId}` };
+  if (own) return { layers: own.layers, palette: own.palette, key: `u-${item.baseId}`, source: `unique:${item.baseId}` };
   const piece = pieceOf(item.slot, item.weapon);
   if (!piece || item.itemLevel == null) return null;
   const cls = item.baseId ? classOfBase.get(item.baseId) : undefined;
