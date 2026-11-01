@@ -154,18 +154,23 @@ const CHESTPLATE: Record<Band, string> = {
 
 const HAND = `
   b M7.4 21v-5L5.4 12V8.4a1.4 1.4 0 0 1 2.8 0V5a1.4 1.4 0 0 1 2.8 0V4a1.4 1.4 0 0 1 2.8 0v1.4a1.4 1.4 0 0 1 2.8 0V14l-1.8 3v4z
-  s M15.2 8.4V14l-1.8 3v4H12v-4l1.6-3V8z
+  s M15.2 4.8c.9.2 1.6.9 1.6 1.9V14l-1.8 3v4h-1.6v-4.2l1.8-3.2z
   l M8.2 9.6V12M11 5.6V10M13.8 6V10M7.2 12h9.6
   h M6 9V8M8.8 5.4V7
 `;
 
 const GLOVES: Record<Band, string> = {
-  // A plain cloth mitt with a teal cuff
-  1: `${HAND}
-    t M5.8 15.8h11.6v4.6H5.8z
-    s M11.6 15.8h5.8v4.6h-5.8z
+  // A cloth mitten with a thumb and a teal cuff
+  1: `
+    b M7.4 21v-5.4L5.6 12.6V8.2c0-2.4 1.6-4 3.6-4H14c2 0 3.2 1.4 3.2 3.4V14l-1.8 3v4z
+    s M14.8 4.4c1.4.4 2.4 1.6 2.4 3.2V14l-1.8 3v4h-1.6v-4.2l1.6-3z
+    b M5.6 12.6c-1.6-.4-2.4-1.6-2.2-3.2.2-1 1-1.4 1.8-.8l1 1.4z
+    l M8.4 7.6c1.6-.6 4.6-.6 6.6 0M9 10.6c1.4.4 3.6.4 5 0
+    t M5.8 15.6h11.6v5.2H5.8z
+    s M11.6 15.6h5.8v5.2h-5.8z
     l M7.4 17.4h8.2M7.4 19h8.2
-    p M9.4 8.6h.01M12.2 8.6h.01
+    h M6.6 7.4c.4-1.2 1.2-2 2.2-2.4M4.4 10l.6.8
+    p M10 5.8h.01M13 5.8h.01
   `,
   // A brown glove with a teal flared cuff and a button
   20: `${HAND}
@@ -175,78 +180,91 @@ const GLOVES: Record<Band, string> = {
     l M6 17.4l11 .4
     p M9 8.6h.01M12.2 8.6h.01
   `,
-  // A white glove with a flared gold cuff
+  // A long white glove with gold rings, small wings and a gem
   40: `${HAND}
-    t M4.8 15.2h13.8l-1.6 6H6.4z
-    s M11.8 15.2h6.8l-1.6 6h-5.2z
-    m M5 15.2h13.4v1.2H5z
-    a M10.8 17.4l1.2 1.3-1.2 1.4-1.2-1.4z
-    p M8 19.8h.01M15 19.8h.01M9.4 8.6h.01M12.2 8.6h.01
+    t M6.8 16L3.6 14.2l1 3.4zM16.8 16l3.2-1.8-1 3.4z
+    b M6.8 14.4h10l-.6 8.8H7.4z
+    s M12.4 14.4h4.4l-.6 8.8h-3.8z
+    t M6.8 14.4h10v1.2h-10zM7.1 18.4h9.4v1.1H7.1zM7.3 21.8h9v1.2h-9z
+    a M11.8 16.2l.9 1-.9 1.1-.9-1.1z
+    p M9.4 9.2h.01M12.2 9.2h.01
   `,
-  // A navy glove with a silver star cuff
-  60: `${HAND}
-    t M5.4 15.4h12.2l-1.2 5.8H6.6z
-    s M11.6 15.4h6l-1.2 5.8h-4.8z
-    m M11.5 16.4l.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.8-1.4.8.3-1.6-1.2-1.1 1.6-.2z
-    p M8.6 8.6h.01M12.2 8.6h.01
+  // A navy glove with pointed fingertips and a silver star cuff
+  60: `
+    b M7.4 21v-5L5.4 12l.2-4.6 1.4-2.4 1.4 2.6.2-3.4 1.4-2.8 1.4 2.8.2-1.4 1.4-2.4 1.4 2.4.2 1.4 1.2-2 1.2 2.4V14l-1.8 3v4z
+    s M15 5.2l1.2-2 1.2 2.4V14l-1.8 3v4h-1.6v-4.2l1.8-3.2z
+    l M8.4 7.6V11M11.2 4.8V10M14 5.2V10M7.2 12h9.6
+    t M6 15.4h11.4l-1 5.8H7z
+    s M11.8 15.4h5.6l-1 5.8h-4.6z
+    m M11.6 16.4l.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.8-1.4.8.3-1.6-1.2-1.1 1.6-.2z
+    h M6 9V8M9.6 4.8l.4 1.4
+    p M8.6 9.4h.01M11.4 8.4h.01
   `,
-  // A black glove with a gold cross bracer
-  80: `${HAND}
-    t M5 14.4h13.4l-1.4 7H6.4z
-    s M11.8 14.4h6.6l-1.4 7h-5.2z
-    k M9.6 16.4h4.4v3.4H9.6z
-    t M11.4 16.2h1.2v4h-1.2zM10 17.6h4v1.2h-4z
-    a M16.4 11.4l.8 1-.8 1-.8-1z
-    p M8.6 10.6h.01M12 10.6h.01
+  // A black glove with a gold winged bracer and a gold cross
+  80: `
+    t M5.6 15.2C3.6 14.4 2 15 1 16.6c1.6-.2 2.8 0 4.2.8zM5.8 17.8c-1.6-.4-3-.2-4 1 1.4.2 2.6.4 3.8 1zM17.8 15.2c2-.8 3.6-.2 4.6 1.4-1.6-.2-2.8 0-4.2.8zM17.6 17.8c1.6-.4 3-.2 4 1-1.4.2-2.6.4-3.8 1z
+    ${HAND}
+    t M5.4 14.4h12.6l-1.2 7H6.6z
+    s M11.8 14.4h6.2l-1.2 7h-5z
+    k M9.6 16.2h4.4v3.6H9.6z
+    t M11.4 16h1.2v4h-1.2zM10 17.4h4v1.2h-4z
+    a M12 9.6l.8 1-.8 1.1-.8-1.1z
+    p M8.6 11.4h.01M15.4 11.4h.01
   `,
 };
 
 /** Leggings are a robe skirt, the hem of the robe. */
 const LEGGINGS: Record<Band, string> = {
-  // A brown skirt tied with a rope
+  // A knee-length tunic skirt tied with a rope, over dark trousers
   1: `
-    b M6 3h12l3.4 18.6H2.6z
-    s M12.4 3H18l3.4 18.6h-9z
-    t M5.8 3.2h12.4v2.2H5.8z
-    t M10.4 5.4h3.2l.8 3.4-2.4 1.6-2.4-1.6z
-    l M9 8l-3.6 13M15 8l3.6 13M12 10.4v11M7.8 14l-1.4 7M16.2 14l1.4 7
-    t M2.6 19.6h18.8v2H2.6z
-    p M8 12h.01M16 12h.01M10 17h.01M14 17h.01
-    h M7.2 6l-2 14
+    s* M8 13.4h3.2l-.2 8.4H8.2z
+    b M6.6 3h10.8l2.4 11.2c-2.4 1-5.2 1.4-7.8 1.4s-5.4-.4-7.8-1.4z
+    s M12.6 3h4.8l2.4 11.2c-2 .8-4.4 1.2-6.6 1.4z
+    t M6.4 3.2h11.2v2H6.4z
+    t M10.6 5.2l-.8 3.6 1.4-.4.4-3.2zM13.4 5.2l.8 3.6-1.4-.4-.4-3.2z
+    l M9 6.4l-2.6 7.4M15 6.4l2.6 7.4M12 6v8.6
+    t M4.4 13.4c2.4 1 5 1.4 7.6 1.4s5.2-.4 7.6-1.4l.2.9c-2.4 1-5.2 1.5-7.8 1.5s-5.4-.5-7.8-1.5z
+    h M7.4 6l-2 7
+    p M8 11h.01M16 11h.01
   `,
-  // A brown skirt with a teal sash and a laced slit
+  // Two long panels split down the front, a teal sash with hanging tails
   20: `
-    b M6 3h12l3.4 18.6H2.6z
-    s M12.4 3H18l3.4 18.6h-9z
-    t M5.8 3.2h12.4v3H5.8z
-    m M10.6 3.4h2.8v2.6h-2.8z
-    k M11 7h2l.8 14.6h-3.6z
-    l M9.4 9l-.2 2M9.4 12l-.2 2M9.4 15l-.2 2M14.6 9l.2 2M14.6 12l.2 2M14.6 15l.2 2
-    t M2.6 19.4h18.8v2.2H2.6z
-    p M7 12h.01M17 12h.01M5.6 17h.01M18.4 17h.01
-    h M7.2 7l-2 12
+    b M6.4 3h5.2l-.8 18.8H2.4z
+    b M12.4 3h5.2l4 18.8h-8.4z
+    s M15 3h2.6l4 18.8h-5.8z
+    k M11.6 3h.8l.6 18.8h-2z
+    t M6.2 3.2h11.6v2.6H6.2z
+    t M10.2 5.8l-.8 6 1.6-.6.4-5.4zM13.8 5.8l.8 6-1.6-.6-.4-5.4z
+    l M8.6 7.4l-3 13M17.2 7.4l2.6 13
+    t M2.4 20.4h8.4v1.4H2.4zM13.2 20.4h8.4v1.4h-8.4z
+    m M10.6 3.4h2.8v2.2h-2.8z
+    h M7.2 6l-2.6 12.6
   `,
-  // A white skirt with gold panels and tassels
+  // A two-tiered white skirt with gold hems, a blue sash and tassels
   40: `
-    b M6 3h12l3.4 18.6H2.6z
-    s M12.4 3H18l3.4 18.6h-9z
-    a M5.8 3.2h12.4v2.4H5.8z
-    t M10.6 5.6h2.8L15 21.6H9zM2.6 19.6h18.8v2H2.6z
-    t M12 8.4l1.6 2.4-1.6 2.4-1.6-2.4zM10 17l-.4 3.4M14 17l.4 3.4M6.6 17l-.2 3.4M17.4 17l.2 3.4
-    l M8.6 7.4L5 21M15.4 7.4L19 21
-    p M12 15.4h.01M8 12h.01M16 12h.01
-    h M7.4 6l-2 13
+    b M4.4 10.4c2.4.8 5 1.2 7.6 1.2s5.2-.4 7.6-1.2l2.4 10.2-2 1-1.8-.8-2 1-2.2-.8-2 .8-2.2-.8-2 .8-1.8-1-2 .8z
+    s M14 11.4c2-.2 3.8-.5 5.6-1l2.4 10.2-2 1-1.8-.8-2 1z
+    b M6.4 3h11.2l1.8 7.6c-2.2.8-4.8 1.2-7.4 1.2s-5.2-.4-7.4-1.2z
+    s M13.2 3h4.4l1.8 7.6c-1.8.6-3.8 1-6 1.2z
+    a M6.2 3.2h11.6v2.2H6.2z
+    t M4.6 10.2c2.4.8 5 1.2 7.4 1.2s5-.4 7.4-1.2v1.2c-2.4.8-5 1.2-7.4 1.2s-5-.4-7.4-1.2z
+    t M11.2 5.4h1.6v5.8h-1.6zM11.2 12.6h1.6v8h-1.6z
+    t M12 7l1 1.4-1 1.4-1-1.4z
+    l M8.4 5.6l-1.4 4.8M15.6 5.6l1.4 4.8M7.6 13l-1.6 7M16.4 13l1.6 7
+    h M7.6 5l-1.4 4.4M5.6 12.6l-1.4 6
+    p M5.8 21.4h.01M9.8 21.6h.01M14.2 21.6h.01M18.2 21.4h.01
   `,
-  // A navy skirt with silver trim, a slit and a star
+  // A long narrow navy robe skirt with a dagged hem, silver trim and a star
   60: `
-    b M6 3h12l3.4 18.6H2.6z
-    s M12.4 3H18l3.4 18.6h-9z
-    t M5.8 3.2h12.4v2H5.8zM2.6 19.8h18.8v1.8H2.6z
-    m M11 5.2h2L14.6 21H9.4z
-    m M12 9l.8 1.8 1.9.2-1.4 1.3.4 1.9-1.7-1-1.7 1 .4-1.9-1.4-1.3 1.9-.2z
-    l M8.8 6.6L5.2 21M15.2 6.6L18.8 21M12 15v6
-    p M7.4 12h.01M16.6 12h.01M6.2 17h.01M17.8 17h.01
-    h M7.4 6l-2 13
+    b M7.2 3h9.6l1.6 17.4-1.8 2.2-1.6-1.6-1.6 2-1.4-2-1.6 2-1.6-2-1.6 1.6-1.8-2.2z
+    s M12.8 3h4l1.6 17.4-1.8 2.2-1.6-1.6-1.6 2-.6-.9z
+    k M11 5.4h2l1 15.2h-4z
+    t M7 3.2h10v2.2H7z
+    t M7 5.4l-1.4 15M17 5.4l1.4 15
+    m M12 10l.8 1.8 1.9.2-1.4 1.3.4 1.9-1.7-1-1.7 1 .4-1.9-1.4-1.3 1.9-.2z
+    l M9.4 6.4l-1.4 14M14.6 6.4l1.4 14
+    h M8.2 6l-1 12
+    p M8.8 16h.01M15.2 16h.01M12 4.3h.01
   `,
   // A black tattered tabard with a gold cross and a gold hem
   80: `
@@ -267,16 +285,16 @@ const SHAFT = (x: number, y: number) =>
 
 /** Boots are short and cuffed, drawn as a pair (one behind in shadow, one in front). */
 const BOOTS: Record<Band, string> = {
-  // Brown cuffed boots
+  // Low cloth shoes with a turned-down cuff
   1: `
-    s ${SHAFT(-3, -0.8)}
-    b ${SHAFT(0, 0)}
-    s M14 6h1v6.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6V20h-5.4z
-    t M7.6 5.2h7.4v3.4H7.6z
-    l M8 10.4h5.6M8 12.6h5.6M14 14.6l3.6 1.6
+    s M5 9.2h6v3.6l5.2 2.4c1.2.6 1.8 1.4 1.8 2.6v1.4H2v-3.4l3-2z
+    b M8 10h6v3.6l5.2 2.4c1.2.6 1.8 1.4 1.8 2.6V20H5v-3.4l3-2z
+    s M13 10h1v3.6l5.2 2.4c1.2.6 1.8 1.4 1.8 2.6V20h-6.4z
+    t M7.4 9h7.2v2.6H7.4z
+    l M14.2 15.2l3.8 1.6M8.4 13.4h5.4
     s M4.6 20h17.2v2H4.6z
-    h M8.4 6.4v1.6M6 17l1.8-.6
-    p M10.4 15h.01M12 15.4h.01
+    h M8.6 12.2v2M6 17l1.8-.6
+    p M10.4 15.4h.01M12 15.8h.01
   `,
   // Brown boots with a flared teal cuff and ties
   20: `
@@ -290,11 +308,12 @@ const BOOTS: Record<Band, string> = {
     h M8.2 4.2v3M6 17l1.8-.6
     p M10 9.6h.01
   `,
-  // White boots with gold trim and a light-blue cuff
+  // White boots with winged gold cuffs and a light-blue band
   40: `
     s ${SHAFT(-3, -0.8)}
     b ${SHAFT(0, 0)}
     s M14 6h1v6.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6V20h-5.4z
+    t M7.6 6.2L4.2 3.6l1.2 4.6zM14.4 6.2l3.4-2.6-1.2 4.6z
     a M7.4 4.2h7.8v3.6H7.4z
     t M7.4 7.8h7.8v1.2H7.4zM4.6 18h17.2v1.2H4.6z
     t M13.6 13.4l5 2 .4 1.4-5.4-2zM10.4 11l1 .6-1 .6-1-.6z
@@ -302,17 +321,19 @@ const BOOTS: Record<Band, string> = {
     h M8.4 5.2v1.6M6 17l1.8-.6
     p M9 14.6h.01M11.6 15.2h.01
   `,
-  // Black boots with a silver star, buckled straps and a silver sole edge
+  // Tall black knee boots with buckled straps, a silver star and a pointed toe
   60: `
-    s ${SHAFT(-3, -0.8)}
-    b ${SHAFT(0, 0)}
-    s M14 6h1v6.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6V20h-5.4z
-    t M7.6 6h7.2v1.6H7.6zM7.6 10.6h7.2v1.4H7.6z
-    m M11.2 7.8l.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.8-1.4.8.3-1.6-1.2-1.1 1.6-.2z
+    s M5 1.2h6v10.4l5.2 2.6c1.2.6 1.8 1.4 1.8 2.6v2.4H2v-3.4l3-2z
+    b M8 2h6v10.4l5.6 2.4c1.6.6 2.6 1.6 2.8 3.2l-1 .4V20H5v-3.4l3-2z
+    s M13 2h1v10.4l5.6 2.4c1.6.6 2.6 1.6 2.8 3.2l-1 .4V20h-6.6z
+    m M7.6 1.6h6.8v1.8H7.6z
+    t M7.8 5.6h6.4v1.4H7.8zM7.8 9.6h6.4V11H7.8z
+    m M10.2 5.4h1.6v1.8h-1.6zM10.2 9.4h1.6v1.8h-1.6z
+    m M11 13l.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.8-1.4.8.3-1.6-1.2-1.1 1.6-.2z
     t M4.6 18h17.2v1.2H4.6z
     s M4.6 20h17.2v2H4.6z
-    h M8.4 6.8v3M6 17l1.8-.6
-    p M9 14.6h.01M11.6 15.2h.01
+    h M8.6 3.4v8M6 17l1.8-.6
+    p M9 16.6h.01M15.6 16.4h.01
   `,
   // Dark purple boots with gold bands, a gem and curled gold toes
   80: `
