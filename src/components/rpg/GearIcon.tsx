@@ -5,8 +5,8 @@ import { SlotIcon } from "./SlotIcon";
 const OUTLINE = "#1a130d";
 
 /** Paint for each tone: fill, stroke, and any extra attributes. */
-function paint(tone: Tone, p: Palette, key: string): React.SVGProps<SVGPathElement> {
-  const edge = { stroke: OUTLINE, strokeOpacity: 0.95, strokeWidth: 0.8 };
+function paint(tone: Tone, p: Palette, key: string, width = 0.8): React.SVGProps<SVGPathElement> {
+  const edge = { stroke: OUTLINE, strokeOpacity: 0.95, strokeWidth: width };
   switch (tone) {
     case "b": return { fill: `url(#gear-grad-${key})`, ...edge };
     case "s": return { fill: p.dark, ...edge };
@@ -15,7 +15,7 @@ function paint(tone: Tone, p: Palette, key: string): React.SVGProps<SVGPathEleme
     case "a": return { fill: "currentColor", ...edge };
     case "k": return { fill: "#0a0809" };
     case "h": return { fill: "url(#gear-gloss)" };
-    case "l": return { fill: "none", stroke: OUTLINE, strokeOpacity: 0.65, strokeWidth: 0.5 };
+    case "l": return { fill: "none", stroke: OUTLINE, strokeOpacity: 0.65, strokeWidth: Math.min(0.5, width * 0.7) };
     case "e": return { fill: "none", stroke: p.light, strokeOpacity: 0.75, strokeWidth: 0.4 };
     case "d": return { fill: "none", stroke: p.dark, strokeWidth: 1.1 };
     case "p": return { fill: "none", stroke: p.trim, strokeWidth: 1.1 };
@@ -72,11 +72,11 @@ export function GearIcon({
           <stop offset="1" stopColor="#fff" stopOpacity="0.05" />
         </linearGradient>
       </defs>
-      {art.layers.map(([tone, d, mirror, rotate], i) => (
+      {art.layers.map(([tone, d, mirror, rotate, edge], i) => (
         <g key={i}>
           {[false, ...(mirror ? [true] : [])].map((flip) => (
             <g key={String(flip)} transform={[rotate, flip ? "translate(24 0) scale(-1 1)" : ""].filter(Boolean).join(" ") || undefined}>
-              <path d={d} {...paint(tone, p, art.key)} />
+              <path d={d} {...paint(tone, p, art.key, edge)} />
               {(tone === "b" || tone === "m" || tone === "s") && <path d={d} fill="url(#gear-vol)" />}
             </g>
           ))}
