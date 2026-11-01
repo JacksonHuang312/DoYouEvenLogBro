@@ -8,7 +8,7 @@ import { art } from "./gearLayers";
  *   1  Recruit's Blade: a crude curved knife with a bound grip
  *   20 Steel Longsword: a straight blade with a crossguard
  *   40 Runed Broadsword: a broad blade with glowing runes and a winged guard
- *   60 Duskfang Saber: a curved dark saber with a fang-shaped guard
+ *   60 Duskfang Saber: a long wavy steel blade with a winding gold inlay and a jagged guard
  *   80 Sunsteel Greatsword: a long white-gold holy blade with a winged crossguard and a jewelled grip
  */
 
@@ -16,7 +16,7 @@ export const WEAPON_PALETTE: Record<Band, Palette> = {
   1: { light: "#d6cdbf", base: "#847f78", dark: "#37332f", trim: "#8f5d37" },
   20: { light: "#f2f5f8", base: "#adb6c2", dark: "#454d59", trim: "#7d4c2b" },
   40: { light: "#f6f9fd", base: "#b9c5d7", dark: "#47536d", trim: "#6aa2f7" },
-  60: { light: "#c6cad6", base: "#60646f", dark: "#1f2128", trim: "#c68b49" },
+  60: { light: "#eef0f4", base: "#a9aeb8", dark: "#4b505c", trim: "#c9a84a" },
   80: { light: "#fffaf0", base: "#d6dbe5", dark: "#6b7080", trim: "#e3be5a" },
 };
 
@@ -62,20 +62,20 @@ const SWORD: Record<Band, string> = {
     e M10.4-.4V15
     p M6.4 17h.01M17.6 17h.01
   `,
-  // A curved dark saber with a bright cutting edge and a bronze fang-shaped guard
+  // A long wavy steel blade with a winding gold inlay, a small jagged guard and a plain metal grip
   60: `
     @rotate 45
-    b M10.6 16C10.2 9.6 11 3.4 15.6-3.6c.8 5.2.6 10.4-.2 14.4-.4 2-1 3.8-2 5.2z
-    s M15.6-3.6c.8 5.2.6 10.4-.2 14.4-.4 2-1 3.8-2 5.2h-1.4c1.4-2.6 2.2-6 2.6-9.6.2-3.4 0-6.6 1-10z
-    e M14.6 0c.6 4 .4 8.4-.6 12
-    l M11.6 14c-.2-4.6.6-9.2 3-14
-    t* M7.4 15.8l-1.4-2 2.2.8z
-    t M7.2 15.6c1.6.8 3.2 1 4.8 1s3.2-.2 4.8-1c-.2 1.6-1 2.8-2.4 3.4h-4.8c-1.4-.6-2.2-1.8-2.4-3.4z
-    a M12 16.6l.8.9-.8 1-.8-1z
-    s M11 19h2v3.4h-2z
-    l M11 20.2h2M11 21.4h2
-    t M12 22.4l1.4 1.2L12 25l-1.4-1.4z
-    h M11.4 12.4c-.2-3.4.2-6.6 1.6-9.6
+    @scale 0.9
+    b M11 16l-.6-2.4-1-2.2L11 8.6l-.4-3.2.6-2.8.2-2.6.6-4.6.8 4 1 1.8-.8 2.2.6 2.8.8 1.8-1.4 3 .2 2.4-.2 2.6z
+    s M12-4.6l.8 4 1 1.8-.8 2.2.6 2.8.8 1.8-1.4 3 .2 2.4-.2 2.6h-1l.2-3 .4-2.6 1-2.8-.6-2.6.6-3.2-.6-2.4z
+    t M11.8 15.4L11.2 12.8 10.8 10.6 12 8 11.8 5.4 12.4 2.8 12.6.2h.5L12.9 2.8 12.3 5.4 12.5 8 11.3 10.6 11.7 12.8 12.3 15.4z
+    m M9.2 17.2l.4-1.6 1-.8.6.8.6-1.2.6 1.2.6-.8 1 .8.4 1.6z
+    m M13.6 15.2l1.8-1.6-.2 2.2z
+    m M11 17.2h2v6.8h-2z
+    s M12.2 17.2h.8v6.8h-.8z
+    l M11 18.4h2M11 22.8h2
+    m M10.8 24h2.4v1.4h-2.4z
+    h M10.6 12.6l.6-2.8M11.2 5.6l.2-2.6
   `,
   // A long holy blade with a gold fuller, a white winged crossguard and a jewelled grip
   80: `
