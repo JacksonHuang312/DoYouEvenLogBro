@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PublicInjury } from "./game/breaks";
 import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
+import { FIGHT_HISTORY } from "./game/battleView";
 import type { BattleDoc } from "./game/fights";
 import type { OwnedItem } from "./game/items";
 import type { QuestsDoc } from "./game/quests";
@@ -14,6 +15,7 @@ import { weekId as weekIdOf } from "./game/time";
 import type { LoadStatus } from "./game/view";
 import { firebase } from "./firebase";
 import { ApiError, loadQuests } from "./gameApi";
+import type { FightRecord } from "./server/fights";
 
 /*
  * Live, read-only views of the game docs the server writes (GAME_DESIGN.md 8.3). The owner can
@@ -117,6 +119,28 @@ export function useSnapshots(uid: string): Live<Snapshot[]> {
       },
       (err) => {
         report("snapshots", err);
+        fail();
+      },
+    ),
+  );
+}
+
+export type StoredFight = FightRecord & { id: string };
+const NO_FIGHTS: StoredFight[] = [];
+
+/** The newest stored fights, for the Battle tab's History sheet. Empty once the server confirms there are none. */
+export function useFightHistory(uid: string): Live<StoredFight[]> {
+  return useLive(`${uid}/fights`, NO_FIGHTS, (settle, fail) =>
+    onSnapshot(
+      query(collection(firebase().db, "users", uid, "fights"), orderBy("at", "desc"), limit(FIGHT_HISTORY)),
+      { includeMetadataChanges: true },
+      (snap) => {
+        // An empty answer from the cache says nothing about the server.
+        if (snap.empty && snap.metadata.fromCache) return;
+        settle(snap.docs.map((d) => ({ ...(d.data() as FightRecord), id: d.id })));
+      },
+      (err) => {
+        report("fights", err);
         fail();
       },
     ),

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { ClassPicker } from "@/components/rpg/ClassPicker";
 import { FightCard } from "@/components/rpg/FightCard";
+import { FightHistorySheet } from "@/components/rpg/FightHistorySheet";
 import { FightReplay } from "@/components/rpg/FightReplay";
 import { FightResultScreen } from "@/components/rpg/FightResultScreen";
 import { PointsSheet } from "@/components/rpg/PointsSheet";
@@ -55,7 +56,11 @@ export default function BattlePage() {
   const [result, setResult] = useState<ResultView | null>(null);
   // A new fight plays its replay first (skippable); the result screen can replay it again.
   const [replaying, setReplaying] = useState(false);
-  const [sheet, setSheet] = useState<"class" | "points" | null>(null);
+  const [sheet, setSheet] = useState<"class" | "points" | "history" | null>(
+    null,
+  );
+  // A result opened from History goes back to the list when it closes.
+  const [fromHistory, setFromHistory] = useState(false);
   // A request id lives until its fight comes back, so a retry after a dropped connection returns that same fight.
   const pending = useRef(new Map<string, string>());
 
@@ -104,6 +109,7 @@ export default function BattlePage() {
     if (!res) return;
     pending.current.delete(key);
     const next = resultView(res.fight, res.energy);
+    setFromHistory(false);
     setResult(next);
     setReplaying(
       next.replay != null &&
@@ -192,6 +198,13 @@ export default function BattlePage() {
               <button onClick={() => setSheet("class")} className={SECONDARY}>
                 Class · {view.className}
               </button>
+              <button
+                onClick={() => setSheet("history")}
+                aria-haspopup="dialog"
+                className={SECONDARY}
+              >
+                History
+              </button>
             </div>
             {view.paused && (
               <p className="text-xs text-rpg-muted">
@@ -254,6 +267,24 @@ export default function BattlePage() {
           }}
         />
       )}
+      {sheet === "history" && view && (
+        <FightHistorySheet
+          uid={profile.uid}
+          now={now}
+          timeZone={resolveTimeZone(
+            state.data,
+            Intl.DateTimeFormat().resolvedOptions().timeZone,
+          )}
+          onClose={() => setSheet(null)}
+          onOpen={(fight) => {
+            // The sheet is in the top layer, above the result screen, so it steps aside first.
+            setSheet(null);
+            setFromHistory(true);
+            setReplaying(false);
+            setResult(resultView(fight));
+          }}
+        />
+      )}
       {result && replaying && result.replay && (
         <FightReplay
           rounds={result.replay}
@@ -263,7 +294,11 @@ export default function BattlePage() {
       {result && !replaying && (
         <FightResultScreen
           view={result}
-          onDone={() => setResult(null)}
+          onDone={() => {
+            setResult(null);
+            if (fromHistory) setSheet("history");
+            setFromHistory(false);
+          }}
           onReplay={() => setReplaying(true)}
         />
       )}

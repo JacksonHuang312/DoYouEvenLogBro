@@ -272,3 +272,65 @@ test.describe("Battle tab", () => {
     await expect(result).toBeVisible();
   });
 });
+
+test.describe("Fight history (13.22)", () => {
+  test("History lists past fights newest first; a row opens its result with the replay, and Done goes back to the list", async ({
+    hero,
+    page,
+  }, info) => {
+    await hero.start({ level: 60, classId: "striker" });
+    await page.goto("/battle");
+    const history = page.getByRole("dialog", { name: "History" });
+    const open = page.getByRole("button", { name: "History", exact: true });
+
+    await open.click();
+    await expect(history).toContainText("No fights yet");
+    await history.getByRole("button", { name: "Close" }).click();
+    await expect(history).toBeHidden();
+
+    // Two fights: a Campaign stage, then the weekly boss.
+    await page
+      .getByRole("region", { name: "Campaign" })
+      .getByRole("button", { name: /^Fight/ })
+      .click();
+    await skipReplay(page);
+    const result = page.getByRole("dialog", { name: "Fight result" });
+    await result.getByRole("button", { name: "Done" }).click();
+    await page
+      .getByRole("region", { name: "Weekly boss" })
+      .getByRole("button", { name: /^Fight/ })
+      .click();
+    await confirm(page, /Fight the weekly boss/)
+      .getByRole("button", { name: "Fight" })
+      .click();
+    await skipReplay(page);
+    await result.getByRole("button", { name: "Done" }).click();
+    await expect(result).toBeHidden();
+
+    await open.click();
+    const rows = history.getByRole("list", { name: "Past fights" }).getByRole("listitem");
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText("Weekly boss");
+    await expect(rows.nth(1)).toContainText("Campaign");
+    await expect(rows.nth(0)).toContainText(/Today \d{1,2}:\d{2} [AP]M/);
+    await expect(rows.nth(0)).toContainText(/Victory|Defeat/);
+    await expect(rows.nth(0).locator("svg").first()).toBeVisible();
+    await shot(page, "battle-history", { full: false });
+    await expectNoOverflow(page, "Fight history", info);
+    await expectTapTargets(history, "Fight history", info);
+
+    // A row opens that fight's result, with its log and the replay; no energy line, since that was then.
+    await rows.nth(1).getByRole("button").click();
+    await expect(history).toBeHidden();
+    await expect(result).toBeVisible();
+    await expect(result).toContainText("Campaign");
+    await expect(result).not.toContainText("Fight energy left");
+    await expect(result.getByText(/^Log \(\d+ events\)$/)).toBeVisible();
+    await result.getByRole("button", { name: "Watch replay" }).click();
+    await expect(page.getByRole("dialog", { name: "Fight replay" })).toBeVisible();
+    await skipReplay(page);
+    await result.getByRole("button", { name: "Done" }).click();
+    await expect(history).toBeVisible();
+    await expect(rows).toHaveCount(2);
+  });
+});

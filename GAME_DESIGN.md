@@ -702,7 +702,7 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 - **Class pick:** new accounts choose a class on the sign-up form, next to username and unit (Continue waits for it); it is saved right after the profile (`POST /api/class`, free), and if that call fails the Hero tab asks again. Existing accounts see "Pick your class to start fighting" on the Hero tab (a link to Battle) until they pick, and the Battle tab opens on the picker. `classCards()` lives in `heroClass.ts` so sign-up doesn't load the fight code. `e2e/onboarding.e2e.ts` covers it.
 - Gear effects no longer read "(not active yet)": fights use them.
 - Retried fights: the client keeps one request id per fight until it comes back, so a dropped connection returns the same stored fight.
-- Not built (piece for later): fight history (the stored `fights/{id}` records have it), a skip-the-confirm setting. The replay is in 13.16.
+- Fight history: built, see 13.22. Not built (piece for later): a skip-the-confirm setting. The replay is in 13.16.
 - `e2e/battle.e2e.ts`: class pick from the Hero nudge, a Campaign fight to the result and log, energy and the once-a-day weekly boss, stat points draft/apply/reset, the class switch sheet; all at 390px with overflow and tap-target checks.
 
 ### 13.15 Icons (enemy stage 1 built 2026-10-30, gear built 2026-11-01)
@@ -771,3 +771,11 @@ Built from 13.9's last open bullet, with Jackson's answers: both a drop-time set
 - `POST /api/items` `autoSalvage` (`below`, or null for off) sets it; every item response now carries `autoSalvage`.
 - Tests: `items.test.ts` (the choices, "below" is strict, the bulk salvage and its retry), `fights.test.ts` (drops salvaged at each setting, the charm, ids kept), `battleView.test.ts` (the result line, no reveal), `itemsView.test.ts` (`autoSalvageView`: options, the button's count and scrap, the 200 cap). `e2e/gear.e2e.ts` checks the row, the confirm and the bulk salvage at 390px (no overflow, tap targets), that the choice is saved, and that Mythic is refused as a cut-off.
 - Not built: an item lock (to protect a piece from the bulk button), auto-salvage for Shop purchases.
+
+### 13.22 Fight history (built 2026-11-11)
+The piece 13.14 left for later, with Jackson's answers: a History button on the Battle tab, the last 20 fights.
+- **Button:** "History" in the Battle tab's strip, beside Points and Class. At 390px the three share the row, so "Points · N free" and "Class · Name" wrap to two lines.
+- **Sheet** (`FightHistorySheet`): the last 20 stored fights, newest first (`FIGHT_HISTORY`, `historyView` in `battleView.ts`). A row shows the first enemy's icon, the outcome in green or red ("Victory", "Defeat", "Climbed", "Climb stopped"), the mode and enemy as on the result screen, when ("Today 6:40 PM", "Yesterday …", the weekday within a week, then "Nov 3", by the player's saved time zone) and the loot in one line ("+40 coins · +6 scrap · 1 item · 1 auto-salvaged", or "No rewards").
+- **Opening a fight:** a row closes the sheet and shows that fight's result screen (rounds, rewards, drops, log, **Watch replay**), without the "energy left" line, which belonged to the moment. Done goes back to the list. Opening one never plays the replay by itself.
+- **Data:** read straight from `users/{uid}/fights`, ordered by `at`, only while the sheet is open (`useFightHistory`); the owner could already read these under the rules. No server change, and nothing is deleted: older fights stay stored for the measuring script (13.11).
+- Tests: `battleView.test.ts` (order, the cap of 20, the outcome, when and loot of each row, the day by time zone). `e2e/battle.e2e.ts` checks the empty sheet, two fights listed newest first, a row opening its result and replay and Done returning to the list, at 390px (no overflow, tap targets).

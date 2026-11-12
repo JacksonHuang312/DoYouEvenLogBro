@@ -40,6 +40,7 @@ import {
   CAMPAIGN_STAGES,
   type Encounter,
 } from "./bosses";
+import { dayId } from "./time";
 import { STAT_LABELS } from "./view";
 import type { FightRecord } from "../server/fights";
 
@@ -662,6 +663,88 @@ export function resultView(
     energyLeft: energy,
     replay: replayRounds(rounds, fight.classId),
   };
+}
+
+// ---- Fight history (13.22) ----
+
+/** How many past fights the History sheet lists. */
+export const FIGHT_HISTORY = 20;
+
+export interface HistoryRow {
+  id: string;
+  /** The first round's enemy, for the icon. */
+  foe: string;
+  won: boolean;
+  /** "Victory", "Defeat", "Climbed" or "Climb stopped", as on the result screen. */
+  headline: string;
+  /** "Campaign · Ironmaw", as on the result screen. */
+  sub: string;
+  /** "Today 6:40 PM", "Yesterday 6:40 PM", "Mon 6:40 PM" within a week, then "Nov 3". */
+  when: string;
+  /** "+40 coins · +6 scrap · 1 item", or "No rewards". */
+  loot: string;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function whenLabel(ms: number, now: number, timeZone: string): string {
+  const days = Math.round(
+    (Date.parse(`${dayId(now, timeZone)}T00:00:00Z`) -
+      Date.parse(`${dayId(ms, timeZone)}T00:00:00Z`)) /
+      DAY_MS,
+  );
+  const date = new Date(ms);
+  if (days >= 7 || days < 0)
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone,
+    });
+  const time = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+  });
+  const day =
+    days === 0
+      ? "Today"
+      : days === 1
+        ? "Yesterday"
+        : date.toLocaleDateString("en-US", { weekday: "short", timeZone });
+  return `${day} ${time}`;
+}
+
+/** The newest fights first, at most FIGHT_HISTORY, one row each. Tapping a row shows `resultView` of that fight. */
+export function historyView(
+  fights: (FightRecord & { id: string })[],
+  now: number,
+  timeZone: string,
+): HistoryRow[] {
+  return [...fights]
+    .sort((a, b) => b.at - a.at || a.id.localeCompare(b.id))
+    .slice(0, FIGHT_HISTORY)
+    .map((fight) => {
+      const view = resultView(fight);
+      const auto = (fight.salvaged ?? []).filter((s) => s.itemLevel != null);
+      const loot = [
+        fight.coins ? `+${fight.coins.toLocaleString("en-US")} coins` : "",
+        fight.scrap ? `+${fight.scrap.toLocaleString("en-US")} scrap` : "",
+        fight.mythicCores ? `+${fight.mythicCores} Mythic Core` : "",
+        fight.items.length
+          ? `${fight.items.length} ${fight.items.length === 1 ? "item" : "items"}`
+          : "",
+        auto.length ? `${auto.length} auto-salvaged` : "",
+      ].filter(Boolean);
+      return {
+        id: fight.id,
+        foe: fight.rounds[0]?.foe ?? "",
+        won: view.won,
+        headline: view.headline,
+        sub: view.sub,
+        when: whenLabel(fight.at, now, timeZone),
+        loot: loot.length ? loot.join(" · ") : "No rewards",
+      };
+    });
 }
 
 /** What the replay's action icon draws. */

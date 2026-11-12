@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
   battleView,
+  FIGHT_HISTORY,
   FIGHT_TIME_SCALE,
+  historyView,
   logLines,
   replayAt,
   replayCooldowns,
@@ -260,6 +262,70 @@ describe("result view", () => {
     items: [{ id: "i1", baseId: "ironbound-boots", rarity: "common", itemLevel: 7 }],
     guaranteed: false,
     ...patch,
+  });
+
+  test("history: newest first, at most 20, each row with its outcome, when and loot", () => {
+    const now = T0 + 10 * DAY;
+    const at = (id: string, ms: number, patch: Partial<FightRecord> = {}) => ({ ...record({ at: ms, ...patch }), id });
+    const rows = historyView(
+      [
+        at("old", now - 9 * DAY),
+        at("today", now - HOUR, { coins: 1200, scrap: 0, items: [] }),
+        at("yesterday", now - DAY, {
+          won: false,
+          rounds: [round(false, "Ironmaw")],
+          coins: 0,
+          scrap: 0,
+          items: [],
+        }),
+        at("week", now - 3 * DAY, {
+          mode: "endless",
+          rounds: [round(true), round(false)],
+          mythicCores: 1,
+          items: [
+            { id: "a", baseId: "ironbound-boots", rarity: "common", itemLevel: 7 },
+            { id: "b", baseId: "ironbound-boots", rarity: "common", itemLevel: 7 },
+          ],
+          salvaged: [
+            { baseId: "ironbound-boots", rarity: "common", itemLevel: 7, scrap: 3 },
+            { baseId: "ironbound-boots", rarity: "common", scrap: 5 },
+          ],
+        }),
+      ],
+      now,
+      UTC,
+    );
+    expect(rows.map((r) => r.id)).toEqual(["today", "yesterday", "week", "old"]);
+    expect(rows[0]).toMatchObject({
+      won: true,
+      headline: "Victory",
+      sub: "Campaign · Tower Sentinel (floor 1)",
+      foe: "Tower Sentinel (floor 1)",
+      loot: "+1,200 coins",
+    });
+    expect(rows[0].when).toMatch(/^Today \d{1,2}:\d{2} [AP]M$/);
+    expect(rows[1]).toMatchObject({ won: false, headline: "Defeat", foe: "Ironmaw", loot: "No rewards" });
+    expect(rows[1].when).toMatch(/^Yesterday \d{1,2}:\d{2} [AP]M$/);
+    expect(rows[2]).toMatchObject({
+      headline: "Climb stopped",
+      sub: "Endless tower · 1 of 2 floors cleared",
+      loot: "+40 coins · +6 scrap · +1 Mythic Core · 2 items · 1 auto-salvaged",
+    });
+    expect(rows[2].when).toMatch(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}:\d{2} [AP]M$/);
+    expect(rows[3].when).toMatch(/^[A-Z][a-z]{2} \d{1,2}$/);
+    expect(rows[3].loot).toBe("+40 coins · +6 scrap · 1 item");
+    // The day is the player's, not UTC's: an hour ago can be yesterday.
+    const midnight = Date.parse("2026-11-11T00:30:00Z");
+    expect(historyView([at("x", midnight - HOUR)], midnight, UTC)[0].when).toMatch(/^Yesterday/);
+    expect(historyView([at("x", midnight - HOUR)], midnight, "America/New_York")[0].when).toMatch(/^Today/);
+
+    expect(FIGHT_HISTORY).toBe(20);
+    const many = Array.from({ length: 25 }, (_, i) => at(`f${i}`, now - i * HOUR));
+    const capped = historyView(many, now, UTC);
+    expect(capped).toHaveLength(20);
+    expect(capped[0].id).toBe("f0");
+    expect(capped[19].id).toBe("f19");
+    expect(historyView([], now, UTC)).toEqual([]);
   });
 
   test("a win lists rewards and the item with its level", () => {
