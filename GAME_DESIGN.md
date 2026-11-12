@@ -702,7 +702,7 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 - **Class pick:** new accounts choose a class on the sign-up form, next to username and unit (Continue waits for it); it is saved right after the profile (`POST /api/class`, free), and if that call fails the Hero tab asks again. Existing accounts see "Pick your class to start fighting" on the Hero tab (a link to Battle) until they pick, and the Battle tab opens on the picker. `classCards()` lives in `heroClass.ts` so sign-up doesn't load the fight code. `e2e/onboarding.e2e.ts` covers it.
 - Gear effects no longer read "(not active yet)": fights use them.
 - Retried fights: the client keeps one request id per fight until it comes back, so a dropped connection returns the same stored fight.
-- Fight history: built, see 13.22. Not built (piece for later): a skip-the-confirm setting. The replay is in 13.16.
+- Fight history: built, see 13.22. The skip-the-confirm setting: built, see 13.23. The replay is in 13.16.
 - `e2e/battle.e2e.ts`: class pick from the Hero nudge, a Campaign fight to the result and log, energy and the once-a-day weekly boss, stat points draft/apply/reset, the class switch sheet; all at 390px with overflow and tap-target checks.
 
 ### 13.15 Icons (enemy stage 1 built 2026-10-30, gear built 2026-11-01)
@@ -779,3 +779,10 @@ The piece 13.14 left for later, with Jackson's answers: a History button on the 
 - **Opening a fight:** a row closes the sheet and shows that fight's result screen (rounds, rewards, drops, log, **Watch replay**), without the "energy left" line, which belonged to the moment. Done goes back to the list. Opening one never plays the replay by itself.
 - **Data:** read straight from `users/{uid}/fights`, ordered by `at`, only while the sheet is open (`useFightHistory`); the owner could already read these under the rules. No server change, and nothing is deleted: older fights stay stored for the measuring script (13.11).
 - Tests: `battleView.test.ts` (order, the cap of 20, the outcome, when and loot of each row, the day by time zone). `e2e/battle.e2e.ts` checks the empty sheet, two fights listed newest first, a row opening its result and replay and Done returning to the list, at 390px (no overflow, tap targets).
+
+### 13.23 Skip fight confirmations (built 2026-11-12)
+The last piece 13.14 left for later, with Jackson's answer: one toggle in Settings for both fights.
+- **Setting:** "Skip fight confirmations" in Settings, under Private account, off by default. On, the weekly boss and the Boss Tower start as soon as Fight is tapped, without the "Fight the weekly boss?" / "Fight the Boss Tower?" dialog. Their rules are unchanged (one weekly fight a day, the Boss Tower's 4-hour wait), and the Campaign and endless tower never asked.
+- **Stored** on the profile as `skipFightConfirm` (a boolean; missing means ask), like the set effort scale, so it follows the account across devices and saves offline. `firestore.rules` allows the new field: **the rules must be deployed** before the toggle can save in production.
+- Presentation only: the server never asked for a confirmation, so nothing about fights changed.
+- Tests: `tests/firestore.rules.test.mjs` (a boolean, nothing else). `e2e/battle.e2e.ts` turns it on in Settings (390px, no overflow, the row is a full tap target), fights the weekly boss with no dialog, and turns it off again; the existing weekly-boss test still covers the dialog with the setting off.

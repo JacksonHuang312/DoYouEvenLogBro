@@ -86,7 +86,11 @@ export default function BattlePage() {
     mode: FightMode,
     opts: { floor?: number; climb?: boolean },
   ) {
-    if (mode === "weekly" || mode === "bossTower") {
+    // Settings can turn the two confirmations off (13.23).
+    if (
+      !profile.skipFightConfirm &&
+      (mode === "weekly" || mode === "bossTower")
+    ) {
       const ok = await confirmRpgDialog({
         title:
           mode === "weekly"

@@ -334,3 +334,46 @@ test.describe("Fight history (13.22)", () => {
     await expect(rows).toHaveCount(2);
   });
 });
+
+test.describe("Skip fight confirmations (13.23)", () => {
+  test("off by default; turned on in Settings, the weekly boss fights at once, and it can be turned off again", async ({
+    hero,
+    page,
+  }, info) => {
+    await hero.start({ level: 60, classId: "striker" });
+    await page.goto("/settings");
+    const toggle = page.getByRole("checkbox", {
+      name: /Skip fight confirmations/,
+    });
+    await expect(toggle).not.toBeChecked();
+    // click(), not check(): the box follows the saved profile, which answers a moment after the tap.
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await shot(page, "settings-skip-confirm");
+    await expectNoOverflow(page, "Settings", info);
+    const row = await page
+      .locator("label", { hasText: "Skip fight confirmations" })
+      .boundingBox();
+    expect(row!.height).toBeGreaterThanOrEqual(43.5);
+
+    await page.goto("/battle");
+    const replay = page.getByRole("dialog", { name: "Fight replay" });
+    const result = page.getByRole("dialog", { name: "Fight result" });
+    await page
+      .getByRole("region", { name: "Weekly boss" })
+      .getByRole("button", { name: /^Fight/ })
+      .click();
+    // Straight to the fight: no "Fight the weekly boss?" dialog in between.
+    await expect(replay).toBeVisible();
+    await expect(confirm(page, /Fight the weekly boss/)).toHaveCount(0);
+    await skipReplay(page);
+    await result.getByRole("button", { name: "Done" }).click();
+    await expect(result).toBeHidden();
+
+    // The choice is saved, and can be turned off again.
+    await page.goto("/settings");
+    await expect(toggle).toBeChecked();
+    await toggle.click();
+    await expect(toggle).not.toBeChecked();
+  });
+});

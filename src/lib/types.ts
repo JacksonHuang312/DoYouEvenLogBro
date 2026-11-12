@@ -29,6 +29,8 @@ export interface UserProfile {
   bio?: string;
   /** Whether set effort shows as RPE or reps in reserve. Missing means RPE. */
   effortScale?: "rpe" | "rir";
+  /** Skip the "Fight the weekly boss?" and "Fight the Boss Tower?" confirmations (13.23). Missing means ask. */
+  skipFightConfirm?: boolean;
 }
 
 /**

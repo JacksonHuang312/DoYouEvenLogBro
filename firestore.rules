@@ -90,13 +90,14 @@ service cloud.firestore {
 
     match /users/{uid} {
       function validProfile(data) {
-        return data.keys().hasOnly(['username', 'usernameChangedAt', 'displayName', 'photoURL', 'unit', 'isPrivate', 'createdAt', 'bio', 'effortScale'])
+        return data.keys().hasOnly(['username', 'usernameChangedAt', 'displayName', 'photoURL', 'unit', 'isPrivate', 'createdAt', 'bio', 'effortScale', 'skipFightConfirm'])
           && validHandle(data.username)
           && data.usernameChangedAt is timestamp
           && data.displayName is string && data.displayName.size() <= 50
           && validPhotoURL(data.photoURL)
           && data.unit in ['kg', 'lb']
           && (!('effortScale' in data) || data.effortScale in ['rpe', 'rir'])
+          && (!('skipFightConfirm' in data) || data.skipFightConfirm is bool)
           && data.isPrivate is bool
           && data.createdAt is number
           // Must match MAX_BIO_LENGTH in src/lib/profile.ts.

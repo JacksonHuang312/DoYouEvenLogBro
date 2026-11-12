@@ -483,6 +483,18 @@ export default function SettingsPage() {
             className="h-5 w-5 accent-accent"
           />
         </label>
+        <label className="flex min-h-11 items-center justify-between gap-3 p-4">
+          <span>
+            Skip fight confirmations
+            <span className="block text-xs text-muted">The weekly boss and the Boss Tower start as soon as you tap Fight, without asking first.</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={profile.skipFightConfirm === true}
+            onChange={(e) => save({ skipFightConfirm: e.target.checked })}
+            className="h-5 w-5 shrink-0 accent-accent"
+          />
+        </label>
       </section>
 
       <ThemeSetting />

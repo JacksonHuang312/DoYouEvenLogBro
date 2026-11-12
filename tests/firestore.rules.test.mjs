@@ -162,6 +162,16 @@ describe("set effort scale", () => {
   });
 });
 
+describe("skip fight confirmations", () => {
+  test("is a boolean, nothing else", async () => {
+    await seedUser("alice", "alice", 8);
+    const ref = doc(dbAs("alice"), "users", "alice");
+    await assertSucceeds(setDoc(ref, { skipFightConfirm: true }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { skipFightConfirm: false }, { merge: true }));
+    await assertFails(setDoc(ref, { skipFightConfirm: "yes" }, { merge: true }));
+  });
+});
+
 describe("username change", () => {
   test("allowed once 7 days have passed", async () => {
     await seedUser("alice", "alice", 8);
