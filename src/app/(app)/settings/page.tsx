@@ -5,6 +5,7 @@ import type { User } from "firebase/auth";
 import { Camera, Check, KeyRound } from "lucide-react";
 import { useReducer, useRef, useState } from "react";
 import { useAuth, useProfile } from "@/components/AuthProvider";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { Avatar, BackHeader, GoogleMark } from "@/components/ui";
 import { confirmDialog, errorDialog } from "@/lib/dialog";
 import { AVATAR_SIZE, MAX_AVATAR_CHARS, photoToThumbnail } from "@/lib/image";
@@ -496,6 +497,8 @@ export default function SettingsPage() {
           />
         </label>
       </section>
+
+      <NotificationSettings uid={profile.uid} />
 
       <ThemeSetting />
 

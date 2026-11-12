@@ -1,6 +1,7 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
 /**
  * The Admin SDK, for API routes and scripts only (it bypasses security rules). Credentials come
@@ -43,3 +44,6 @@ export function adminDb(): Firestore {
 }
 
 export const adminAuth = () => getAuth(app());
+
+/** Firebase Cloud Messaging, for push notifications (the daily job only; there is no emulator for it). */
+export const adminMessaging = () => getMessaging(app());

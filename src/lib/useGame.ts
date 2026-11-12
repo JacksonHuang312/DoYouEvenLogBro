@@ -8,6 +8,7 @@ import type { MusclesFacts } from "./game/facts";
 import { FIGHT_HISTORY } from "./game/battleView";
 import type { BattleDoc } from "./game/fights";
 import type { OwnedItem } from "./game/items";
+import type { NotifyDoc } from "./game/notify";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc } from "./game/schedule";
 import type { ShopDoc } from "./game/shop";
@@ -145,6 +146,24 @@ export function useClaim(uid: string, workoutId: string | null): Live<ClaimResul
       },
     );
   });
+}
+
+/** notify/{uid}: push notification devices and switches. data is null once the server confirms the player never turned them on. */
+export function useNotify(uid: string): Live<NotifyDoc | null> {
+  return useLive<NotifyDoc | null>(`notify/${uid}`, null, (settle, fail) =>
+    onSnapshot(
+      doc(firebase().db, "notify", uid),
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.exists()) settle(snap.data() as NotifyDoc);
+        else if (!snap.metadata.fromCache) settle(null);
+      },
+      (err) => {
+        report("notify", err);
+        fail();
+      },
+    ),
+  );
 }
 
 export type StoredFight = FightRecord & { id: string };

@@ -363,5 +363,12 @@ service cloud.firestore {
       allow read: if canReadWorkouts(uid);
       allow write: if false;
     }
+
+    // Push notifications (GAME_DESIGN.md 13.26): a player's devices, switches and what was last
+    // sent. Only the owner reads it (device tokens are private); only the server writes it.
+    match /notify/{uid} {
+      allow read: if isUser(uid);
+      allow write: if false;
+    }
   }
 }

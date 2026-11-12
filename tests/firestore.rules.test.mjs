@@ -838,6 +838,23 @@ describe("game data", () => {
   });
 });
 
+describe("push notification settings", () => {
+  const notifyRef = (db, uid = "alice") => doc(db, "notify", uid);
+
+  test("only the owner reads them, and nobody writes them from the client", async () => {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 8);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(notifyRef(ctx.firestore()), { enabled: true, tokens: { d1: { token: "t", at: 1 } }, prefs: {}, sent: {}, updatedAt: 1 });
+    });
+    await assertSucceeds(getDoc(notifyRef(dbAs("alice"))));
+    await assertFails(getDoc(notifyRef(dbAs("bob"))));
+    await assertFails(getDoc(notifyRef(env.unauthenticatedContext().firestore())));
+    await assertFails(setDoc(notifyRef(dbAs("alice")), { enabled: false }, { merge: true }));
+    await assertFails(setDoc(notifyRef(dbAs("bob"), "bob"), { enabled: true }));
+  });
+});
+
 describe("public stats (injury flags)", () => {
   const statsRef = (db, uid = "alice") => doc(db, "publicStats", uid);
   const flags = { injuries: [{ stat: "arms", expiresAt: 1, expectedReturn: "2026-11-20" }], updatedAt: 1 };

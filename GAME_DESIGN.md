@@ -679,7 +679,7 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
   - **For the level curve (13.2):** early levels should come mostly from showing up (workout XP), not stat XP, since beginners log small workouts; tune the model's `progressedShare` up (about 0.45) before fitting the curve.
 
 ### 13.12 Notifications
-- Web push for an installed web app: "Your weekly fight is ready", "The tower is open again", "1 workout from levelling up".
+- Web push for an installed web app: "Your weekly fight is ready", "The tower is open again", "1 workout from levelling up". The first and last are built, see 13.26; the tower message waits for a finer scheduler.
 
 ### 13.13 Step 1 (built 2026-10-30): levels 1-100, level rewards, stat points, energy, daily limit
 - **Pacing model:** `PACING.progressedShare` is **0.45** (was 0.15), from the Hevy replay (13.11).
@@ -806,3 +806,19 @@ The two leftovers from Phase 4's "Not built" note, with Jackson's answers for th
 - The month's workouts are loaded only while the section is open. No server change.
 - Tests: `train.test.ts` (the grid, each mark and line, predictions, pauses, the old-days rule, the arrow range, no schedule, and the same week matching the Train strip mark for mark). `e2e/quests.e2e.ts` checks the calendar at 390px (no overflow, tap targets, a past workout day, today, planned days after saving a schedule) and the Train line with and without a claim.
 - Not built: a longer history of matches (it would need the server to keep them), editing the schedule from the calendar.
+
+### 13.26 Notifications (built 2026-11-12, not yet switched on in production)
+Built from 13.12 with Jackson's answers: the app is on Vercel's Hobby plan, so only the two messages a once-a-day job can send; a switch per message; asked for in Settings only; about 10:00; the doc's wording.
+- **Messages:** "Your weekly fight is ready" (opens Battle) and "1 workout from levelling up" (opens Train). The line is the notification's title; there is no body text. "The tower is open again" is **not built**: it needs a check every few minutes, which the daily job can't do.
+- **When each is due** (`duePushes` in `src/lib/game/notify.ts`, pure and tested):
+  - *Weekly fight:* the player has a class and today's weekly fight is unused. Sent **once per fight**: ignored, it stays quiet until the day after their next weekly fight, or a new week.
+  - *Levelling up:* the next level is at most one workout's XP away (`XP.perWorkout`) and a workout would pay XP now (the 12-hour rule). Sent **once per level**.
+  - Nothing is sent to a player whose game state hasn't changed in 14 days (`NOTIFY.quietAfterDays`), so someone who left isn't nagged. (Claude's addition.)
+- **Settings · Notifications:** "Notifications on this device" asks the browser for permission and registers the device; then one switch each for the two messages. The device switch is per device (up to 5, the oldest dropped); the message switches are for the account. Turning the last device off also forgets what was sent. The row says why when it can't be turned on: no web push in this browser (on an iPhone the app must be on the Home Screen, iOS 16.4+), blocked in the browser, or no key on the server.
+- **Delivery:** Firebase Cloud Messaging through `firebase-admin` (no new dependency), as data-only messages. `public/sw.js`, the app's first service worker, shows the notification and opens the right tab on a tap; it caches nothing, so page loading is unchanged. `src/lib/push.ts` gets the device token.
+- **Storage:** `notify/{uid}`: `enabled`, `prefs`, `tokens` and `sent`. Only the server writes it (`POST /api/notify`: `enable`, `disable`, `prefs`); only the owner reads it (`firestore.rules`).
+- **Daily job:** `GET /api/cron/notify`, called by Vercel Cron (`vercel.json`, 15:00 UTC: 10:00 Eastern in winter, 11:00 in summer, the same moment for every time zone). It refuses anything without `Authorization: Bearer <CRON_SECRET>`. For each player with notifications on it sends what is due, records it so nothing repeats, retries tomorrow what reached no device, and drops dead device tokens.
+- **To switch it on in production (Jackson):** generate a Web Push key pair in the Firebase console (Project settings → Cloud Messaging → Web Push certificates) and set `NEXT_PUBLIC_FIREBASE_VAPID_KEY` in Vercel; set a long random `CRON_SECRET` in Vercel; deploy the Firestore rules; deploy. Until the key is set the Settings row says notifications aren't set up.
+- **Not verified:** real delivery to a phone. The emulators have no push service, so the device token there is made up and the job "delivers" without sending. Whether Hobby accepts this daily cron was not confirmed from Vercel's docs; a deploy will say.
+- Tests: `notify.test.ts` (devices, switches, when each message is due and that it is sent once), `tests/firestore.rules.test.mjs` (owner-only read, no client writes), `e2e/notify.e2e.ts` (the Settings switches at 390px, the job sending once, a switched-off message, a dead device dropped, bad requests refused).
+- Not built: the tower message, per-player local send time, quiet hours, a prompt outside Settings.

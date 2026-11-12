@@ -4,6 +4,8 @@ import type { ScheduleDoc, WeekdayRoutines } from "./game/schedule";
 import { firebase } from "./firebase";
 import type { BreaksResponse } from "./server/breaks";
 import type { ClassResponse, FightRequest, FightResponse } from "./server/fights";
+import type { NotifyPrefs } from "./game/notify";
+import type { NotifyResponse } from "./server/notify";
 import type { PointsResponse } from "./server/points";
 import type { StatPoints } from "./game/levels";
 import type { ItemResponse, ShopResponse } from "./server/items";
@@ -119,3 +121,11 @@ export const fight = (request: FightRequest) => post<FightResponse>("/api/fight"
 /** `expectedSpent` is the spent total on screen, so a retry can't spend twice. */
 export const assignStatPoints = (add: StatPoints, expectedSpent: number) => post<PointsResponse>("/api/points", { action: "assign", add, expectedSpent });
 export const respecStatPoints = (expectedSpent: number) => post<PointsResponse>("/api/points", { action: "respec", expectedSpent });
+
+// ---- Push notifications (13.26) ----
+
+/** Registers this device's push token and turns notifications on. */
+export const enableNotifications = (token: string) => post<NotifyResponse>("/api/notify", { action: "enable", token });
+/** Forgets one device, or every device with null. */
+export const disableNotifications = (token: string | null) => post<NotifyResponse>("/api/notify", { action: "disable", token });
+export const setNotifyPrefs = (prefs: Partial<NotifyPrefs>) => post<NotifyResponse>("/api/notify", { action: "prefs", prefs });
