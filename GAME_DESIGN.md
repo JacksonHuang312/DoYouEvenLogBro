@@ -755,3 +755,10 @@ Built from 13.15's "Gear" bullet, then restyled with Jackson after review: AFK A
 - **Review page:** `/dev/gear` (404 in production): neutral piece types by band, the class sets, the rarity tiles and the Mythics.
 - **Tests:** `gearArt.test.ts` checks every art set has all five bands with valid layers, that exactly the Mythics have unique art, and the lookup order. `e2e/gear.e2e.ts` and `e2e/shop.e2e.ts` check the tiles at 390px (visible, inside the screen, icon inside its tile).
 - Not built: the enemy and action icons in this style (13.15, next), unique accessory shapes.
+
+### 13.20 Gear icons back to placeholders (2026-11-11)
+Jackson is designing the real gear icons in Figma (one sheet per class, with 7-8 sets of 5 pieces each) and wants to finish the rest of the app first, so the hand-drawn art from 13.19 was removed to save space.
+- **Removed:** `vanguardArt.ts`, `strikerArt.ts`, `clericArt.ts`, `looseArt.ts`, `accessoryArt.ts`, `weaponArt.ts` and `mythicArt.ts`. They are in git history (the commit before this one).
+- **Now:** `gearArt.ts` gives every item one placeholder gem (`PLACEHOLDER_LAYERS`) painted from a per-band material palette, on its rarity tile. The lookup keeps its shape (`gearArt()`, `bandOfLevel`, `pieceOf`), so `GearIcon`, `ItemTile` and the e2e tile checks work unchanged; a weapon of no known type still falls back to the plain `SlotIcon`.
+- **Dropping the Figma icons in later:** add art files that export layer lists in the `gearLayers.ts` format and have `gearArt()` look them up before the placeholder (by item id, then class and piece, then piece and band, as in 13.19).
+- **Not changed:** enemy and action icons (`EnemyIcon.tsx`, `ActionIcon.tsx`).

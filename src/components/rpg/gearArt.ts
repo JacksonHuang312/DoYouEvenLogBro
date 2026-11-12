@@ -1,20 +1,12 @@
 import { ITEMS, SETS } from "@/lib/game/catalogData";
-import { LEVEL_BANDS, WEAPON_TYPES, type ClassId, type Slot, type WeaponType } from "@/lib/game/config";
-import { type Band, type Layer, type Palette, type PieceArt, type PieceType } from "./gearLayers";
-import { ACCESSORY_ART, ACCESSORY_PALETTE } from "./accessoryArt";
-import { MYTHIC_ART } from "./mythicArt";
-import { LOOSE_ART, LOOSE_PALETTE } from "./looseArt";
-import { CLERIC_ART, CLERIC_PALETTE } from "./clericArt";
-import { STRIKER_ART, STRIKER_PALETTE } from "./strikerArt";
-import { WEAPON_ART, WEAPON_PALETTE, WEAPON_PALETTES } from "./weaponArt";
-import { VANGUARD_ART, VANGUARD_PALETTE } from "./vanguardArt";
+import { LEVEL_BANDS, WEAPON_TYPES, type Slot, type WeaponType } from "@/lib/game/config";
+import { art, type Band, type Layer, type Palette, type PieceType } from "./gearLayers";
 
 /*
- * Gear art: small filled, shaded vector pictures (24×24) drawn on a rarity tile (GAME_DESIGN.md 7.1, 13.15).
- * Lookup: the item's own art by id (Mythics), else its piece type and level band, else null (the caller
- * draws the plain slot icon). Each picture is a list of layers drawn in order; a tone says how a layer is
- * painted, and the band's material palette supplies the colours, so the look climbs with the band (cloth,
- * leather, chain, plate, ornate) while rarity shows in the tile and in the one accent layer.
+ * Gear art is PLACEHOLDER for now (GAME_DESIGN.md 13.20): every item draws the same small gem, coloured by
+ * its band's material palette, on its rarity tile. The real icons are being designed in Figma and will be
+ * dropped back in as layer lists (the format is in gearLayers.ts) once they are done; the earlier hand-drawn
+ * art (13.19) lives in git history.
  */
 
 export type { Band, Layer, Palette, PieceType, Tone } from "./gearLayers";
@@ -23,29 +15,27 @@ export const PIECE_TYPES: PieceType[] = [
   "helmet", "chestplate", "gloves", "leggings", "boots", "ring", "necklace", "belt", "charm", "sword", "staff", "shield",
 ];
 
-/** Loose armor (no set, no class) and its palette, which is also the fallback: see looseArt.ts. */
-export const PALETTE = LOOSE_PALETTE;
-export const BAND_ART: PieceArt = LOOSE_ART;
-
-/** Art for individual items, by base id, each with its own palette. Mythics only: see mythicArt.ts. */
-export const UNIQUE_ART = MYTHIC_ART;
-
-/** Set armor is drawn per class (GAME_DESIGN.md 13.15); loose armor, accessories and weapons share the neutral art. */
-export const CLASS_ART: Partial<Record<ClassId, { art: PieceArt; palette: Record<Band, Palette> }>> = {
-  vanguard: { art: VANGUARD_ART, palette: VANGUARD_PALETTE },
-  striker: { art: STRIKER_ART, palette: STRIKER_PALETTE },
-  cleric: { art: CLERIC_ART, palette: CLERIC_PALETTE },
+/** One material palette per level band (cloth, leather, chain, plate, ornate). */
+export const PALETTE: Record<Band, Palette> = {
+  1: { light: "#e8d7a8", base: "#b79d68", dark: "#5e4b2e", trim: "#8f6a44" },
+  20: { light: "#c98f5a", base: "#8b5a34", dark: "#41281a", trim: "#cfd5dc" },
+  40: { light: "#c9d3de", base: "#7f8b99", dark: "#363e48", trim: "#8f5d37" },
+  60: { light: "#f0f4f9", base: "#a8b3c1", dark: "#454e5c", trim: "#7f8b99" },
+  80: { light: "#aeb9d6", base: "#4c5370", dark: "#191c2c", trim: "#f2cc55" },
 };
 
-const classOfSet = new Map(SETS.map((s) => [s.id, s.classId]));
-const classOfBase = new Map(ITEMS.filter((i) => i.set).map((i) => [i.id, classOfSet.get(i.set!)!]));
+/** The one placeholder picture: a faceted gem with an accent in the rarity colour. */
+export const PLACEHOLDER_LAYERS: Layer[] = art(`
+b M12 3.5l7.5 5.5v6L12 20.5 4.5 15V9z
+s M12 12l7.5-3v6L12 20.5z
+h M12 3.5L4.5 9l7.5 3.5L19.5 9z
+a M12 9.5l2.5 2.5-2.5 2.5-2.5-2.5z
+l M4.5 9l7.5 3 7.5-3M12 12v8.5
+`);
+
 /** A weapon's type by base id, so callers can pass any `weapon` text (the views pass a display label). */
 const weaponOfBase = new Map(ITEMS.filter((i) => i.weapon).map((i) => [i.id, i.weapon!]));
-/**
- * A named item's own band (set pieces take their set's, weapons carry one), so a Moonwood Staff always looks
- * like the Moonwood Staff whatever level it rolled or was reforged to. Loose armor and accessories have none
- * and follow the item's level.
- */
+/** A named item's own band (set pieces take their set's, weapons carry one); everything else follows the item's level. */
 const bandOfBase = new Map<string, Band>([
   ...ITEMS.filter((i) => i.set).map((i) => [i.id, SETS.find((s) => s.id === i.set)!.band as Band] as const),
   ...ITEMS.filter((i) => i.weapon && i.band).map((i) => [i.id, i.band as Band] as const),
@@ -56,7 +46,7 @@ export const bandOfLevel = (level: number): Band => [...LEVEL_BANDS].reverse().f
 export const pieceOf = (slot: Slot, weapon?: string | null): PieceType | null =>
   slot === "weapon" ? ((WEAPON_TYPES as readonly string[]).includes(weapon ?? "") ? (weapon as WeaponType) : null) : slot;
 
-/** The art for an item, or null if there is none for it yet. */
+/** The art for an item, or null for a weapon of no known type (the caller draws the plain slot icon). */
 export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | null; itemLevel?: number }): {
   layers: Layer[];
   palette: Palette;
@@ -65,19 +55,8 @@ export function gearArt(item: { baseId?: string; slot: Slot; weapon?: string | n
   source: string;
 } | null {
   const band = (item.baseId && bandOfBase.get(item.baseId)) || bandOfLevel(item.itemLevel ?? 1);
-  const own = item.baseId ? UNIQUE_ART[item.baseId] : undefined;
-  if (own) return { layers: own.layers, palette: own.palette, key: `u-${item.baseId}`, source: `unique:${item.baseId}` };
   const weaponType = (item.baseId && weaponOfBase.get(item.baseId)) || item.weapon;
   const piece = pieceOf(item.slot, weaponType);
   if (!piece || item.itemLevel == null) return null;
-  const cls = item.baseId ? classOfBase.get(item.baseId) : undefined;
-  const classArt = cls ? CLASS_ART[cls] : undefined;
-  const classLayers = classArt?.art[piece]?.[band];
-  if (cls && classArt && classLayers) return { layers: classLayers, palette: classArt.palette[band], key: `${cls}-${band}`, source: `${cls}:${piece}:${band}` };
-  const weapon = WEAPON_ART[piece]?.[band];
-  if (weapon) return { layers: weapon, palette: (WEAPON_PALETTES[piece] ?? WEAPON_PALETTE)[band], key: `${piece}-${band}`, source: `weapon:${piece}:${band}` };
-  const accessory = ACCESSORY_ART[piece]?.[band];
-  if (accessory) return { layers: accessory, palette: ACCESSORY_PALETTE[band], key: `acc-${band}`, source: `accessory:${piece}:${band}` };
-  const layers = BAND_ART[piece]?.[band];
-  return layers ? { layers, palette: PALETTE[band], key: `n-${band}`, source: `shared:${piece}:${band}` } : null;
+  return { layers: PLACEHOLDER_LAYERS, palette: PALETTE[band], key: `ph-${band}`, source: `placeholder:${piece}:${band}` };
 }

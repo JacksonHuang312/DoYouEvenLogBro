@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import { ItemTile } from "@/components/rpg/ItemTile";
-import { ACCESSORY_ART } from "@/components/rpg/accessoryArt";
-import { WEAPON_ART } from "@/components/rpg/weaponArt";
-import { BAND_ART, PIECE_TYPES, UNIQUE_ART } from "@/components/rpg/gearArt";
+import { PIECE_TYPES } from "@/components/rpg/gearArt";
 import { ARMOR_SLOTS, CLASS_IDS, LEVEL_BANDS, RARITIES, type Slot } from "@/lib/game/config";
 import { ITEMS, SETS } from "@/lib/game/catalogData";
 
@@ -14,13 +12,11 @@ export default function GearContactSheet() {
   const slotOf = (p: string): { slot: Slot; weapon?: "sword" | "staff" | "shield" } =>
     SWORD_STAFF_SHIELD.includes(p) ? { slot: "weapon", weapon: p as "sword" } : { slot: p as Slot };
   const mythics = ITEMS.filter((i) => i.mythic);
-  const drawn = PIECE_TYPES.filter((p) => BAND_ART[p] || ACCESSORY_ART[p] || WEAPON_ART[p]);
   return (
     <main className="min-h-screen bg-rpg-bg px-5 py-6 font-rpg-body text-rpg-text">
       <h1 className="font-rpg-head text-3xl font-bold uppercase">Gear icons</h1>
       <p className="mt-1 text-xs text-rpg-muted">
-        {drawn.length} of {PIECE_TYPES.length} piece types drawn, {Object.keys(UNIQUE_ART).length} of {mythics.length} Mythics.
-        Missing art shows the plain slot icon (dimmed, line art).
+        Placeholder art: every item draws the same gem until the Figma icons are dropped in (GAME_DESIGN.md 13.20).
       </p>
       <h2 className="mt-6 font-rpg-head text-xl font-semibold uppercase">By piece type and band</h2>
       <table className="mt-3 border-separate border-spacing-x-3 border-spacing-y-2 text-xs">
@@ -37,7 +33,7 @@ export default function GearContactSheet() {
             <tr key={p}>
               <td className="text-[13px]">{p}</td>
               {LEVEL_BANDS.map((b) => (
-                <td key={b} className={BAND_ART[p] || ACCESSORY_ART[p] || WEAPON_ART[p] ? "" : "opacity-40"}>
+                <td key={b}>
                   <ItemTile {...slotOf(p)} itemLevel={b} rarity="rare" size={72} />
                 </td>
               ))}
