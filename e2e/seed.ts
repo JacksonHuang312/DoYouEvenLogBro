@@ -75,6 +75,8 @@ export interface SeedOptions {
   unit?: "kg" | "lb";
   /** Also write one past workout of Bench Press with these reps at this weight, so "last time" has something to show. */
   lastBench?: { weightKg: number; reps: number[] };
+  /** With `lastBench`: also write that workout's claim record, paying this many coins. */
+  lastBenchCoins?: number;
   /** Days since every muscle was last trained. Default 1; 14+ makes the stats rusty. */
   trainedDaysAgo?: number;
   /** The hero's class. Default none (a player who hasn't picked one yet). */
@@ -156,6 +158,7 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
     routine = false,
     unit = "lb",
     lastBench,
+    lastBenchCoins,
     trainedDaysAgo = 1,
     classId,
     statLevel = 30,
@@ -277,6 +280,16 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
         ),
         setCount: sets.length,
       });
+    if (lastBenchCoins != null) {
+      await user
+        .collection("claims")
+        .doc("e2e-last-bench")
+        .set({
+          workoutId: "e2e-last-bench",
+          claimedAt: now - 7 * 86_400_000 + 3_600_000,
+          coins: { base: lastBenchCoins, scheduledBonus: 0, capped: 0, total: lastBenchCoins, balance: 0 },
+        });
+    }
   }
   return who.uid;
 }

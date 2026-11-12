@@ -361,7 +361,7 @@ These came up while building Phases 1 and 2 and weren't in the sections above. `
 - Your Hero shows "Injured: Arms, Legs", plus "hidden from followers" when you've turned that off. A follower's view of your profile reads `publicStats/{uid}` and drops entries whose `expiresAt` has passed, since nothing cleans that document. "Back around" appears only when every live flag has a return date, and uses the latest one.
 
 *Not built*
-- The Train mockup's "Last: Pull day · Wed · +180 coins" shows no coins (it would need a claims read). The Quests tab has the schedule editor but no calendar view (section 7.2).
+- ~~The Train mockup's "Last: Pull day · Wed · +180 coins" shows no coins (it would need a claims read). The Quests tab has the schedule editor but no calendar view (section 7.2).~~ Both built, see 13.25.
 
 **Phase 5 note: injury flags and bosses**
 - Injury flags waive the boss minimum for the flagged stat (section 3.6), which makes them worth abusing. Built in piece 2: 2 renewals, and a stat waits 7 days after any flag on it ends before a new one.
@@ -796,3 +796,13 @@ The measuring script of 13.11, for the emulator. `npm run fight-report` (or `-- 
 - The numbers come from `fightReport` and `reportLines` in `src/lib/game/fightReport.ts` (pure, tested in `fightReport.test.ts`); `scripts/fight-report.ts` only reads and prints.
 - **Emulator only:** like `seed:har`, the script refuses anything but a local emulator host and uses the demo project, so it can't read the real project. Reading production (13.11's "later") needs a deliberate flag and is not built. With only seeded test fights the tables say little; they are for the two weeks of real use (13.1 step 3).
 - Not built: production reads, workout and quest coin income, win rates by class or by power band.
+
+### 13.25 Train's last-workout coins and the Quests calendar (built 2026-11-12)
+The two leftovers from Phase 4's "Not built" note, with Jackson's answers for the calendar: a month grid with the Train strip's marks, in a collapsed section, and a tapped day shows its line.
+- **Train, last workout:** the line reads "Last: Push day · Nov 5 · +180 coins". The coins are what that workout's claim paid in all (`claims/{workoutId}.coins.total`, read by `useClaim`); nothing is added while the workout has no claim yet, or when it paid none.
+- **Quests · Calendar** (`PlanCalendar`, a collapsed section above Schedule): one month at a time with arrows, Sunday first. Every day carries the same mark as the Train week strip (✓ done, ~ early or late, – missed, + extra, an empty box planned, the accent box today, dashed for a prediction), from the same code (`scheduledDay` in `train.ts`, used by both `trainSchedule` and `planMonth`), so the two can't disagree. The header says "5 of 13 scheduled days done". Marks live in `planMark.ts`.
+- **Tapping a day** shows its line under the grid: "Mon, Oct 12 · Push day · Done a day late", "Fri, Oct 16 · Leg day · Scheduled", "Rest day", "Paused". Today is picked at first. It is read-only: no navigation and no edits.
+- **Range:** back to the month of the oldest scheduled-day match the server keeps (`SCHEDULE.matchedWeeksKept`, 5 weeks) and three months ahead (`CALENDAR_MONTHS_AHEAD`), where the schedule simply repeats. Days older than the kept matches say only "Workout done" or "No workout", never "Missed", because their matches are gone. Without a schedule the grid shows workout days only, up to a year back, and nothing ahead.
+- The month's workouts are loaded only while the section is open. No server change.
+- Tests: `train.test.ts` (the grid, each mark and line, predictions, pauses, the old-days rule, the arrow range, no schedule, and the same week matching the Train strip mark for mark). `e2e/quests.e2e.ts` checks the calendar at 390px (no overflow, tap targets, a past workout day, today, planned days after saving a schedule) and the Train line with and without a claim.
+- Not built: a longer history of matches (it would need the server to keep them), editing the schedule from the calendar.

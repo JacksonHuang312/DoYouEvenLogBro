@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { startPause } from "./breaks";
 import { newGameState } from "./claim";
 import type { ScheduleDoc, WeekdayRoutines } from "./schedule";
-import { bonusPercent, trainSchedule, type TrainScheduleInput } from "./train";
+import { bonusPercent, calendarFrom, planMonth, trainSchedule, type TrainScheduleInput } from "./train";
 import { benchDay, DAY, lookup, set, T0, workout, BENCH } from "./test-helpers";
 
 const UTC = "UTC";
@@ -183,5 +183,83 @@ describe("each routine's next day", () => {
 
   test("routines that aren't scheduled are absent", () => {
     expect(plan({ schedule: schedule({ "1": "push" }) }).nextByRoutine).toEqual({ push: "Mon" });
+  });
+});
+
+describe("the Quests calendar (13.25)", () => {
+  const month = (m: string, over: Partial<TrainScheduleInput> = {}) =>
+    planMonth({ schedule: schedule(), state: { pauses: [] }, routines, workouts: [], lookup, now: T0, timeZone: UTC, ...over, month: m });
+  const day = (m: ReturnType<typeof month>, id: string) => m.weeks.flat().find((d) => d?.dayId === id)!;
+
+  test("a month grid, Sunday first, padded with nulls", () => {
+    const m = month("2026-10-14");
+    expect(m).toMatchObject({ month: "2026-10-01", label: "October 2026" });
+    // October 2026 starts on a Thursday and ends on a Saturday.
+    expect(m.weeks).toHaveLength(5);
+    expect(m.weeks[0].map((d) => d?.date ?? null)).toEqual([null, null, null, null, 1, 2, 3]);
+    expect(m.weeks[4].map((d) => d?.date ?? null)).toEqual([25, 26, 27, 28, 29, 30, 31]);
+  });
+
+  test("days carry the week strip's marks, with the routine in the tapped line", () => {
+    const m = month("2026-10-01", {
+      schedule: schedule(WEEK, { "2026-10-12": slot("m", "2026-10-13", 1), "2026-10-09": slot("f", "2026-10-09", 0) }),
+    });
+    expect(day(m, "2026-10-12")).toMatchObject({ status: "late", line: "Mon, Oct 12 · Push day · Done a day late" });
+    expect(day(m, "2026-10-09")).toMatchObject({ status: "on-time", line: "Fri, Oct 9 · Leg day · Done on schedule" });
+    expect(day(m, "2026-10-07")).toMatchObject({ status: "missed", line: "Wed, Oct 7 · Pull day · Missed" });
+    expect(day(m, "2026-10-14")).toMatchObject({ status: "today", isToday: true, line: "Wed, Oct 14 · Pull day · Scheduled today" });
+    expect(day(m, "2026-10-16")).toMatchObject({ status: "planned", line: "Fri, Oct 16 · Leg day · Scheduled" });
+    expect(day(m, "2026-10-13")).toMatchObject({ status: "rest", paused: false, line: "Tue, Oct 13 · Rest day" });
+    // Scheduled: 4 Mondays, 4 Wednesdays and 5 Fridays.
+    expect(m.summary).toBe("2 of 13 scheduled days done");
+    // The same week as the Train strip, mark for mark.
+    const strip = trainSchedule({ schedule: schedule(), state: { pauses: [] }, routines, workouts: [], lookup, now: T0, timeZone: UTC });
+    const plain = month("2026-10-01");
+    expect(strip.days.map((d) => day(plain, d.dayId).status)).toEqual(strip.days.map((d) => d.status));
+  });
+
+  test("an unsynced workout is a prediction, an unmatched one is extra, and a deleted routine still reads", () => {
+    const m = month("2026-10-01", { workouts: [{ ...benchDay(T0), id: "offline" }] });
+    expect(day(m, "2026-10-14")).toMatchObject({ status: "on-time", predicted: true });
+    expect(m.anyPredicted).toBe(true);
+    const mondays = schedule({ "1": "push" }, { "2026-10-12": slot("m", "2026-10-12", 0) });
+    expect(day(month("2026-10-01", { schedule: mondays, workouts: [{ ...benchDay(T0), id: "x" }] }), "2026-10-14")).toMatchObject({
+      status: "extra",
+      line: "Wed, Oct 14 · Extra workout",
+    });
+    expect(day(month("2026-10-01", { routines: [] }), "2026-10-16").line).toBe("Fri, Oct 16 · Scheduled workout · Scheduled");
+  });
+
+  test("days inside a pause say Paused", () => {
+    const paused = startPause(newGameState(T0 - 30 * DAY, UTC), 7, T0 - DAY, UTC);
+    if (!paused.ok) throw new Error(paused.error);
+    const m = month("2026-10-01", { state: paused.value });
+    expect(day(m, "2026-10-16")).toMatchObject({ status: "rest", paused: true, line: "Fri, Oct 16 · Paused" });
+    expect(day(m, "2026-10-23").status).toBe("planned");
+  });
+
+  test("days older than the kept matches only say whether a workout was logged, never Missed", () => {
+    expect(calendarFrom("2026-10-14")).toBe("2026-09-09");
+    const m = month("2026-09-01", { workouts: [{ ...benchDay(Date.UTC(2026, 8, 2, 12)), id: "old" }] });
+    expect(day(m, "2026-09-02")).toMatchObject({ status: "done", line: "Wed, Sep 2 · Workout done" });
+    expect(day(m, "2026-09-04")).toMatchObject({ status: "rest", line: "Fri, Sep 4 · No workout" });
+    // From the cut-off on, the schedule counts again.
+    expect(day(m, "2026-09-11").status).toBe("missed");
+  });
+
+  test("the arrows stop at the month of the oldest kept match and three months ahead", () => {
+    expect(month("2026-10-01")).toMatchObject({ prev: "2026-09-01", next: "2026-11-01" });
+    expect(month("2026-09-01").prev).toBeNull();
+    expect(month("2027-01-01")).toMatchObject({ prev: "2026-12-01", next: null });
+    expect(day(month("2027-01-01"), "2027-01-04")).toMatchObject({ status: "planned" });
+  });
+
+  test("without a schedule: workout days only, a year back and nothing ahead", () => {
+    const m = month("2026-10-01", { schedule: null, workouts: [{ ...benchDay(T0 - DAY), id: "a" }] });
+    expect(day(m, "2026-10-13")).toMatchObject({ status: "done" });
+    expect(day(m, "2026-10-14")).toMatchObject({ status: "today", line: "Wed, Oct 14 · Today, no workout yet" });
+    expect(day(m, "2026-10-16").status).toBe("rest");
+    expect(m).toMatchObject({ summary: "1 workout day", prev: "2026-09-01", next: null });
+    expect(month("2025-10-01", { schedule: null }).prev).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import type { Workout } from "../types";
-import { activePause } from "./breaks";
+import { activePause, pausedOn } from "./breaks";
+import { monthGrid, monthLabel, monthStart, shiftMonth } from "./calendar";
 import type { GameState } from "./claim";
 import { COINS, SCHEDULE } from "./config";
 import { scheduledBonus } from "./economy";
@@ -96,13 +97,24 @@ function offLabel(daysOff: number, early: boolean) {
   return `Done ${daysOff === 1 ? "a day" : `${daysOff} days`} ${early ? "early" : "late"}`;
 }
 
-export function trainSchedule(input: TrainScheduleInput): TrainSchedule {
-  const { routines, lookup, now, timeZone } = input;
+/** What marking a day needs: the schedule with this device's predictions added, and the workout days left over. */
+interface PlanContext {
+  live: ScheduleDoc;
+  state: Pick<GameState, "pauses">;
+  matched: Record<string, MatchedSlot>;
+  predictedDays: Set<string>;
+  /** Days with a counted workout that filled no scheduled day. */
+  workoutDays: Set<string>;
+  hasSchedule: boolean;
+  today: string;
+}
+
+function planContext(input: TrainScheduleInput): PlanContext {
+  const { lookup, now, timeZone } = input;
   const doc = input.schedule ?? emptySchedule(now);
   const state = input.state ?? { pauses: [] };
   const hasSchedule = doc.versions.length > 0;
   const today = dayId(now, timeZone);
-  const first = weekId(now, timeZone);
 
   // Server-confirmed matches, plus this device's prediction for counted workouts the server hasn't matched.
   const matched: Record<string, MatchedSlot> = { ...doc.matched };
@@ -123,30 +135,40 @@ export function trainSchedule(input: TrainScheduleInput): TrainSchedule {
   }
   const live: ScheduleDoc = { ...doc, matched };
   const workoutDays = new Set(counted.filter((w) => !used.has(w.id)).map((w) => dayId(w.startedAt, timeZone)));
+  return { live, state, matched, predictedDays, workoutDays, hasSchedule, today };
+}
+
+/** One day's mark under a schedule: the Train week strip and the Quests calendar both use it, so they always agree. */
+function scheduledDay({ live, state, matched, predictedDays, workoutDays, today }: PlanContext, id: string): PlanDay {
+  const name = WEEKDAY(id, "long");
+  const slot = slotOn(live, state, id);
+  const m = matched[id];
+  const base = { dayId: id, letter: name[0], name, isToday: id === today, predicted: false };
+  if (slot && m) {
+    const early = daysBetween(m.workoutDay, id) > 0;
+    const status: PlanStatus = m.daysOff === 0 ? "on-time" : early ? "early" : "late";
+    const label = m.daysOff === 0 ? "Done on schedule" : offLabel(m.daysOff, early);
+    const predicted = predictedDays.has(id);
+    return { ...base, status, predicted, label: predicted ? `${label} (predicted, not synced yet)` : label };
+  }
+  if (slot) {
+    if (id === today) return { ...base, status: "today", label: "Scheduled today" };
+    if (id > today) return { ...base, status: "planned", label: "Scheduled" };
+    return { ...base, status: "missed", label: "Missed" };
+  }
+  if (workoutDays.has(id)) return { ...base, status: "extra", label: "Extra workout" };
+  return { ...base, status: "rest", label: "Rest day" };
+}
+
+export function trainSchedule(input: TrainScheduleInput): TrainSchedule {
+  const { routines, lookup, now, timeZone } = input;
+  const ctx = planContext(input);
+  const { live, state, matched, hasSchedule, today } = ctx;
+  const first = weekId(now, timeZone);
 
   // ---- Week strip ----
   const days: PlanDay[] = hasSchedule
-    ? Array.from({ length: 7 }, (_, i): PlanDay => {
-        const id = addDays(first, i);
-        const name = WEEKDAY(id, "long");
-        const slot = slotOn(live, state, id);
-        const m = matched[id];
-        const base = { dayId: id, letter: name[0], name, isToday: id === today, predicted: false };
-        if (slot && m) {
-          const early = daysBetween(m.workoutDay, id) > 0;
-          const status: PlanStatus = m.daysOff === 0 ? "on-time" : early ? "early" : "late";
-          const label = m.daysOff === 0 ? "Done on schedule" : offLabel(m.daysOff, early);
-          const predicted = predictedDays.has(id);
-          return { ...base, status, predicted, label: predicted ? `${label} (predicted, not synced yet)` : label };
-        }
-        if (slot) {
-          if (id === today) return { ...base, status: "today", label: "Scheduled today" };
-          if (id > today) return { ...base, status: "planned", label: "Scheduled" };
-          return { ...base, status: "missed", label: "Missed" };
-        }
-        if (workoutDays.has(id)) return { ...base, status: "extra", label: "Extra workout" };
-        return { ...base, status: "rest", label: "Rest day" };
-      })
+    ? Array.from({ length: 7 }, (_, i) => scheduledDay(ctx, addDays(first, i)))
     : weekStrip(input.workouts, lookup, now, timeZone).days.map(
         (d): PlanDay => ({
           dayId: d.dayId,
@@ -232,4 +254,98 @@ function todayCard(
     }
   }
   return { kind: "none", kicker: "", note: null };
+}
+
+// ---- The Quests calendar (13.25) ----
+
+export interface CalendarDay extends PlanDay {
+  /** Day of the month. */
+  date: number;
+  /** Inside a pause: no slot that day. */
+  paused: boolean;
+  /** The line shown when the day is tapped: "Wed, Oct 14 · Pull day · Done a day late". */
+  line: string;
+}
+
+export interface PlanMonth {
+  /** The month's first day, yyyy-mm-01. */
+  month: string;
+  /** "October 2026". */
+  label: string;
+  /** Weeks, Sunday first; null pads the first and last week. */
+  weeks: (CalendarDay | null)[][];
+  /** "5 of 12 scheduled days done", or "3 workout days" without a schedule. */
+  summary: string;
+  /** The earlier and later month to show, or null at the end of the range. */
+  prev: string | null;
+  next: string | null;
+  anyPredicted: boolean;
+}
+
+/** Months ahead of this one the calendar shows: the schedule simply repeats. */
+export const CALENDAR_MONTHS_AHEAD = 3;
+
+/** The first day whose scheduled-day matches the server still keeps (SCHEDULE.matchedWeeksKept); older marks would be guesses. */
+export const calendarFrom = (today: string): string => addDays(today, -SCHEDULE.matchedWeeksKept * 7);
+
+/**
+ * A month of the plan for the Quests tab: every day marked like the Train week strip. `workouts`
+ * must cover the month (and a few days either side, for early and late matches). Days before
+ * `calendarFrom` show only whether a counted workout was logged, since their matches are gone.
+ */
+export function planMonth(input: TrainScheduleInput & { month: string }): PlanMonth {
+  const { routines, lookup, timeZone } = input;
+  const ctx = planContext(input);
+  const { live, state, hasSchedule, today } = ctx;
+  const month = monthStart(input.month);
+  const from = calendarFrom(today);
+  const doneDays = new Set(input.workouts.filter((w) => countsAsWorkout(w, lookup)).map((w) => dayId(w.startedAt, timeZone)));
+  const routineName = (id: string) => routines.find((r) => r.id === id)?.name ?? "Scheduled workout";
+  const dateLabel = (id: string) =>
+    new Date(`${id}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
+  const cell = (id: string, date: number): CalendarDay => {
+    const name = WEEKDAY(id, "long");
+    const base = { dayId: id, letter: name[0], name, isToday: id === today, predicted: false, date, paused: false };
+    const when = dateLabel(id);
+    // No schedule, or too old for the kept matches: only whether a workout was logged.
+    if (!hasSchedule || id < from) {
+      if (doneDays.has(id)) return { ...base, status: "done", label: "Workout done", line: `${when} · Workout done` };
+      if (id === today) return { ...base, status: "today", label: "Today, no workout yet", line: `${when} · Today, no workout yet` };
+      return { ...base, status: "rest", label: "No workout", line: `${when} · No workout` };
+    }
+    const day = scheduledDay(ctx, id);
+    const slot = slotOn(live, state, id);
+    // A filled slot may be from an older schedule version; the slot's routine is the day's own.
+    const what = slot ? `${routineName(slot.routineId)} · ` : "";
+    if (!slot && day.status === "rest" && pausedOn(state, id)) {
+      return { ...base, status: "rest", paused: true, label: "Paused", line: `${when} · Paused` };
+    }
+    return { ...day, date, paused: false, line: `${when} · ${what}${day.label}` };
+  };
+
+  const weeks = monthGrid(month, { today, min: "0000-01-01", max: "9999-12-31", selected: null }).map((week) =>
+    week.map((c) => (c ? cell(c.day, c.date) : null)),
+  );
+  const days = weeks.flat().filter((d): d is CalendarDay => d != null);
+  const scheduled = days.filter((d) => ["on-time", "late", "early", "today", "planned", "missed"].includes(d.status));
+  const done = scheduled.filter((d) => ["on-time", "late", "early"].includes(d.status)).length;
+  const workoutDays = days.filter((d) => ["done", "on-time", "late", "early", "extra"].includes(d.status)).length;
+  const summary =
+    hasSchedule && scheduled.length > 0
+      ? `${done} of ${scheduled.length} scheduled days done`
+      : `${workoutDays} ${workoutDays === 1 ? "workout day" : "workout days"}`;
+
+  const thisMonth = monthStart(today);
+  const earliest = monthStart(hasSchedule ? from : addDays(today, -365));
+  const latest = hasSchedule ? shiftMonth(thisMonth, CALENDAR_MONTHS_AHEAD) : thisMonth;
+  return {
+    month,
+    label: monthLabel(month),
+    weeks,
+    summary,
+    prev: month > earliest ? shiftMonth(month, -1) : null,
+    next: month < latest ? shiftMonth(month, 1) : null,
+    anyPredicted: days.some((d) => d.predicted),
+  };
 }

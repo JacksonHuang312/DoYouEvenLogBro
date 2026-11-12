@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
+import { MARK } from "@/components/rpg/planMark";
 import { RoutineMenu } from "@/components/rpg/RoutineMenu";
 import { RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { TabHeader } from "@/components/rpg/TabHeader";
@@ -12,11 +13,11 @@ import { useWorkout } from "@/components/WorkoutProvider";
 import { useCustomExercises } from "@/lib/customExercises";
 import { confirmRpgDialog, errorRpgDialog } from "@/lib/rpgDialog";
 import { buildExerciseLookup } from "@/lib/game/sets";
-import { trainSchedule, type PlanDay, type PlanStatus } from "@/lib/game/train";
+import { trainSchedule, type PlanDay } from "@/lib/game/train";
 import { dayLabel, resolveTimeZone, routineStats, STAT_LABELS } from "@/lib/game/view";
 import { deleteRoutine, useRoutines } from "@/lib/routines";
 import type { Routine } from "@/lib/types";
-import { useGameState, useSchedule } from "@/lib/useGame";
+import { useClaim, useGameState, useSchedule } from "@/lib/useGame";
 import { useWorkouts } from "@/lib/useWorkouts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -37,6 +38,8 @@ export default function TrainPage() {
   const [since] = useState(() => Date.now() - 8 * DAY_MS);
   const weekWorkouts = useWorkouts(profile.uid, { since }).workouts;
   const last = useWorkouts(profile.uid, { max: 1 }).workouts?.[0];
+  // What the last workout's claim paid, once the server has claimed it.
+  const lastCoins = useClaim(profile.uid, last?.id ?? null).data?.coins.total ?? 0;
 
   const timeZone = resolveTimeZone(gameState.data, Intl.DateTimeFormat().resolvedOptions().timeZone);
   const today = new Date(now).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone });
@@ -212,6 +215,7 @@ export default function TrainPage() {
         {last ? (
           <span className="truncate text-rpg-muted">
             Last: {last.name} · {dayLabel(last.startedAt, now, timeZone)}
+            {lastCoins > 0 ? ` · +${lastCoins.toLocaleString("en-US")} coins` : ""}
           </span>
         ) : (
           <span className="text-rpg-muted">{weekWorkouts === null ? "" : "No workouts logged yet"}</span>
@@ -240,18 +244,6 @@ function PrimaryLink({ href, children }: { href: string; children: React.ReactNo
     </Link>
   );
 }
-
-const MARK: Record<PlanStatus, { text: string; cls: string }> = {
-  done: { text: "✓", cls: "border-rpg-good text-rpg-good" },
-  "on-time": { text: "✓", cls: "border-rpg-good text-rpg-good" },
-  late: { text: "~", cls: "border-rpg-warn text-rpg-warn" },
-  early: { text: "~", cls: "border-rpg-warn text-rpg-warn" },
-  today: { text: "•", cls: "border-rpg-accent bg-rpg-accent text-rpg-bg" },
-  planned: { text: "", cls: "border-[#4a4d52] text-rpg-muted" },
-  missed: { text: "–", cls: "border-transparent text-rpg-muted" },
-  extra: { text: "+", cls: "border-rpg-line-strong text-rpg-text-2" },
-  rest: { text: "", cls: "border-transparent" },
-};
 
 function Day({ day }: { day: PlanDay }) {
   const mark = MARK[day.status];

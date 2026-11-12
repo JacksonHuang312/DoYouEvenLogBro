@@ -3,7 +3,7 @@
 import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import type { PublicInjury } from "./game/breaks";
-import type { GameState, MusclesDoc, Snapshot } from "./game/claim";
+import type { ClaimResult, GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
 import { FIGHT_HISTORY } from "./game/battleView";
 import type { BattleDoc } from "./game/fights";
@@ -123,6 +123,28 @@ export function useSnapshots(uid: string): Live<Snapshot[]> {
       },
     ),
   );
+}
+
+/** claims/{workoutId}: what claiming a workout paid. data is null with no workout, or once the server confirms it has no claim (not claimed yet, or it didn't count). */
+export function useClaim(uid: string, workoutId: string | null): Live<ClaimResult | null> {
+  return useLive<ClaimResult | null>(`${uid}/claims/${workoutId ?? ""}`, null, (settle, fail) => {
+    if (!workoutId) {
+      settle(null);
+      return () => {};
+    }
+    return onSnapshot(
+      doc(firebase().db, "users", uid, "claims", workoutId),
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.exists()) settle(snap.data() as ClaimResult);
+        else if (!snap.metadata.fromCache) settle(null);
+      },
+      (err) => {
+        report("claim", err);
+        fail();
+      },
+    );
+  });
 }
 
 export type StoredFight = FightRecord & { id: string };

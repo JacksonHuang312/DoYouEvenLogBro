@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useProfile } from "@/components/AuthProvider";
 import { BreaksPanel } from "@/components/rpg/BreaksPanel";
 import { Disclosure, OfflineNote } from "@/components/rpg/Disclosure";
+import { PlanCalendar } from "@/components/rpg/PlanCalendar";
 import { RpgScreen, Skeleton } from "@/components/rpg/RpgScreen";
 import { ScheduleEditor } from "@/components/rpg/ScheduleEditor";
 import { TabHeader } from "@/components/rpg/TabHeader";
@@ -149,6 +150,18 @@ export default function QuestsPage() {
           <p className="text-[11px] text-rpg-muted">You need {reroll.cost} coins to reroll.</p>
         )}
       </section>
+
+      <Disclosure title="Calendar" summary={new Date(now).toLocaleDateString("en-US", { month: "long", timeZone })}>
+        <PlanCalendar
+          uid={profile.uid}
+          routines={routines}
+          schedule={schedule.data}
+          state={state}
+          lookup={lookup}
+          now={now}
+          timeZone={timeZone}
+        />
+      </Disclosure>
 
       <Disclosure
         title="Schedule"
