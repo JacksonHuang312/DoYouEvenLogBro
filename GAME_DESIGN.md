@@ -668,7 +668,7 @@ Considered and dropped: rarity tied to level bands (Common 1-5 up to Mythic 95-1
 - **Seasons** later: for example a seasonal endless tower leaderboard among friends with cosmetic rewards, reset every few months.
 
 ### 13.11 Measure real players
-- A script reads stored fight records (emulator now, production later) and reports real win rates per boss, months to each tier and coin income, so tuning uses data, not only the pacing model.
+- A script reads stored fight records (emulator now, production later) and reports real win rates per boss, months to each tier and coin income, so tuning uses data, not only the pacing model (built for the emulator, see 13.24).
 - **Real training history:** Jackson may export his old workouts from Hevy (CSV). An import script would load them into the **emulator only** (never production, never committed) to check the stat and level curves against a real person's training.
 - **First run (2026-10-30, `npx tsx scripts/hevy-pacing.ts <csv>...`, both of Jackson's accounts, 161 workouts over 10.6 months, no duplicates):**
   - Overall 3.1 counted workouts a week and 13.7 working sets each (model: 4 and 16). Two phases: Dec-Apr about 2.3 a week at 6-8 sets (a beginner ramp), May-Oct about 4.5 a week at 12-16 sets.
@@ -786,3 +786,13 @@ The last piece 13.14 left for later, with Jackson's answer: one toggle in Settin
 - **Stored** on the profile as `skipFightConfirm` (a boolean; missing means ask), like the set effort scale, so it follows the account across devices and saves offline. `firestore.rules` allows the new field: **the rules must be deployed** before the toggle can save in production.
 - Presentation only: the server never asked for a confirmation, so nothing about fights changed.
 - Tests: `tests/firestore.rules.test.mjs` (a boolean, nothing else). `e2e/battle.e2e.ts` turns it on in Settings (390px, no overflow, the row is a full tap target), fights the weekly boss with no dialog, and turns it off again; the existing weekly-boss test still covers the dialog with the setting off.
+
+### 13.24 Fight report (built 2026-11-12)
+The measuring script of 13.11, for the emulator. `npm run fight-report` (or `-- --uid <uid>` for one player) reads every user's stored `fights` records and prints four tables. Read-only.
+- **By mode:** fight requests (a climb is one), win rate, coins, scrap, Mythic Cores, items kept and drops auto-salvaged.
+- **By enemy:** one row per enemy and mode, counting every round (endless tower enemies are one row per type, with the floors they were met at): rounds, win rate, losses split into "fell" and "enraged", average length in simulation seconds, and the hero's power over the enemy's recommended power (under 100% means players go in underpowered).
+- **Months to each weekly tier:** from the start of the player's game (`game/state.createdAt`) to their first win at that tier: fastest, median and slowest across players. A loss doesn't count.
+- **Coins from fights per player:** fights, fight days, coins, and coins a week between the first and last fight (at least one week). Workout and quest coins are not in it: those are in the claim records, for a later version.
+- The numbers come from `fightReport` and `reportLines` in `src/lib/game/fightReport.ts` (pure, tested in `fightReport.test.ts`); `scripts/fight-report.ts` only reads and prints.
+- **Emulator only:** like `seed:har`, the script refuses anything but a local emulator host and uses the demo project, so it can't read the real project. Reading production (13.11's "later") needs a deliberate flag and is not built. With only seeded test fights the tables say little; they are for the two weeks of real use (13.1 step 3).
+- Not built: production reads, workout and quest coin income, win rates by class or by power band.

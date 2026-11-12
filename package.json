@@ -21,7 +21,8 @@
     "dev:emu": "node scripts/dev-emulator.mjs",
     "e2e:cleanup": "node e2e/free-ports.mjs",
     "combat-table": "tsx scripts/combat-table.ts",
-    "pacing-table": "tsx scripts/pacing-table.ts"
+    "pacing-table": "tsx scripts/pacing-table.ts",
+    "fight-report": "tsx scripts/fight-report.ts"
   },
   "dependencies": {
     "firebase": "^13.0.0",
