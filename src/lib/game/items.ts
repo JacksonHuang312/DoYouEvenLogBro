@@ -2,6 +2,7 @@ import type { GameState } from "./claim";
 import { baseItem, type BaseItem } from "./catalog";
 import {
   ACCESSORY_EFFECTS,
+  AUTO_SALVAGE_BELOW,
   EFFECT_SCALE,
   GEAR,
   type Focus,
@@ -23,6 +24,7 @@ import {
   positionsOf,
   slotOfPosition,
   type AccessoryEffect,
+  type AutoSalvageBelow,
   type Material,
   type Position,
   type Rarity,
@@ -322,6 +324,49 @@ export function removeItem(
     item: { ...itemDoc(item), removed: removal, updatedAt: now },
     removal,
   });
+}
+
+// ---- Auto-salvage (13.9) ----
+
+/** The rarity below which fight drops are salvaged as they land, or null when it is off. */
+export const autoSalvageOf = (s: Pick<GameState, "autoSalvage">): AutoSalvageBelow | null =>
+  (AUTO_SALVAGE_BELOW as readonly unknown[]).includes(s.autoSalvage) ? s.autoSalvage! : null;
+
+/** Whether an item of `rarity` falls under "salvage below `below`". Never Legendary or Mythic, and nothing when it is off. */
+export const salvagesBelow = (rarity: Rarity, below: AutoSalvageBelow | null): boolean =>
+  below != null && rarityIndex(rarity) < rarityIndex(below) && rarityIndex(rarity) < rarityIndex("legendary");
+
+/** Turns auto-salvage on at a rarity, or off with null. */
+export const setAutoSalvage = (state: GameState, below: AutoSalvageBelow | null, now: number): GameState => ({
+  ...state,
+  autoSalvage: below,
+  updatedAt: now,
+});
+
+/**
+ * Salvages every one of `items` that is below `below`, still owned and not worn, in one go (the Gear
+ * tab's bulk button). Anything else in the list is left alone, so a retry after it went through
+ * changes nothing. `salvageBonus` is the worn salvageYield effect.
+ */
+export function salvageBelow(
+  state: GameState,
+  items: OwnedItem[],
+  below: AutoSalvageBelow,
+  now: number,
+  salvageBonus = 0,
+): { state: GameState; items: { id: string; item: Item }[]; scrap: number } {
+  let next = state;
+  let scrap = 0;
+  const changed: { id: string; item: Item }[] = [];
+  for (const item of items) {
+    if (!salvagesBelow(item.rarity, below) || changed.some((c) => c.id === item.id)) continue;
+    const r = removeItem(next, item, "salvaged", now, salvageBonus);
+    if (!r.ok) continue;
+    next = r.value.state;
+    scrap += r.value.removal.scrap;
+    changed.push({ id: item.id, item: r.value.item });
+  }
+  return { state: next, items: changed, scrap };
 }
 
 // ---- Sets and focus ----

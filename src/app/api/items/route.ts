@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GEAR, ITEM_LEVEL, POSITIONS, RARITIES } from "@/lib/game/config";
+import { AUTO_SALVAGE_BELOW, BULK_SALVAGE_MAX, GEAR, ITEM_LEVEL, POSITIONS, RARITIES } from "@/lib/game/config";
 import { apiRoute, parseBody, requireUser } from "@/lib/server/api";
 import { itemAction } from "@/lib/server/items";
 
@@ -32,6 +32,14 @@ const Body = z.discriminatedUnion("action", [
   }),
   z.strictObject({ action: z.literal("sell"), itemId }),
   z.strictObject({ action: z.literal("salvage"), itemId }),
+  /** Auto-salvage fight drops below a rarity; null turns it off. */
+  z.strictObject({ action: z.literal("autoSalvage"), below: z.enum(AUTO_SALVAGE_BELOW).nullable() }),
+  /** Salvage every listed item that is below the rarity and not worn: the items the confirm counted. */
+  z.strictObject({
+    action: z.literal("salvageBelow"),
+    below: z.enum(AUTO_SALVAGE_BELOW),
+    itemIds: z.array(itemId).min(1).max(BULK_SALVAGE_MAX),
+  }),
 ]);
 
 /** Equips (at a position, or several at once), unequips, upgrades, reforges, sells or salvages an item. Safe to retry. */

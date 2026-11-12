@@ -612,9 +612,12 @@ export function resultView(
     });
   if (fight.mythicCores)
     rewards.push({ label: "Mythic Core", value: `+${fight.mythicCores}` });
+  // An auto-salvaged drop (it has an item level) gets no reveal: the player asked not to see it.
   const dropped = [
     ...items.map((i) => i.rarity),
-    ...(fight.salvaged ?? []).map((s) => s.rarity),
+    ...(fight.salvaged ?? [])
+      .filter((s) => s.itemLevel == null)
+      .map((s) => s.rarity),
   ];
   const best = dropped.length
     ? dropped.reduce((a, b) => (RANK.indexOf(b) > RANK.indexOf(a) ? b : a))
@@ -645,9 +648,10 @@ export function resultView(
     })),
     rewards,
     items,
-    salvaged: (fight.salvaged ?? []).map(
-      (s) =>
-        `${baseItem(s.baseId)?.name ?? "Item"} (duplicate) → ${s.scrap} scrap`,
+    salvaged: (fight.salvaged ?? []).map((s) =>
+      s.itemLevel == null
+        ? `${baseItem(s.baseId)?.name ?? "Item"} (duplicate) → ${s.scrap} scrap`
+        : `${baseItem(s.baseId)?.name ?? "Item"} (${s.rarity[0].toUpperCase()}${s.rarity.slice(1)}, level ${s.itemLevel}) auto-salvaged → +${s.scrap} scrap`,
     ),
     guaranteed: fight.guaranteed,
     best,

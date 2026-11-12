@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { energyOf, type MusclesDoc } from "../game/claim";
 import { DEFAULT_TIME_ZONE, type ClassId, type Rarity } from "../game/config";
+import { gearEffects } from "../game/effects";
 import { applyFightRewards, fightHero, newBattleDoc, runFight, type BattleDoc, type FightMode, type FightRound } from "../game/fights";
 import { pickClass, switchClass } from "../game/heroClass";
 import { materialsOf, type Item, type Materials } from "../game/items";
@@ -32,8 +33,11 @@ export interface FightRecord {
   scrap: number;
   mythicCores: number;
   items: { id: string; baseId: string; rarity: Rarity; itemLevel?: number }[];
-  /** Fights from before the item rework turned duplicate drops into scrap; every drop is an item now. */
-  salvaged?: { baseId: string; rarity: Rarity; scrap: number }[];
+  /**
+   * Drops that became scrap and not an item. With an item level: auto-salvage (13.9), paid on top of
+   * `scrap`. Without one: a fight from before the item rework, which turned duplicates into scrap.
+   */
+  salvaged?: { baseId: string; rarity: Rarity; scrap: number; itemLevel?: number }[];
   /** Boss Tower wins: whether it was the floor's first clear. */
   firstClear?: boolean;
   /** Whether a guarantee forced a drop. */
@@ -79,7 +83,9 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
       runFight({ mode: input.mode, doc, state, fighter, now, timeZone: state.timeZone, seed, floor: input.floor, climb: input.climb }),
     );
 
-    const rewards = applyFightRewards({ state, outcome, fightId: input.requestId, now });
+    // Auto-salvaged drops pay what a salvage by hand would, a worn salvage charm included.
+    const salvageBonus = worn.length ? gearEffects(worn, state.level).salvageYield : 0;
+    const rewards = applyFightRewards({ state, outcome, fightId: input.requestId, now, salvageBonus });
 
     const fight: FightRecord = {
       mode: input.mode,
@@ -93,6 +99,7 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
       scrap: outcome.scrap,
       mythicCores: outcome.mythicCores,
       items: rewards.items.map(({ id, item }) => ({ id, baseId: item.baseId, rarity: item.rarity, itemLevel: item.itemLevel })),
+      ...(rewards.salvaged.length ? { salvaged: rewards.salvaged } : {}),
       ...(outcome.firstClear != null ? { firstClear: outcome.firstClear } : {}),
       guaranteed: outcome.drops.some((d) => d.guaranteed),
     };

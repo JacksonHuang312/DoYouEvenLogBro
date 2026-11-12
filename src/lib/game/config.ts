@@ -434,6 +434,15 @@ export type Material = (typeof MATERIALS)[number];
 export const SALVAGE: Record<Rarity, number> = { common: 5, uncommon: 15, rare: 35, epic: 80, legendary: 150, mythic: 250 };
 export const SALVAGE_LEVEL = { levelBase: 0.5, perLevel: 0.01 };
 
+/**
+ * Auto-salvage (13.9): the player picks one of these, and anything of a lower rarity is salvaged for them
+ * (fight drops as they land, or everything unequipped with the bulk button). Legendary and Mythic never are.
+ */
+export const AUTO_SALVAGE_BELOW = ["uncommon", "rare", "epic", "legendary"] as const;
+export type AutoSalvageBelow = (typeof AUTO_SALVAGE_BELOW)[number];
+/** The most items one bulk salvage request takes. */
+export const BULK_SALVAGE_MAX = 200;
+
 /** Reforging raises an item to your level for this much scrap per level gained, by rarity (*draft*, 13.5). */
 export const REFORGE_SCRAP_PER_LEVEL: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 2, epic: 3, legendary: 5, mythic: 8 };
 

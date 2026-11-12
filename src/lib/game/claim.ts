@@ -1,6 +1,6 @@
 import type { LoggedSet, Workout } from "../types";
 import type { Injury, Pause } from "./breaks";
-import { COINS, DAILY_WORKOUTS, ENERGY, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type ClassId, type Stat } from "./config";
+import { COINS, DAILY_WORKOUTS, ENERGY, MAX_FUTURE_MS, MIN_WORKING_SETS, STATS, type AutoSalvageBelow, type ClassId, type Stat } from "./config";
 import { coinPayout, levelForXp, statXp, workoutXp, type CoinPayout } from "./economy";
 import { exerciseSessions, mergeFacts, workoutFacts, type MusclesFacts, type PreviousSession } from "./facts";
 import { statOf } from "./muscles";
@@ -53,6 +53,8 @@ export interface GameState {
   countedDays?: Record<string, number>;
   /** Fight energy for the Campaign and endless tower. Missing means ENERGY.start. */
   energy?: number;
+  /** Fight drops below this rarity are salvaged as they land (13.9). Missing or null means off. */
+  autoSalvage?: AutoSalvageBelow | null;
   createdAt: number;
   updatedAt: number;
 }

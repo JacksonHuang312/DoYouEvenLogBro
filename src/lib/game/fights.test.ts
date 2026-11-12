@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { battlePower } from "./battle";
 import { weeklyEncounter, weeklyTier } from "./bosses";
 import { newGameState, type GameState } from "./claim";
-import { BOSS_DROPS, BOSS_TOWER, ENDLESS_TOWER, STATS, WEEKLY_BOSS, type ClassId, type Stat } from "./config";
+import { BOSS_DROPS, BOSS_TOWER, ENDLESS_TOWER, SALVAGE, STATS, WEEKLY_BOSS, type ClassId, type Stat } from "./config";
 import { balancedHero } from "./combatTuning";
 import {
   applyFightRewards,
@@ -197,6 +197,37 @@ describe("fight rewards and the hero", () => {
     expect(r.items[0].item).toMatchObject({ baseId: "ironbound-boots", source: "boss", plus: 0, rarity: "common", itemLevel: 12 });
     expect(r.items[2].item).toMatchObject({ baseId: "wayfarer-boots", rarity: "legendary", itemLevel: 30 });
     expect(r.state).toMatchObject({ coins: 60, materials: { scrap: 1 + 5, mythicCore: 1 } });
+  });
+
+  test("auto-salvage: a drop below the chosen rarity pays its salvage scrap and adds no item; the rest keep their ids", () => {
+    const outcome = {
+      coins: 50,
+      scrap: 5,
+      mythicCores: 0,
+      drops: [
+        { baseId: "ironbound-boots", rarity: "common" as const, itemLevel: 50, guaranteed: false },
+        { baseId: "steelguard-boots", rarity: "rare" as const, itemLevel: 50, guaranteed: false },
+        { baseId: "wayfarer-boots", rarity: "uncommon" as const, itemLevel: 50, guaranteed: false },
+        { baseId: "titans-vow-gloves", rarity: "legendary" as const, itemLevel: 50, guaranteed: true },
+      ],
+    };
+    const on = applyFightRewards({ state: state({ materials: { scrap: 1 }, autoSalvage: "rare" }), outcome, fightId: "abc", now: T0 });
+    expect(on.items.map((i) => i.id)).toEqual(["fight-abc-1", "fight-abc-3"]);
+    expect(on.salvaged).toEqual([
+      { baseId: "ironbound-boots", rarity: "common", itemLevel: 50, scrap: SALVAGE.common },
+      { baseId: "wayfarer-boots", rarity: "uncommon", itemLevel: 50, scrap: SALVAGE.uncommon },
+    ]);
+    expect(on.state.materials).toMatchObject({ scrap: 1 + 5 + SALVAGE.common + SALVAGE.uncommon });
+    // A worn salvage charm raises it, as for a salvage by hand.
+    const charm = applyFightRewards({ state: state({ autoSalvage: "rare" }), outcome, fightId: "abc", now: T0, salvageBonus: 0.1 });
+    expect(charm.salvaged.map((s) => s.scrap)).toEqual([Math.round(SALVAGE.common * 1.1), Math.round(SALVAGE.uncommon * 1.1)]);
+    // Below Legendary keeps only the Legendary; off keeps everything.
+    const most = applyFightRewards({ state: state({ autoSalvage: "legendary" }), outcome, fightId: "abc", now: T0 });
+    expect(most.items.map((i) => i.item.rarity)).toEqual(["legendary"]);
+    const off = applyFightRewards({ state: state(), outcome, fightId: "abc", now: T0 });
+    expect(off.items).toHaveLength(4);
+    expect(off.salvaged).toEqual([]);
+    expect(off.state.materials).toMatchObject({ scrap: 5 });
   });
 
   test("drops come at or a little below the lower of your level and the source's", () => {

@@ -1,15 +1,18 @@
 import type { DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { newGameState, type GameState } from "../game/claim";
-import { DEFAULT_TIME_ZONE, type Position, type Rarity } from "../game/config";
+import { DEFAULT_TIME_ZONE, type AutoSalvageBelow, type Position, type Rarity } from "../game/config";
 import {
   applyReforge,
   applyUpgrade,
+  autoSalvageOf,
   defaultPosition,
   equipItem,
   equippedOf,
   equippedPosition,
   materialsOf,
   removeItem,
+  salvageBelow,
+  setAutoSalvage,
   unequipPosition,
   upgradeStep,
   type Equipped,
@@ -125,7 +128,11 @@ export type ItemAction =
   | { action: "reforge"; itemId: string; expectedLevel: number }
   | { action: "equipMany"; items: { itemId: string; position: Position }[] }
   | { action: "sell"; itemId: string }
-  | { action: "salvage"; itemId: string };
+  | { action: "salvage"; itemId: string }
+  /** Turns auto-salvage of fight drops on at a rarity, or off with null. */
+  | { action: "autoSalvage"; below: AutoSalvageBelow | null }
+  /** The bulk button: salvages the listed items (what the confirm counted) that are below the rarity and not worn. */
+  | { action: "salvageBelow"; below: AutoSalvageBelow; itemIds: string[] };
 
 export interface ItemResponse {
   /** "already-done": a retry of an action that already happened; nothing changed. */
@@ -134,11 +141,15 @@ export interface ItemResponse {
   coins: number;
   materials: Materials;
   equipped: Equipped;
+  /** The auto-salvage setting after the request. */
+  autoSalvage: AutoSalvageBelow | null;
+  /** A bulk salvage: how many items it took and the scrap they paid. */
+  salvaged?: { count: number; scrap: number };
 }
 
 const REMOVAL: Record<"sell" | "salvage", Removal["reason"]> = { sell: "sold", salvage: "salvaged" };
 
-/** Equips (at a position, or several at once), unequips, upgrades, reforges, sells or salvages. Every action is safe to retry. */
+/** Equips (at a position, or several at once), unequips, upgrades, reforges, sells or salvages (one, or all below a rarity), and sets auto-salvage. Every action is safe to retry. */
 export async function itemAction(uid: string, input: ItemAction): Promise<ItemResponse> {
   const db = adminDb();
   const r = gameRefs(db, uid);
@@ -151,7 +162,30 @@ export async function itemAction(uid: string, input: ItemAction): Promise<ItemRe
       coins: state.coins,
       materials: materialsOf(state),
       equipped: equippedOf(state),
+      autoSalvage: autoSalvageOf(state),
     });
+
+    if (input.action === "autoSalvage") {
+      const state = stateOf(await tx.get(r.state), now, DEFAULT_TIME_ZONE);
+      if (autoSalvageOf(state) === input.below) return answer("already-done", state);
+      const next = setAutoSalvage(state, input.below, now);
+      tx.set(r.state, next);
+      return answer("done", next);
+    }
+
+    if (input.action === "salvageBelow") {
+      // Items already salvaged (a retry), worn or not below the rarity are skipped, so a retry changes nothing.
+      const ids = [...new Set(input.itemIds)];
+      const [stateSnap, ...snaps] = await tx.getAll(r.state, ...ids.map((id) => r.inventory.doc(id)));
+      const state = stateOf(stateSnap, now, DEFAULT_TIME_ZONE);
+      const items = snaps.filter((s) => s.exists).map(ownedOf);
+      const bonus = (await wornEffects(tx, r, state)).salvageYield;
+      const next = salvageBelow(state, items, input.below, now, bonus);
+      if (!next.items.length) return { ...answer("already-done", state), salvaged: { count: 0, scrap: 0 } };
+      for (const { id, item } of next.items) tx.set(r.inventory.doc(id), item);
+      tx.set(r.state, next.state);
+      return { ...answer("done", next.state), salvaged: { count: next.items.length, scrap: next.scrap } };
+    }
 
     if (input.action === "unequip") {
       const state = stateOf(await tx.get(r.state), now, DEFAULT_TIME_ZONE);

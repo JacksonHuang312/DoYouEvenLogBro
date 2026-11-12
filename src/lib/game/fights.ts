@@ -18,7 +18,7 @@ import {
 import { gearEffects } from "./effects";
 import { classBonusPct } from "./heroClass";
 import { boosted } from "./levels";
-import { fail, materialsOf, newItem, ok, type GameResult, type Item } from "./items";
+import { autoSalvageOf, fail, materialsOf, newItem, ok, salvagesBelow, salvageYield, type GameResult, type Item } from "./items";
 import {
   bossTowerDrop,
   bossTowerPay,
@@ -323,30 +323,41 @@ export interface FightRewards {
   state: GameState;
   /** New inventory docs, with ids made from the fight's id so a retry can't add them twice. */
   items: { id: string; item: Item }[];
+  /** Drops that auto-salvage turned straight into scrap (already counted in the state's scrap). */
+  salvaged: { baseId: string; rarity: Rarity; itemLevel: number; scrap: number }[];
 }
 
 /**
  * Pays a fight's coins, scrap and Mythic Cores, and turns every drop into a new item at its rarity and
- * item level. A second copy of something you own is kept too: salvage it or keep it (13.5).
+ * item level. A second copy of something you own is kept too: salvage it or keep it (13.5). With
+ * auto-salvage on (13.9), a drop below the chosen rarity pays its salvage scrap and adds no item;
+ * `salvageBonus` is the worn salvageYield effect, as for a salvage by hand.
  */
 export function applyFightRewards({
   state,
   outcome,
   fightId,
   now,
+  salvageBonus = 0,
 }: {
   state: GameState;
   outcome: Pick<FightOutcome, "coins" | "scrap" | "mythicCores" | "drops"> & Partial<Pick<FightOutcome, "energySpent">>;
   fightId: string;
   now: number;
+  salvageBonus?: number;
 }): FightRewards {
   const items: FightRewards["items"] = [];
+  const salvaged: FightRewards["salvaged"] = [];
+  const below = autoSalvageOf(state);
   outcome.drops.forEach((d, i) => {
     const base = baseItem(d.baseId);
     const item = base ? newItem(base, "boss", now, { rarity: d.rarity, itemLevel: d.itemLevel }) : null;
-    if (item?.ok) items.push({ id: `fight-${fightId}-${i}`, item: item.value });
+    if (!item?.ok) return;
+    if (salvagesBelow(d.rarity, below)) {
+      salvaged.push({ baseId: d.baseId, rarity: d.rarity, itemLevel: d.itemLevel, scrap: salvageYield(item.value, salvageBonus) });
+    } else items.push({ id: `fight-${fightId}-${i}`, item: item.value });
   });
-  const scrap = outcome.scrap;
+  const scrap = outcome.scrap + salvaged.reduce((n, s) => n + s.scrap, 0);
   const m = materialsOf(state);
   return {
     state: {
@@ -357,6 +368,7 @@ export function applyFightRewards({
       updatedAt: now,
     },
     items,
+    salvaged,
   };
 }
 

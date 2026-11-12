@@ -287,6 +287,15 @@ describe("result view", () => {
     );
     expect(old.items[0].itemLevel).toBeNull();
     expect(old.salvaged[0]).toMatch(/duplicate.*5 scrap/);
+    // An auto-salvaged drop (13.9) says so with its rarity and level, and gets no reveal of its own.
+    const auto = resultView(
+      record({
+        items: [],
+        salvaged: [{ baseId: "warden-boots", rarity: "epic", itemLevel: 41, scrap: 73 }],
+      }),
+    );
+    expect(auto.salvaged).toEqual(["Warden Striders (Epic, level 41) auto-salvaged → +73 scrap"]);
+    expect(auto.best).toBeNull();
     expect(r.rounds[0]).toMatchObject({
       won: true,
       ended: "Defeated it",

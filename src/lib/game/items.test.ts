@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { BASE_ITEMS, baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { ARMOR_SLOTS, GEAR, MYTHIC_PROMOTION, RARITIES, REFORGE_SCRAP_PER_LEVEL, SALVAGE, type Rarity } from "./config";
+import { ARMOR_SLOTS, AUTO_SALVAGE_BELOW, GEAR, MYTHIC_PROMOTION, RARITIES, REFORGE_SCRAP_PER_LEVEL, SALVAGE, type Rarity } from "./config";
 import {
   applyReforge,
   applyUpgrade,
+  autoSalvageOf,
   defaultPosition,
   effectValue,
   equipItem,
@@ -16,7 +17,10 @@ import {
   piecePower,
   reforgeCost,
   removeItem,
+  salvageBelow,
+  salvagesBelow,
   salvageYield,
+  setAutoSalvage,
   sellPrice,
   setBonusPct,
   unequipPosition,
@@ -349,5 +353,51 @@ describe("newItem", () => {
     expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 2.5 })).toMatchObject({ ok: false });
     expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 5, plus: 2 })).toMatchObject({ ok: true });
     expect(newItem(iron, "admin", T0, { rarity: "rare", itemLevel: 5, plus: 3 })).toMatchObject({ ok: false });
+  });
+});
+
+describe("auto-salvage (13.9)", () => {
+  test("off by default; a choice is one of Uncommon to Legendary, and anything else on the doc counts as off", () => {
+    expect(autoSalvageOf(rich())).toBeNull();
+    expect(autoSalvageOf(setAutoSalvage(rich(), "rare", T0 + 1))).toBe("rare");
+    expect(setAutoSalvage(rich(), "rare", T0 + 1).updatedAt).toBe(T0 + 1);
+    expect(autoSalvageOf(setAutoSalvage(setAutoSalvage(rich(), "rare", T0), null, T0))).toBeNull();
+    expect(autoSalvageOf(rich({ autoSalvage: "mythic" as never }))).toBeNull();
+    expect([...AUTO_SALVAGE_BELOW]).toEqual(["uncommon", "rare", "epic", "legendary"]);
+  });
+
+  test("below a rarity means strictly lower; Legendary and Mythic never fall under it", () => {
+    expect(RARITIES.filter((r) => salvagesBelow(r, "rare"))).toEqual(["common", "uncommon"]);
+    expect(RARITIES.filter((r) => salvagesBelow(r, "uncommon"))).toEqual(["common"]);
+    expect(RARITIES.filter((r) => salvagesBelow(r, "legendary"))).toEqual(["common", "uncommon", "rare", "epic"]);
+    expect(RARITIES.filter((r) => salvagesBelow(r, null))).toEqual([]);
+    expect(salvagesBelow("legendary", "mythic" as never)).toBe(false);
+  });
+
+  test("the bulk salvage takes every unworn item below the rarity and pays each one's scrap, charm included", () => {
+    const common = owned("ironbound-boots", { itemLevel: 50 }, "a");
+    const uncommon = owned("wayfarer-boots", { rarity: "uncommon", itemLevel: 50 }, "b");
+    const worn = owned("ironbound-helmet", { itemLevel: 50 }, "c");
+    const rare = owned("steelguard-boots", { rarity: "rare", itemLevel: 50 }, "d");
+    const legendary = owned("titans-vow-gloves", { rarity: "legendary", itemLevel: 50 }, "e");
+    const state = rich({ materials: { scrap: 10 }, equipped: { helmet: "c" } });
+    const r = salvageBelow(state, [common, uncommon, worn, rare, legendary], "rare", T0 + 9, 0.1);
+    expect(r.items.map((i) => i.id)).toEqual(["a", "b"]);
+    expect(r.scrap).toBe(Math.round(SALVAGE.common * 1.1) + Math.round(SALVAGE.uncommon * 1.1));
+    expect(r.state.materials).toMatchObject({ scrap: 10 + r.scrap });
+    expect(r.items[0].item.removed).toMatchObject({ reason: "salvaged", at: T0 + 9, scrap: Math.round(SALVAGE.common * 1.1), coins: 0 });
+    // Below Legendary takes the Rare too, but never the Legendary or what is worn.
+    expect(salvageBelow(state, [common, uncommon, worn, rare, legendary], "legendary", T0).items.map((i) => i.id)).toEqual(["a", "b", "d"]);
+  });
+
+  test("a retry changes nothing: items already salvaged are skipped, and an id listed twice counts once", () => {
+    const item = owned("ironbound-boots", { itemLevel: 50 }, "a");
+    const state = rich({ materials: { scrap: 0 } });
+    const first = salvageBelow(state, [item, item], "rare", T0);
+    expect(first.items).toHaveLength(1);
+    expect(first.scrap).toBe(SALVAGE.common);
+    const again = salvageBelow(first.state, [{ id: "a", ...first.items[0].item }], "rare", T0);
+    expect(again).toMatchObject({ items: [], scrap: 0 });
+    expect(again.state).toBe(first.state);
   });
 });

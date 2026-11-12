@@ -3,9 +3,10 @@
 import { ArrowDown, ArrowUp, ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
-import { isAccessory, positionsOf, type Position } from "@/lib/game/config";
+import { isAccessory, positionsOf, type AutoSalvageBelow, type Position } from "@/lib/game/config";
 import { equippedItems, type OwnedItem } from "@/lib/game/items";
 import {
+  autoSalvageView,
   bestGear,
   mythicCoresOf,
   positionViews,
@@ -17,7 +18,7 @@ import {
   type StackView,
 } from "@/lib/game/itemsView";
 import type { LoadStatus } from "@/lib/game/view";
-import { equipItem, equipMany, reforgeItem, salvageItem, sellItem, unequipPosition, upgradeItem } from "@/lib/gameApi";
+import { equipItem, equipMany, reforgeItem, salvageBelow, salvageItem, sellItem, setAutoSalvage, unequipPosition, upgradeItem } from "@/lib/gameApi";
 import { confirmRpgDialog } from "@/lib/rpgDialog";
 import { useRunner } from "@/lib/useRunner";
 import { OfflineNote } from "./Disclosure";
@@ -32,7 +33,7 @@ const PRIMARY = "min-h-11 border border-rpg-text bg-rpg-text px-3 text-[13px] fo
 const HEADING = "font-rpg-head text-xl font-semibold uppercase tracking-[0.02em]";
 
 /**
- * Hero · Gear: the power block, scrap and set progress, a "best gear" button, one row for the weapon and
+ * Hero · Gear: the power block, scrap, auto-salvage and set progress, a "best gear" button, one row for the weapon and
  * each armor slot and one per accessory position. Tapping a row opens a sheet with everything owned for
  * its slot, identical unequipped copies stacked as one card, each with arrows against what is worn there.
  * Every action is a server call, so the controls turn off offline and while a request is in flight.
@@ -59,6 +60,20 @@ export function GearPanel({
   const power = useMemo(() => powerView(bodyPower, state, items), [bodyPower, state, items]);
   const sets = useMemo(() => setProgress(equippedItems(state ?? { equipped: {} }, items)), [state, items]);
   const best = useMemo(() => bestGear(state, items), [state, items]);
+  const auto = useMemo(() => autoSalvageView(state, items, now), [state, items, now]);
+
+  async function salvageOwned() {
+    const bulk = auto.bulk;
+    if (!bulk) return;
+    const things = bulk.count === 1 ? "1 item" : `${number(bulk.count)} items`;
+    const ok = await confirmRpgDialog({
+      title: `Salvage ${things}?`,
+      message: `Everything you own below ${bulk.rarity} that you aren't wearing, for ${number(bulk.scrap)} scrap. They are gone for good.`,
+      confirmLabel: `Salvage for ${number(bulk.scrap)} scrap`,
+      destructive: true,
+    });
+    if (ok) await run("Couldn't salvage", () => salvageBelow(bulk.below, bulk.itemIds));
+  }
 
   if (itemsStatus === "unavailable") {
     return (
@@ -93,6 +108,32 @@ export function GearPanel({
             <span className="font-semibold">{number(scrapOf(state))}</span>
             {mythicCoresOf(state) > 0 && <span className="text-rpg-mythic"> · {mythicCoresOf(state)} Mythic Core</span>}
           </span>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-rpg-line-soft py-2.5 text-[13px]">
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-rpg-text-2">Auto-salvage</span>
+            <select
+              value={auto.below ?? "off"}
+              onChange={(e) => {
+                const below = e.target.value === "off" ? null : (e.target.value as AutoSalvageBelow);
+                void run("Couldn't change auto-salvage", () => setAutoSalvage(below));
+              }}
+              disabled={busy || !online}
+              className="min-h-11 min-w-0 border border-rpg-line-strong bg-rpg-bg px-3 text-[13px] text-rpg-text disabled:opacity-40"
+            >
+              {auto.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-[11px] text-rpg-muted">{auto.note}</p>
+          {auto.bulk && (
+            <button onClick={() => void salvageOwned()} disabled={busy || !online} className={SECONDARY}>
+              Salvage {number(auto.bulk.count)} owned below {auto.bulk.rarity} · +{number(auto.bulk.scrap)}
+            </button>
+          )}
         </div>
       </section>
 

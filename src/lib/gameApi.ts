@@ -1,4 +1,4 @@
-import type { ClassId, Position, Rarity, Stat } from "./game/config";
+import type { AutoSalvageBelow, ClassId, Position, Rarity, Stat } from "./game/config";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc, WeekdayRoutines } from "./game/schedule";
 import { firebase } from "./firebase";
@@ -97,6 +97,10 @@ export const reforgeItem = (itemId: string, level: number) => post<ItemResponse>
 export const equipMany = (items: { itemId: string; position: Position }[]) => post<ItemResponse>("/api/items", { action: "equipMany", items });
 export const sellItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "sell", itemId });
 export const salvageItem = (itemId: string) => post<ItemResponse>("/api/items", { action: "salvage", itemId });
+/** Auto-salvage fight drops below a rarity; null turns it off. */
+export const setAutoSalvage = (below: AutoSalvageBelow | null) => post<ItemResponse>("/api/items", { action: "autoSalvage", below });
+/** Salvages the listed items (what the confirm counted) that are below the rarity and not worn. */
+export const salvageBelow = (below: AutoSalvageBelow, itemIds: string[]) => post<ItemResponse>("/api/items", { action: "salvageBelow", below, itemIds });
 
 /** Checks the achievements (the server records newly earned titles) and returns progress on all eight. */
 export const checkTitles = () => post<TitlesResponse>("/api/titles", { action: "check", timeZone: timeZone() });

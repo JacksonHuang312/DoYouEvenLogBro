@@ -1,9 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { baseItem } from "./catalog";
 import { newGameState, type GameState } from "./claim";
-import { ARMOR_SLOTS, POSITIONS } from "./config";
+import { ARMOR_SLOTS, BULK_SALVAGE_MAX, POSITIONS, SALVAGE } from "./config";
 import { effectValue, newItem, type OwnedItem } from "./items";
 import {
+  autoSalvageView,
   powerView,
   rarityWithPlus,
   restockLabel,
@@ -422,5 +423,50 @@ describe("focusLabel order", () => {
     expect(focusLabel({ hp: 100, atk: 0, def: 0 })).toBe("HP 100");
     expect(focusLabel({ def: 100 })).toBe("DEF 100");
     expect(focusLabel({})).toBe("");
+  });
+});
+
+describe("autoSalvageView (13.9)", () => {
+  const inv = [
+    owned("ironbound-boots", { itemLevel: 50 }, "a"),
+    owned("wayfarer-boots", { rarity: "uncommon", itemLevel: 50 }, "b"),
+    owned("ironbound-helmet", { itemLevel: 50 }, "worn"),
+    owned("steelguard-boots", { rarity: "rare", itemLevel: 50 }, "d"),
+    owned("titans-vow-gloves", { rarity: "legendary", itemLevel: 50 }, "e"),
+    owned("ironbound-gloves", { itemLevel: 50, removed: { reason: "sold", at: T0, coins: 40, scrap: 0 } }, "gone"),
+  ];
+
+  test("off: the choices, and no bulk button", () => {
+    const v = autoSalvageView(game(), inv, T0);
+    expect(v.below).toBeNull();
+    expect(v.options).toEqual([
+      { value: "off", label: "Off" },
+      { value: "uncommon", label: "Below Uncommon" },
+      { value: "rare", label: "Below Rare" },
+      { value: "epic", label: "Below Epic" },
+      { value: "legendary", label: "Below Legendary" },
+    ]);
+    expect(v.bulk).toBeNull();
+    expect(autoSalvageView(null, [], T0).bulk).toBeNull();
+  });
+
+  test("on: the bulk button counts what is owned below the rarity and not worn, and the scrap it pays", () => {
+    const v = autoSalvageView(game({ autoSalvage: "rare", equipped: { helmet: "worn" } }), inv, T0);
+    expect(v.below).toBe("rare");
+    expect(v.note).toMatch(/below Rare/);
+    expect(v.bulk).toEqual({ below: "rare", itemIds: ["a", "b"], count: 2, scrap: SALVAGE.common + SALVAGE.uncommon, rarity: "Rare" });
+    // Nothing owned below Uncommon but the worn helmet and one Common: only the Common.
+    expect(autoSalvageView(game({ autoSalvage: "uncommon", equipped: { helmet: "worn" } }), inv, T0).bulk).toMatchObject({ itemIds: ["a"], count: 1 });
+    expect(autoSalvageView(game({ autoSalvage: "rare" }), [inv[3], inv[4]], T0).bulk).toBeNull();
+  });
+
+  test("more than one request's worth: the button takes the oldest, and says what those pay", () => {
+    const many = Array.from({ length: BULK_SALVAGE_MAX + 5 }, (_, i) =>
+      owned("ironbound-boots", { itemLevel: 50, acquiredAt: T0 + i }, `m${String(i).padStart(4, "0")}`),
+    );
+    const v = autoSalvageView(game({ autoSalvage: "rare" }), [...many].reverse(), T0);
+    expect(v.bulk).toMatchObject({ count: BULK_SALVAGE_MAX, scrap: BULK_SALVAGE_MAX * SALVAGE.common });
+    expect(v.bulk!.itemIds[0]).toBe("m0000");
+    expect(v.bulk!.itemIds).not.toContain(`m${String(BULK_SALVAGE_MAX).padStart(4, "0")}`);
   });
 });

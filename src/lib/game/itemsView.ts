@@ -6,7 +6,9 @@ import { newGameState, type GameState } from "./claim";
 import {
   ACCESSORY_EFFECTS,
   ACHIEVEMENTS,
+  AUTO_SALVAGE_BELOW,
   BONUS_BUCKET_CAP,
+  BULK_SALVAGE_MAX,
   MYTHIC_EFFECTS,
   POSITIONS,
   SET_BONUS,
@@ -18,6 +20,7 @@ import {
   positionsOf,
   slotOfPosition,
   type AccessoryEffect,
+  type AutoSalvageBelow,
   type ClassId,
   type Focus,
   type MythicEffect,
@@ -29,6 +32,7 @@ import {
   activeSet,
   applyReforge,
   applyUpgrade,
+  autoSalvageOf,
   canEquip,
   effectValue,
   equipItem,
@@ -38,6 +42,7 @@ import {
   itemLevelOf,
   materialsOf,
   pieceSetId,
+  salvageBelow,
   pieceFocus,
   piecePower,
   reforgeCost,
@@ -474,6 +479,44 @@ export function bestGear(state: GameState | null, inventory: OwnedItem[]): BestG
 
 export const scrapOf = (state: GameState | null) => materialsOf(state ?? {}).scrap ?? 0;
 export const mythicCoresOf = (state: GameState | null) => materialsOf(state ?? {}).mythicCore ?? 0;
+
+// ---- Auto-salvage (13.9) ----
+
+export interface AutoSalvageView {
+  /** The chosen rarity, or null when it is off. */
+  below: AutoSalvageBelow | null;
+  options: { value: AutoSalvageBelow | "off"; label: string }[];
+  note: string;
+  /** What the bulk button takes now: owned, unequipped items below the rarity. Null when off or there are none. */
+  bulk: { below: AutoSalvageBelow; itemIds: string[]; count: number; scrap: number; rarity: string } | null;
+}
+
+/** The Gear tab's auto-salvage row: the setting, and what "salvage what I own" would take and pay. */
+export function autoSalvageView(state: GameState | null, inventory: OwnedItem[], now: number): AutoSalvageView {
+  const game = state ?? NO_STATE(now);
+  const below = autoSalvageOf(game);
+  const options: AutoSalvageView["options"] = [
+    { value: "off", label: "Off" },
+    ...AUTO_SALVAGE_BELOW.map((r) => ({ value: r, label: `Below ${RARITY_LABEL(r)}` })),
+  ];
+  if (!below) return { below, options, note: "Off: every fight drop is kept.", bulk: null };
+  const note = `Fight drops below ${RARITY_LABEL(below)} turn into scrap as they land. Legendary and Mythic are always kept.`;
+  // Oldest first, so with more than one request's worth the same items are picked every time.
+  const candidates = inventory
+    .filter((i) => !i.removed)
+    .sort((a, b) => a.acquiredAt - b.acquiredAt || a.id.localeCompare(b.id));
+  const salvageBonus = gearEffects(equippedItems(game, inventory), game.level).salvageYield;
+  const all = salvageBelow(game, candidates, below, now, salvageBonus);
+  if (!all.items.length) return { below, options, note, bulk: null };
+  const take = new Set(all.items.slice(0, BULK_SALVAGE_MAX).map((i) => i.id));
+  const first = all.items.length > BULK_SALVAGE_MAX ? salvageBelow(game, candidates.filter((i) => take.has(i.id)), below, now, salvageBonus) : all;
+  return {
+    below,
+    options,
+    note,
+    bulk: { below, itemIds: first.items.map((i) => i.id), count: first.items.length, scrap: first.scrap, rarity: RARITY_LABEL(below) },
+  };
+}
 
 // ---- Shop ----
 
