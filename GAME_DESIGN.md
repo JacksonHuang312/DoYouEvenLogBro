@@ -614,7 +614,7 @@ Agreed in conversation after Phase 5 piece 2. Numbers marked *draft* get tuned w
 2c. ~~**Live fight replay**~~ (built 2026-10-30, see 13.16).
 3. **Two weeks of real use**, then retune from real fight records (13.11).
 4. ~~**Item rework:** item level + rarity (13.5), weapons (13.6)~~ (built 2026-10-30, ahead of step 3, see 13.18). Gear and weapon icons (13.15) follow now that the item list is set.
-5. **Phase 6:** party raids (13.10) and friend leaderboards.
+5. **Phase 6:** party raids (13.10) and friend leaderboards (first version built 2026-11-12, see 13.27).
 
 ### 13.2 Levels 1-100
 - Level 100 at about **2 years** for the steady pacing player, on a **curve**: early levels every workout or two, later ones about every 10 days (roughly a level-up a week on average). Rough target: level 10 at ~3 weeks, 20 at ~2 months, 40 at ~6, 60 at ~11, 80 at ~17, 100 at ~24 months.
@@ -822,3 +822,14 @@ Built from 13.12 with Jackson's answers: the app is on Vercel's Hobby plan, so o
 - **Not verified:** real delivery to a phone. The emulators have no push service, so the device token there is made up and the job "delivers" without sending. Whether Hobby accepts this daily cron was not confirmed from Vercel's docs; a deploy will say.
 - Tests: `notify.test.ts` (devices, switches, when each message is due and that it is sent once), `tests/firestore.rules.test.mjs` (owner-only read, no client writes), `e2e/notify.e2e.ts` (the Settings switches at 390px, the job sending once, a switched-off message, a dead device dropped, bad requests refused).
 - Not built: the tower message, per-player local send time, quiet hours, a prompt outside Settings.
+
+### 13.27 Friend leaderboards, first version (built 2026-11-12)
+The first half of Phase 6, from section 6, with Jackson's answers: four boards, you plus everyone you follow, weekly boards reset with the fight week.
+- **Page:** "Leaderboards" in the avatar menu (`/leaderboards`). One board at a time, in four tabs. Each row shows the rank, the player, their level and class, and the number; your own row is in the accent colour; a row opens that player's profile. There is no global board.
+- **Boards:** **Power** (body power from training, as of each player's last counted workout; gear and rust since then aren't in it) and, for the current fight week, **Damage** dealt, damage **Absorbed** and **Healing** done, summed over every round of every fight. Level on a number shares a rank; a player with no number shows a dash and sorts last.
+- **Who:** you and the people you follow, up to 100 (`BOARD_PLAYERS`). A private account that hasn't accepted you shows a dash: the rules refuse the read.
+- **Reset:** the weekly boards count the fight week (Sunday 04:00, `fightWeek`). Each player's totals are kept under their own time zone's week, and the page compares with the viewer's, so a friend in another zone can read as a dash for a few hours around the reset.
+- **Storage:** `publicStats/{uid}.board` (`power`, `level`, `classId`, `week: { id, dealt, absorbed, healed, fights }`), beside the injury flags, readable under the same privacy rule as the player's workouts; only the server writes it. A counted workout's claim writes power and level; every fight adds its rounds to the week (`boardAfterClaim`, `boardAfterFight` in `src/lib/game/boards.ts`). No rules change. Existing players appear with numbers after their next workout or fight.
+- The page reads the numbers once when it opens (`useBoards`), not live.
+- Tests: `boards.test.ts` (what a claim and a fight store, the week rolling over, ranking, ties, missing numbers, last week's totals not counting). `e2e/leaderboards.e2e.ts` at 390px (no overflow, tap targets): the menu link, a followed rival ranked on each board, a fight putting the hero on the weekly board, a row opening a profile, and a private account showing a dash. The claim-time write of power is not covered by an e2e test.
+- Not built: the progression and scheduled-workout streak boards from section 6, seasons (13.10), and party raids.

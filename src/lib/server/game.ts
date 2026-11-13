@@ -1,3 +1,4 @@
+import { boardAfterClaim } from "../game/boards";
 import type { Transaction } from "firebase-admin/firestore";
 import {
   applyClaim,
@@ -188,6 +189,8 @@ export async function claimWorkout(uid: string, workoutId: string, timeZone?: st
     tx.set(r.muscles, { muscles: outcome.muscles, updatedAt: now } satisfies MusclesDoc);
     tx.set(claimRef, result);
     tx.set(r.snapshots.doc(outcome.snapshot.weekId), outcome.snapshot);
+    // Friend leaderboards (13.27): power and level. Merged, so the week's fight totals stay.
+    tx.set(r.publicStats, { board: boardAfterClaim(outcome.result.power.after, nextState.level, now) }, { merge: true });
     if (match) tx.set(r.schedule, scheduleAfter);
     if (questsToWrite) tx.set(r.quests.doc(week), questsToWrite);
     return { status: "claimed", result };

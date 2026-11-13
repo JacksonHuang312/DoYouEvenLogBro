@@ -59,6 +59,9 @@ export function AvatarMenu() {
             <MenuLink href="/home" onNavigate={close}>
               Friends feed
             </MenuLink>
+            <MenuLink href="/leaderboards" onNavigate={close}>
+              Leaderboards
+            </MenuLink>
             <MenuLink href="/search" onNavigate={close}>
               Find friends
             </MenuLink>

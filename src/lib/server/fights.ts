@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { boardAfterFight, type BoardStats } from "../game/boards";
 import { energyOf, type MusclesDoc } from "../game/claim";
 import { DEFAULT_TIME_ZONE, type ClassId, type Rarity } from "../game/config";
 import { gearEffects } from "../game/effects";
-import { applyFightRewards, fightHero, newBattleDoc, runFight, type BattleDoc, type FightMode, type FightRound } from "../game/fights";
+import { applyFightRewards, fightHero, fightWeek, newBattleDoc, runFight, type BattleDoc, type FightMode, type FightRound } from "../game/fights";
 import { pickClass, switchClass } from "../game/heroClass";
 import { materialsOf, type Item, type Materials } from "../game/items";
 import { adminDb } from "./admin";
@@ -67,7 +68,7 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
   const fightRef = r.fights.doc(input.requestId);
 
   return db.runTransaction(async (tx) => {
-    const [fightSnap, stateSnap, musclesSnap, battleSnap] = await tx.getAll(fightRef, r.state, r.muscles, r.battle);
+    const [fightSnap, stateSnap, musclesSnap, battleSnap, publicSnap] = await tx.getAll(fightRef, r.state, r.muscles, r.battle, r.publicStats);
     const now = Date.now();
     const state = stateOf(stateSnap, now, DEFAULT_TIME_ZONE);
     const doc = battleSnap.exists ? (battleSnap.data() as BattleDoc) : newBattleDoc(now);
@@ -107,6 +108,13 @@ export async function fightAction(uid: string, input: FightRequest): Promise<Fig
     tx.set(fightRef, fight);
     tx.set(r.battle, outcome.doc);
     tx.set(r.state, rewards.state);
+    // Friend leaderboards (13.27): this fight's rounds added to the fight week's totals.
+    const board = boardAfterFight(
+      (publicSnap.data() as { board?: BoardStats } | undefined)?.board,
+      { week: fightWeek(now, state.timeZone), level: state.level, classId: state.classId!, rounds: outcome.rounds.map((x) => x.result.stats) },
+      now,
+    );
+    tx.set(r.publicStats, { board }, { merge: true });
     return { status: "fought", fight, battle: outcome.doc, coins: rewards.state.coins, materials: materialsOf(rewards.state), energy: energyOf(rewards.state) };
   });
 }

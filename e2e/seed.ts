@@ -294,6 +294,34 @@ export async function resetHero(options: SeedOptions = {}): Promise<string> {
   return who.uid;
 }
 
+/** A second emulator-only account, for the friend leaderboards. */
+export const RIVAL: Identity = { uid: "e2e-rival", email: "rival@test.dev", password: "password123", username: "rival" };
+
+/**
+ * Creates RIVAL with the given leaderboard numbers, makes the hero follow them (both follow docs),
+ * and clears the hero's own numbers. Call after the hero is seeded. `isPrivate` with `follows: false`
+ * gives a private account the hero has not been accepted by.
+ */
+export async function seedRival(board: Record<string, unknown>, { isPrivate = false, follows = true } = {}) {
+  assertEmulator();
+  const db = adminDb();
+  await resetHero({ who: RIVAL, gear: [] });
+  if (isPrivate) await db.collection("users").doc(RIVAL.uid).set({ isPrivate: true }, { merge: true });
+  await db.collection("publicStats").doc(RIVAL.uid).set({ board, updatedAt: Date.now() });
+  await db.collection("publicStats").doc(HERO.uid).delete();
+  const following = db.collection("users").doc(HERO.uid).collection("following").doc(RIVAL.uid);
+  const follower = db.collection("users").doc(RIVAL.uid).collection("followers").doc(HERO.uid);
+  if (follows) {
+    await following.set({ createdAt: new Date() });
+    await follower.set({ createdAt: new Date() });
+  } else {
+    // The hero follows on their side only: what a not-yet-accepted request can never produce, but
+    // enough to put the rival on the hero's list while the rules still refuse the read.
+    await following.set({ createdAt: new Date() });
+    await follower.delete();
+  }
+}
+
 /** Every catalog base id, for tests that want to check a lot of items at once. */
 export const ALL_BASE_IDS = BASE_ITEMS.map((b) => b.id);
 

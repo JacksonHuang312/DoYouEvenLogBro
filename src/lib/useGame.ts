@@ -1,7 +1,8 @@
 "use client";
 
-import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
+import type { BoardStats } from "./game/boards";
 import type { PublicInjury } from "./game/breaks";
 import type { ClaimResult, GameState, MusclesDoc, Snapshot } from "./game/claim";
 import type { MusclesFacts } from "./game/facts";
@@ -300,9 +301,11 @@ export function useQuests(uid: string, timeZone: string): QuestsLive {
   return { status, data, weekId: week, error: failure?.week === week ? failure.message : null, retry };
 }
 
-/** publicStats/{uid}: what followers may see of a player (today, injury flags). Lapsed flags stay in it until the next change. */
+/** publicStats/{uid}: what followers may see of a player: injury flags (lapsed ones stay until the next change) and leaderboard numbers. */
 export interface PublicStats {
   injuries?: PublicInjury[];
+  /** Leaderboard numbers (13.27). Missing until the player's first workout or fight after boards shipped. */
+  board?: BoardStats;
   updatedAt?: number;
 }
 
@@ -326,4 +329,35 @@ export function usePublicStats(uid: string): Live<PublicStats | null> {
       },
     ),
   );
+}
+
+/** The most players a leaderboard reads: you and the people you follow, newest follows first. */
+export const BOARD_PLAYERS = 100;
+
+/**
+ * Leaderboard numbers for a list of players, read once per visit (not live). A private account
+ * that hasn't accepted you is denied by the rules and comes back as null, like a player with none.
+ * `data` is null while loading.
+ */
+export function useBoards(uids: string[] | null): Record<string, BoardStats | null> | null {
+  const [state, setState] = useState<{ key: string; boards: Record<string, BoardStats | null> } | null>(null);
+  const key = uids?.join(",") ?? null;
+  useEffect(() => {
+    if (key == null) return;
+    let live = true;
+    const list = key ? key.split(",") : [];
+    Promise.all(
+      list.map((uid) =>
+        getDoc(doc(firebase().db, "publicStats", uid))
+          .then((snap) => (snap.data() as PublicStats | undefined)?.board ?? null)
+          .catch(() => null),
+      ),
+    ).then((boards) => {
+      if (live) setState({ key, boards: Object.fromEntries(list.map((uid, i) => [uid, boards[i]])) });
+    });
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  return state && state.key === key ? state.boards : null;
 }
