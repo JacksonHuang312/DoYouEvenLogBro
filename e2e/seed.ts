@@ -12,7 +12,8 @@ import type { MusclesFacts } from "../src/lib/game/facts";
 import { newItem, type Item } from "../src/lib/game/items";
 import { emptyShop } from "../src/lib/game/shop";
 import { weekId } from "../src/lib/game/time";
-import { adminAuth, adminDb } from "../src/lib/server/admin";
+import { adminDb } from "../src/lib/server/admin";
+import { adminAuth } from "../src/lib/server/adminAuth";
 
 /*
  * Seeds the emulators with one test user ("hero") and a known gear collection. Test data only:

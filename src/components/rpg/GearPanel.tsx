@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronRight, Lock } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GameState } from "@/lib/game/claim";
 import { isAccessory, positionsOf, type AutoSalvageBelow, type Position } from "@/lib/game/config";
@@ -55,6 +55,7 @@ export function GearPanel({
   online: boolean;
 }) {
   const [openPosition, setOpenPosition] = useState<Position | null>(null);
+  const [pickingAuto, setPickingAuto] = useState(false);
   const { busy, run } = useRunner();
   const positions = useMemo(() => positionViews(state, items, now), [state, items, now]);
   const power = useMemo(() => powerView(bodyPower, state, items), [bodyPower, state, items]);
@@ -110,24 +111,20 @@ export function GearPanel({
           </span>
         </div>
         <div className="flex flex-col gap-2 border-t border-rpg-line-soft py-2.5 text-[13px]">
-          <label className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-rpg-text-2">Auto-salvage</span>
-            <select
-              value={auto.below ?? "off"}
-              onChange={(e) => {
-                const below = e.target.value === "off" ? null : (e.target.value as AutoSalvageBelow);
-                void run("Couldn't change auto-salvage", () => setAutoSalvage(below));
-              }}
+            {/* The app's own list (a sheet), not the phone's native picker. */}
+            <button
+              onClick={() => setPickingAuto(true)}
               disabled={busy || !online}
-              className="min-h-11 min-w-0 border border-rpg-line-strong bg-rpg-bg px-3 text-[13px] text-rpg-text disabled:opacity-40"
+              aria-haspopup="dialog"
+              aria-label={`Auto-salvage: ${auto.options.find((o) => o.value === (auto.below ?? "off"))?.label}`}
+              className="flex min-h-11 min-w-[10.5rem] items-center justify-between gap-2 border border-rpg-line-strong px-3 text-[13px] text-rpg-text disabled:opacity-40"
             >
-              {auto.options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              {auto.options.find((o) => o.value === (auto.below ?? "off"))?.label}
+              <ChevronDown size={14} aria-hidden className="text-rpg-muted" />
+            </button>
+          </div>
           <p className="text-[11px] text-rpg-muted">{auto.note}</p>
           {auto.bulk && (
             <button onClick={() => void salvageOwned()} disabled={busy || !online} className={SECONDARY}>
@@ -183,6 +180,36 @@ export function GearPanel({
         <h2 className={HEADING}>Accessories</h2>
         <PositionList rows={positions.filter((p) => isAccessory(p.slot))} onOpen={setOpenPosition} />
       </section>
+
+      {pickingAuto && (
+        <Sheet title="Auto-salvage" onClose={() => setPickingAuto(false)}>
+          <p className="px-5 pt-3 text-xs leading-relaxed text-rpg-text-2">
+            Fight drops below the rarity you pick turn into scrap as they land. Legendary and Mythic are always kept.
+          </p>
+          <ul role="radiogroup" aria-label="Auto-salvage" className="mt-2 border-t border-rpg-line">
+            {auto.options.map((o) => {
+              const picked = o.value === (auto.below ?? "off");
+              return (
+                <li key={o.value} className="border-b border-rpg-line-soft">
+                  <button
+                    role="radio"
+                    aria-checked={picked}
+                    disabled={busy || !online}
+                    onClick={async () => {
+                      const below = o.value === "off" ? null : (o.value as AutoSalvageBelow);
+                      if (picked || (await run("Couldn't change auto-salvage", () => setAutoSalvage(below))) !== undefined) setPickingAuto(false);
+                    }}
+                    className={`flex min-h-12 w-full items-center justify-between gap-3 px-5 text-left text-sm disabled:opacity-40 ${picked ? "text-rpg-text" : "text-rpg-text-2"}`}
+                  >
+                    {o.label}
+                    {picked && <Check size={16} aria-hidden className="text-rpg-accent" />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Sheet>
+      )}
 
       {open && (
         <Sheet title={open.label} onClose={() => setOpenPosition(null)}>

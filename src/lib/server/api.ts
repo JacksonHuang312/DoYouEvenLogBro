@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { adminAuth } from "./admin";
+import { adminProjectId, usingAuthEmulator } from "./admin";
+import { verifyIdToken } from "./idToken";
 
 /** An error with an HTTP status, turned into a JSON response by apiRoute(). */
 export class HttpError extends Error {
@@ -16,7 +17,10 @@ export async function requireUser(request: Request): Promise<string> {
   const token = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
   if (!token) throw new HttpError(401, "Missing ID token");
   try {
-    return (await adminAuth().verifyIdToken(token)).uid;
+    // The Auth emulator's tokens are unsigned, and only the Admin SDK knows how to accept them.
+    // It is loaded only here: on Vercel that module can't be loaded at all (see idToken.ts).
+    if (usingAuthEmulator()) return (await (await import("./adminAuth")).adminAuth().verifyIdToken(token)).uid;
+    return await verifyIdToken(token, adminProjectId());
   } catch {
     throw new HttpError(401, "Invalid or expired ID token");
   }

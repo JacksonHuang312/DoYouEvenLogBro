@@ -1,5 +1,4 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
@@ -8,7 +7,7 @@ import { getMessaging } from "firebase-admin/messaging";
  * from a service account in env vars, see .env.example. Against the local emulators
  * (NEXT_PUBLIC_FIREBASE_EMULATOR=1, or the *_EMULATOR_HOST vars) none are needed.
  */
-function app(): App {
+export function adminApp(): App {
   const existing = getApps()[0];
   if (existing) return existing;
 
@@ -37,13 +36,18 @@ let db: Firestore | undefined;
 
 export function adminDb(): Firestore {
   if (!db) {
-    db = getFirestore(app());
+    db = getFirestore(adminApp());
     db.settings({ ignoreUndefinedProperties: true });
   }
   return db;
 }
 
-export const adminAuth = () => getAuth(app());
+/** The project ID tokens must be issued for. */
+export const adminProjectId = (): string => process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "";
+
+/** Whether this server talks to the local Auth emulator (never set on a deployment). */
+export const usingAuthEmulator = (): boolean =>
+  process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1" || Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST);
 
 /** Firebase Cloud Messaging, for push notifications (the daily job only; there is no emulator for it). */
-export const adminMessaging = () => getMessaging(app());
+export const adminMessaging = () => getMessaging(adminApp());

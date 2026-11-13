@@ -306,12 +306,23 @@ test.describe("Auto-salvage (13.9)", () => {
 
   test("pick a rarity, then salvage everything owned below it in one go, at 390px", async ({ hero, page }, info) => {
     await hero.start(undefined, "Gear");
-    const pick = page.getByRole("combobox", { name: "Auto-salvage" });
-    await expect(pick).toHaveValue("off");
+    // The app's own list in a sheet, not the phone's native picker.
+    const pick = page.getByRole("button", { name: /^Auto-salvage:/ });
+    await expect(pick).toHaveText("Off");
+    await expect(page.locator("select")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Salvage \d+ owned/ })).toHaveCount(0);
 
     // Below Epic: the Common ring, both Rare rings, the Rare helmet and the Rare sword. The Epic and Legendary rings stay.
-    await pick.selectOption("epic");
+    await pick.click();
+    const list = page.getByRole("dialog", { name: "Auto-salvage" });
+    await expect(list.getByRole("radio")).toHaveCount(5);
+    await expect(list.getByRole("radio", { name: "Off" })).toHaveAttribute("aria-checked", "true");
+    await shot(page, "gear-auto-salvage-list", { full: false });
+    await expectNoOverflow(page, "Auto-salvage list", info);
+    await expectTapTargets(list, "Auto-salvage list", info);
+    await list.getByRole("radio", { name: "Below Epic" }).click();
+    await expect(list).toBeHidden();
+    await expect(pick).toHaveText("Below Epic");
     const bulk = page.getByRole("button", { name: /^Salvage 5 owned below Epic/ });
     await expect(bulk).toBeVisible();
     await expect(page.getByRole("tabpanel")).toContainText("Fight drops below Epic turn into scrap");
@@ -338,7 +349,7 @@ test.describe("Auto-salvage (13.9)", () => {
     // The choice is saved on the server, and sending the same list again salvages nothing more.
     await page.reload();
     await hero.openTab("Gear");
-    await expect(page.getByRole("combobox", { name: "Auto-salvage" })).toHaveValue("epic");
+    await expect(page.getByRole("button", { name: /^Auto-salvage:/ })).toHaveText("Below Epic");
     const again = await hero.api("/api/items", { action: "salvageBelow", below: "epic", itemIds: [ITEM_IDS.loopA, ITEM_IDS.seal] });
     expect(again.json).toMatchObject({ status: "already-done", salvaged: { count: 0, scrap: 0 } });
     expect(await scrap(page)).toBe(before + gain);
@@ -347,7 +358,8 @@ test.describe("Auto-salvage (13.9)", () => {
   test("worn gear and Legendary gear are kept, and the cut-off can't be Mythic", async ({ hero, page }) => {
     await hero.start(undefined, "Gear");
     await hero.api("/api/items", { action: "equip", itemId: ITEM_IDS.helm });
-    await page.getByRole("combobox", { name: "Auto-salvage" }).selectOption("legendary");
+    await page.getByRole("button", { name: /^Auto-salvage:/ }).click();
+    await page.getByRole("dialog", { name: "Auto-salvage" }).getByRole("radio", { name: "Below Legendary" }).click();
     // Five unworn items below Legendary: four rings (not the Legendary one) and the sword; the worn helmet is left out.
     await expect(page.getByRole("button", { name: /^Salvage 5 owned below Legendary/ })).toBeVisible();
     const bad = await hero.api("/api/items", { action: "autoSalvage", below: "mythic" });
