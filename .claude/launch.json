@@ -1,0 +1,8 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "gear-sheet", "runtimeExecutable": "npx", "runtimeArgs": ["next", "dev", "-p", "3111"], "port": 3111 },
+    { "name": "emulators", "runtimeExecutable": "npm", "runtimeArgs": ["run", "emulators"], "port": 8080 },
+    { "name": "dev-emu", "runtimeExecutable": "node", "runtimeArgs": ["scripts/dev-emulator.mjs"], "port": 3200 }
+  ]
+}
