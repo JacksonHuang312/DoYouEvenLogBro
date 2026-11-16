@@ -7,6 +7,7 @@ import type { ClassResponse, FightRequest, FightResponse } from "./server/fights
 import type { NotifyPrefs } from "./game/notify";
 import type { NotifyResponse } from "./server/notify";
 import type { PointsResponse } from "./server/points";
+import type { RaidResponse } from "./server/raids";
 import type { StatPoints } from "./game/levels";
 import type { ItemResponse, ShopResponse } from "./server/items";
 import type { ClaimQuestResponse, RerollResponse } from "./server/quests";
@@ -129,3 +130,18 @@ export const enableNotifications = (token: string) => post<NotifyResponse>("/api
 /** Forgets one device, or every device with null. */
 export const disableNotifications = (token: string | null) => post<NotifyResponse>("/api/notify", { action: "disable", token });
 export const setNotifyPrefs = (prefs: Partial<NotifyPrefs>) => post<NotifyResponse>("/api/notify", { action: "prefs", prefs });
+
+// ---- Raids (13.31) ----
+
+/** Makes this week's party at a tier (one per leader per week; a second call returns the first). */
+export const createRaid = (tier: number) => post<RaidResponse>("/api/raid", { action: "create", tier });
+/** Asks someone you and they both follow. */
+export const inviteToRaid = (raidId: string, uid: string) => post<RaidResponse>("/api/raid", { action: "invite", raidId, uid });
+export const joinRaid = (raidId: string) => post<RaidResponse>("/api/raid", { action: "join", raidId });
+/** Leaves a party, or declines an invitation. */
+export const leaveRaid = (raidId: string) => post<RaidResponse>("/api/raid", { action: "leave", raidId });
+export const kickFromRaid = (raidId: string, uid: string) => post<RaidResponse>("/api/raid", { action: "kick", raidId, uid });
+export const setRaidTier = (raidId: string, tier: number) => post<RaidResponse>("/api/raid", { action: "tier", raidId, tier });
+export const cancelRaid = (raidId: string) => post<RaidResponse>("/api/raid", { action: "cancel", raidId });
+/** Fights the raid (the leader only). A retry returns the same fight. */
+export const startRaid = (raidId: string) => post<RaidResponse>("/api/raid", { action: "start", raidId });

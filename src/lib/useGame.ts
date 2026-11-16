@@ -10,6 +10,8 @@ import { FIGHT_HISTORY } from "./game/battleView";
 import type { BattleDoc } from "./game/fights";
 import type { OwnedItem } from "./game/items";
 import type { NotifyDoc } from "./game/notify";
+import type { RaidDoc } from "./game/raidLobby";
+import type { StoredRaid } from "./game/raidView";
 import type { QuestsDoc } from "./game/quests";
 import type { ScheduleDoc } from "./game/schedule";
 import type { ShopDoc } from "./game/shop";
@@ -360,4 +362,26 @@ export function useBoards(uids: string[] | null): Record<string, BoardStats | nu
     };
   }, [key]);
   return state && state.key === key ? state.boards : null;
+}
+
+const NO_RAIDS: StoredRaid[] = [];
+
+/** The raid parties the player is in or has been asked into, and their fought raids, live (the newest 20). */
+export function useRaids(uid: string): Live<StoredRaid[]> {
+  return useLive(`raids/${uid}`, NO_RAIDS, (settle, fail) =>
+    onSnapshot(
+      // The rules only allow listing by one's own uid in `participants`.
+      query(collection(firebase().db, "raids"), where("participants", "array-contains", uid), limit(20)),
+      { includeMetadataChanges: true },
+      (snap) => {
+        // An empty answer from the cache says nothing about the server.
+        if (snap.empty && snap.metadata.fromCache) return;
+        settle(snap.docs.map((d) => ({ ...(d.data() as RaidDoc), id: d.id })));
+      },
+      (err) => {
+        report("raids", err);
+        fail();
+      },
+    ),
+  );
 }

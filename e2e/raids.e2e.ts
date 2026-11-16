@@ -1,25 +1,11 @@
-import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { rivalApi, type Json } from "./rival";
 import { HERO, RIVAL, seedRival } from "./seed";
 
 /*
  * The raid lobby and the start (GAME_DESIGN.md 13.31) through the server routes, against the
  * emulators, with two players: the hero leads and the rival joins. The screens come in stage 4.
  */
-
-type Json = { error?: string } & Record<string, unknown>;
-
-/** Signs the rival in through the Auth emulator and returns a caller for the game routes as them. */
-async function rivalApi(request: APIRequestContext) {
-  const res = await request.post("http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator", {
-    data: { email: RIVAL.email, password: RIVAL.password, returnSecureToken: true },
-  });
-  const token = ((await res.json()) as { idToken: string }).idToken;
-  return async (path: string, body: Record<string, unknown>) => {
-    const r = await request.post(path, { data: body, headers: { Authorization: `Bearer ${token}` } });
-    return { status: r.status(), json: (await r.json()) as Json };
-  };
-}
 
 const raidOf = (json: Json) => json.raid as { status: string; tier: number; members: string[]; invited: string[]; participants: string[]; outcome?: Record<string, unknown> };
 
