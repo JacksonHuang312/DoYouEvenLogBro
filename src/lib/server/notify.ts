@@ -145,3 +145,27 @@ export async function runDailyPushes(now: number, send: PushSender): Promise<Dai
   }
   return report;
 }
+
+/**
+ * Sends one push to some players right now (raid invitations and results, 13.33), outside any
+ * transaction. Only players with notifications on and that message type switched on get it. It
+ * never throws: a failed push must not fail the action that caused it.
+ */
+export async function pushNow(uids: string[], push: Push): Promise<number> {
+  let sent = 0;
+  try {
+    const send = usingEmulators() ? emulatorSender : fcmSender;
+    const now = Date.now();
+    for (const uid of [...new Set(uids)]) {
+      const snap = await notifyRef(uid).get();
+      if (!snap.exists) continue;
+      const doc = docOf(snap.data(), now);
+      const tokens = Object.values(doc.tokens).map((t) => t.token);
+      if (!doc.enabled || !prefsOf(doc)[push.type] || !tokens.length) continue;
+      if ((await send(tokens, push)).delivered > 0) sent++;
+    }
+  } catch (err) {
+    console.error("Couldn't send a push", err);
+  }
+  return sent;
+}

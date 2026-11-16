@@ -80,6 +80,8 @@ export default function BattlePage() {
   >(null);
   // A fought raid being looked at: the one just started, or the last one, opened from the card.
   const [raidResult, setRaidResult] = useState<RaidRecord | null>(null);
+  // A raid result opened from History goes back to the list when it closes.
+  const [raidFromHistory, setRaidFromHistory] = useState(false);
   const raids = useRaids(profile.uid);
   const following = useFollowingUids(profile.uid);
   const followers = useFollowerUids(profile.uid);
@@ -417,7 +419,11 @@ export default function BattlePage() {
       {raidResult && (
         <RaidResultScreen
           view={raidResultView(raidResult, profile.uid)}
-          onDone={() => setRaidResult(null)}
+          onDone={() => {
+            setRaidResult(null);
+            if (raidFromHistory) setSheet("history");
+            setRaidFromHistory(false);
+          }}
         />
       )}
       {sheet === "history" && view && (
@@ -425,6 +431,15 @@ export default function BattlePage() {
           uid={profile.uid}
           now={now}
           timeZone={timeZone}
+          raids={raids.data}
+          onOpenRaid={(id) => {
+            const outcome = raids.data.find((r) => r.id === id)?.outcome;
+            if (!outcome) return;
+            // The sheet is in the top layer, above the result screen, so it steps aside first.
+            setSheet(null);
+            setRaidFromHistory(true);
+            setRaidResult(outcome);
+          }}
           onClose={() => setSheet(null)}
           onOpen={(fight) => {
             // The sheet is in the top layer, above the result screen, so it steps aside first.

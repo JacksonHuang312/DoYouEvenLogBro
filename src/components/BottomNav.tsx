@@ -3,6 +3,10 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { raidInvitationCount } from "@/lib/game/raidView";
+import { useRaids } from "@/lib/useGame";
+import { useProfile } from "./AuthProvider";
 import { useWorkout } from "./WorkoutProvider";
 
 const LEFT = [
@@ -23,19 +27,29 @@ export function isActive(pathname: string, match: string[]) {
 export function BottomNav() {
   const pathname = usePathname();
   const { draft } = useWorkout();
+  const profile = useProfile();
+  const raids = useRaids(profile.uid);
+  const [now] = useState(() => Date.now());
+  // Raid invitations waiting (13.33): a dot on Battle, on every screen.
+  const invitations = raidInvitationCount(raids.data, profile.uid, now, Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   const tab = ({ href, label, match }: (typeof LEFT)[number]) => {
     const active = isActive(pathname, match);
+    const alert = href === "/battle" && invitations > 0;
     return (
       <Link
         key={href}
         href={href}
         aria-current={active ? "page" : undefined}
+        aria-label={alert ? `${label}, ${invitations} raid ${invitations === 1 ? "invitation" : "invitations"}` : undefined}
         className={`flex h-full items-center justify-center border-t-2 text-xs ${
           active ? "border-rpg-accent text-rpg-text" : "border-transparent text-rpg-muted"
         }`}
       >
-        {label}
+        <span className="relative">
+          {label}
+          {alert && <span aria-hidden data-raid-dot className="absolute -right-2.5 -top-1 h-2 w-2 rounded-full bg-rpg-accent" />}
+        </span>
       </Link>
     );
   };

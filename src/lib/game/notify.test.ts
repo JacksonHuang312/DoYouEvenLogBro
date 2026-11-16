@@ -66,10 +66,10 @@ describe("devices and settings", () => {
   });
 
   test("each message has its own switch, on by default", () => {
-    expect(prefsOf(null)).toEqual({ weeklyFight: true, levelUp: true });
-    expect(withPrefs(on(), { levelUp: false }, T0 + 1)).toMatchObject({ prefs: { weeklyFight: true, levelUp: false }, updatedAt: T0 + 1 });
+    expect(prefsOf(null)).toEqual({ weeklyFight: true, levelUp: true, raid: true });
+    expect(withPrefs(on(), { levelUp: false }, T0 + 1)).toMatchObject({ prefs: { weeklyFight: true, levelUp: false, raid: true }, updatedAt: T0 + 1 });
     // A doc written before a message type existed still has it on.
-    expect(prefsOf({ prefs: { weeklyFight: false } as never })).toEqual({ weeklyFight: false, levelUp: true });
+    expect(prefsOf({ prefs: { weeklyFight: false } as never })).toEqual({ weeklyFight: false, levelUp: true, raid: true });
   });
 });
 

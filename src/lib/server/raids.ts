@@ -23,6 +23,7 @@ import {
 import { checkParty, raidedThisWeek, raidTierFor, runRaid } from "../game/raids";
 import { RAID } from "../game/config";
 import { adminDb } from "./admin";
+import { pushNow } from "./notify";
 import { HttpError } from "./api";
 import { stateOf, unwrap, wornItems } from "./items";
 import { gameRefs, type GameRefs } from "./refs";
@@ -118,8 +119,11 @@ async function requireMutual(tx: Transaction, leader: string, uids: string[], na
 /** Lobby actions and the start. Every action is safe to retry. */
 export async function raidAction(uid: string, input: RaidAction): Promise<RaidResponse> {
   const db = adminDb();
-  return db.runTransaction(async (tx) => {
+  // Who to tell once the change is saved (13.33). Reset on every attempt of the transaction.
+  const tell: { uids: string[]; title: string } = { uids: [], title: "" };
+  const result = await db.runTransaction(async (tx) => {
     const now = Date.now();
+    tell.uids = [];
 
     if (input.action === "create") {
       const [leader] = await loadFighters(tx, [uid], now);
@@ -140,6 +144,7 @@ export async function raidAction(uid: string, input: RaidAction): Promise<RaidRe
       await requireMutual(tx, uid, invite, names);
       let raid = unwrap(newRaid({ leader: uid, name: names[uid], weekId: week, tier: input.tier, now }));
       for (const other of invite) raid = unwrap(inviteToRaid(raid, uid, other, names[other], now));
+      Object.assign(tell, { uids: invite, title: `@${names[uid]} invited you to a raid` });
       tx.set(ref, raid);
       return { raidId: id, raid };
     }
@@ -159,7 +164,9 @@ export async function raidAction(uid: string, input: RaidAction): Promise<RaidRe
         if (doc.participants.includes(input.uid)) return save(doc);
         const names = await usernames(tx, [input.uid]);
         if (uid === doc.leader) await requireMutual(tx, uid, [input.uid], names);
-        return save(unwrap(inviteToRaid(doc, uid, input.uid, names[input.uid], now)));
+        const next = unwrap(inviteToRaid(doc, uid, input.uid, names[input.uid], now));
+        Object.assign(tell, { uids: [input.uid], title: `@${doc.names[doc.leader]} invited you to a raid` });
+        return save(next);
       }
       case "join": {
         if (doc.members.includes(uid)) return save(doc);
@@ -253,8 +260,12 @@ export async function raidAction(uid: string, input: RaidAction): Promise<RaidRe
           members: records,
           log: outcome.result.log,
         };
+        // Everyone but the leader, who is looking at the result already.
+        Object.assign(tell, { uids: doc.members.filter((u) => u !== uid), title: `Your raid was fought: ${record.won ? "Victory" : "Defeat"}` });
         return save(finishRaid(doc, record, now));
       }
     }
   });
+  if (tell.uids.length) await pushNow(tell.uids, { type: "raid", key: `raid:${result.raidId}`, title: tell.title, url: "/battle" });
+  return result;
 }

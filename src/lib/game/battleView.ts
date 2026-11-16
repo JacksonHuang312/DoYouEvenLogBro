@@ -672,6 +672,10 @@ export const FIGHT_HISTORY = 20;
 
 export interface HistoryRow {
   id: string;
+  /** When it was fought, for sorting fights and raids into one list. */
+  at: number;
+  /** A solo fight, or a raid (13.33): they open different result screens. */
+  kind: "fight" | "raid";
   /** The first round's enemy, for the icon. */
   foe: string;
   won: boolean;
@@ -687,7 +691,7 @@ export interface HistoryRow {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function whenLabel(ms: number, now: number, timeZone: string): string {
+export function whenLabel(ms: number, now: number, timeZone: string): string {
   const days = Math.round(
     (Date.parse(`${dayId(now, timeZone)}T00:00:00Z`) -
       Date.parse(`${dayId(ms, timeZone)}T00:00:00Z`)) /
@@ -737,6 +741,8 @@ export function historyView(
       ].filter(Boolean);
       return {
         id: fight.id,
+        at: fight.at,
+        kind: "fight" as const,
         foe: fight.rounds[0]?.foe ?? "",
         won: view.won,
         headline: view.headline,

@@ -95,7 +95,13 @@ test.describe("Raid screens", () => {
     expect(made.status).toBe(200);
     const raidId = made.json.raidId as string;
 
-    await page.goto("/battle");
+    // The invitation shows as a dot on the Battle tab, on any screen (13.33).
+    await page.goto("/train");
+    const battleTab = page.getByRole("link", { name: "Battle, 1 raid invitation" });
+    await expect(battleTab).toBeVisible();
+    await expect(battleTab.locator("[data-raid-dot]")).toBeVisible();
+    await battleTab.click();
+    await expect(page).toHaveURL(/\/battle$/);
     const card = page.getByRole("region", { name: "Raid", exact: true });
     const invitations = card.getByRole("list", { name: "Raid invitations" });
     await expect(invitations).toContainText("@rival asks you to raid");
@@ -108,6 +114,9 @@ test.describe("Raid screens", () => {
 
     await expect(card).toContainText("You're in a party · tier 1 · 2 joined");
     await expect(invitations).toHaveCount(0);
+    // Answered: the dot is gone.
+    await expect(page.locator("[data-raid-dot]")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Battle", exact: true })).toBeVisible();
     await card.getByRole("button", { name: "Open party" }).click();
     const sheet = page.getByRole("dialog", { name: "Raid party" });
     await expect(sheet.getByRole("list", { name: "Party" }).getByRole("listitem")).toHaveCount(2);
@@ -126,6 +135,20 @@ test.describe("Raid screens", () => {
     await expect(rows.nth(1)).toContainText("@hero (you)");
     await result.getByRole("button", { name: "Done" }).click();
     await expect(card).toContainText("You've raided this week");
+
+    // The raid is in History with the solo fights, and opens its own result (13.33).
+    await page.getByRole("button", { name: "History", exact: true }).click();
+    const history = page.getByRole("dialog", { name: "History" });
+    const raidRow = history.getByRole("listitem").filter({ hasText: /^.*Raid · / });
+    await expect(raidRow).toHaveCount(1);
+    await expect(raidRow).toContainText(/Victory|Defeat/);
+    await expect(raidRow).toContainText("tier 1 · 2 players");
+    await expectNoOverflow(page, "History with a raid", info);
+    await raidRow.getByRole("button").click();
+    await expect(history).toBeHidden();
+    await expect(result).toBeVisible();
+    await result.getByRole("button", { name: "Done" }).click();
+    await expect(history).toBeVisible();
   });
 
   test("declining an invitation removes it, and a player under level 20 is told raids are locked", async ({ hero, page }) => {

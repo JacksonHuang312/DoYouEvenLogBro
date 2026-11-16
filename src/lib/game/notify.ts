@@ -12,7 +12,7 @@ import { fightDay, fightWeek, type BattleDoc } from "./fights";
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-export const NOTIFY_TYPES = ["weeklyFight", "levelUp"] as const;
+export const NOTIFY_TYPES = ["weeklyFight", "levelUp", "raid"] as const;
 export type NotifyType = (typeof NOTIFY_TYPES)[number];
 
 export const NOTIFY = {
@@ -26,10 +26,12 @@ export const NOTIFY = {
 export const NOTIFY_TEXT: Record<NotifyType, { title: string; url: string; label: string }> = {
   weeklyFight: { title: "Your weekly fight is ready", url: "/battle", label: "Weekly fight is ready" },
   levelUp: { title: "1 workout from levelling up", url: "/train", label: "One workout from a level" },
+  // Sent at once by the raid route, not by the daily job; the route writes the actual line.
+  raid: { title: "You've been invited to a raid", url: "/battle", label: "Raid invitations and results" },
 };
 
 export type NotifyPrefs = Record<NotifyType, boolean>;
-export const DEFAULT_PREFS: NotifyPrefs = { weeklyFight: true, levelUp: true };
+export const DEFAULT_PREFS: NotifyPrefs = { weeklyFight: true, levelUp: true, raid: true };
 
 /** notify/{uid}. Written only by the server; the owner can read it. */
 export interface NotifyDoc {

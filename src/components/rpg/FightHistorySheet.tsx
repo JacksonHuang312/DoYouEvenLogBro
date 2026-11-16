@@ -3,6 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 import { FIGHT_HISTORY, historyView } from "@/lib/game/battleView";
+import { raidHistoryRows, type StoredRaid } from "@/lib/game/raidView";
 import { useFightHistory, type StoredFight } from "@/lib/useGame";
 import { EnemyIcon } from "./EnemyIcon";
 import { Skeleton } from "./RpgScreen";
@@ -17,19 +18,31 @@ export function FightHistorySheet({
   uid,
   now,
   timeZone,
+  raids,
   onOpen,
+  onOpenRaid,
   onClose,
 }: {
   uid: string;
   now: number;
   timeZone: string;
+  /** The player's raids (the page already listens to them). */
+  raids: StoredRaid[];
   onOpen: (fight: StoredFight) => void;
+  onOpenRaid: (raidId: string) => void;
   onClose: () => void;
 }) {
   const fights = useFightHistory(uid);
+  // Fights and raids in one list, newest first (13.33).
   const rows = useMemo(
-    () => historyView(fights.data, now, timeZone),
-    [fights.data, now, timeZone],
+    () =>
+      [
+        ...historyView(fights.data, now, timeZone),
+        ...raidHistoryRows(raids, uid, now, timeZone),
+      ]
+        .sort((a, b) => b.at - a.at || a.id.localeCompare(b.id))
+        .slice(0, FIGHT_HISTORY),
+    [fights.data, raids, uid, now, timeZone],
   );
 
   return (
@@ -60,6 +73,7 @@ export function FightHistorySheet({
               <li key={row.id} className="border-b border-rpg-line-soft">
                 <button
                   onClick={() => {
+                    if (row.kind === "raid") return onOpenRaid(row.id);
                     const fight = fights.data.find((f) => f.id === row.id);
                     if (fight) onOpen(fight);
                   }}
@@ -94,7 +108,7 @@ export function FightHistorySheet({
             ))}
           </ul>
           <p className="px-5 pt-3 text-[11px] text-rpg-muted">
-            Your last {FIGHT_HISTORY} fights.
+            Your last {FIGHT_HISTORY} fights and raids.
           </p>
         </>
       )}

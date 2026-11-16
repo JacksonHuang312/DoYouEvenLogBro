@@ -3,7 +3,7 @@ import { fightWeek } from "./fights";
 import type { PartyEvent } from "./party";
 import { finishRaid, inviteToRaid, joinRaid, newRaid, type RaidMemberRecord, type RaidRecord } from "./raidLobby";
 import { raidBoss } from "./raids";
-import { raidCardView, raidLogLines, raidResultView, type StoredRaid } from "./raidView";
+import { raidCardView, raidHistoryRows, raidInvitationCount, raidLogLines, raidResultView, type StoredRaid } from "./raidView";
 import { T0 } from "./test-helpers";
 
 const UTC = "UTC";
@@ -219,5 +219,39 @@ describe("the result", () => {
       "Boss is down",
     ]);
     expect(raidResultView(record({ log: [e({ t: 49, actor: "foe", action: "down" })] }), "me").log).toEqual([{ t: "24.5s", text: "The Hollow Colossus is down" }]);
+  });
+});
+
+describe("alerts and history (13.33)", () => {
+  test("the Battle dot counts open parties that asked you this week, and nothing else", () => {
+    const asked = { ...value(inviteToRaid(stored("ann", "ann"), "ann", "me", "har", T0)), id: "a" };
+    const other = { ...value(inviteToRaid(stored("bob", "bob"), "bob", "me", "har", T0)), id: "b" };
+    const old = { ...value(inviteToRaid(stored("cy", "cy", 1, "2026-10-04"), "cy", "me", "har", T0)), id: "c" };
+    const joined = { ...value(joinRaid(asked, "me", T0)), id: "d" };
+    const cancelled = { ...asked, id: "e", status: "cancelled" as const };
+    expect(raidInvitationCount([asked, other, old, joined, cancelled, stored("me", "har")], "me", T0, UTC)).toBe(2);
+    expect(raidInvitationCount([], "me", T0, UTC)).toBe(0);
+    // Somebody else's invitation isn't yours.
+    expect(raidInvitationCount([asked], "zed", T0, UTC)).toBe(0);
+  });
+
+  test("fought raids become History rows with your own pay, and open parties don't", () => {
+    const party = value(joinRaid(value(inviteToRaid(stored("me", "har"), "me", "ann", "ann", T0)), "ann", T0));
+    const won = { ...finishRaid(party, record({ at: T0 - 1000, members: [member("me", { item: { id: "i", baseId: "warden-boots", rarity: "epic", itemLevel: 58 } }), member("ann")] }), T0), id: "won" };
+    const lost = { ...finishRaid(party, record({ at: T0 - 5000, won: false, tier: 1, members: [member("me", { coins: 0, scrap: 0 }), member("ann", { coins: 0, scrap: 0 })] }), T0), id: "lost" };
+    const rows = raidHistoryRows([won, lost, stored("me", "har")], "me", T0, UTC);
+    expect(rows.map((r) => r.id)).toEqual(["won", "lost"]);
+    expect(rows[0]).toMatchObject({
+      kind: "raid",
+      at: T0 - 1000,
+      foe: "The Hollow Colossus",
+      won: true,
+      headline: "Victory",
+      sub: "Raid · The Hollow Colossus · tier 3 · 2 players",
+      loot: "+300 coins · +90 scrap · 1 item",
+    });
+    expect(rows[0].when).toMatch(/^Today /);
+    expect(rows[1]).toMatchObject({ won: false, headline: "Defeat", loot: "No rewards" });
+    expect(raidHistoryRows([won], "stranger", T0, UTC)).toEqual([]);
   });
 });

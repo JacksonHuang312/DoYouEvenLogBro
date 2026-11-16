@@ -1,5 +1,5 @@
 import { baseItem } from "./catalog";
-import { FIGHT_TIME_SCALE } from "./battleView";
+import { FIGHT_TIME_SCALE, whenLabel, type HistoryRow } from "./battleView";
 import { CLASSES, RAID, type Rarity } from "./config";
 import { fightWeek } from "./fights";
 import type { PartyEvent } from "./party";
@@ -284,4 +284,39 @@ export function raidResultView(record: RaidRecord, uid: string): RaidResultView 
     rows,
     log: raidLogLines(record.log, names, viewer, record.bossName),
   };
+}
+
+// ---- Alerts and history (13.33) ----
+
+/** How many open parties have asked the player this fight week: the dot on the Battle tab. */
+export function raidInvitationCount(raids: StoredRaid[], uid: string, now: number, timeZone: string): number {
+  const weekId = fightWeek(now, timeZone);
+  return raids.filter((r) => r.status === "open" && r.weekId === weekId && r.invited.includes(uid)).length;
+}
+
+/** The player's fought raids as History rows, to sort in with their solo fights. */
+export function raidHistoryRows(raids: StoredRaid[], uid: string, now: number, timeZone: string): HistoryRow[] {
+  return raids
+    .filter((r) => r.status === "done" && r.outcome && r.members.includes(uid))
+    .map((r) => {
+      const o = r.outcome!;
+      const me = o.members.find((m) => m.uid === uid);
+      const loot = [
+        me?.coins ? `+${num(me.coins)} coins` : "",
+        me?.scrap ? `+${num(me.scrap)} scrap` : "",
+        me?.item ? "1 item" : "",
+        me?.salvaged ? "1 auto-salvaged" : "",
+      ].filter(Boolean);
+      return {
+        id: r.id,
+        at: o.at,
+        kind: "raid" as const,
+        foe: o.bossName,
+        won: o.won,
+        headline: o.won ? "Victory" : "Defeat",
+        sub: `Raid · ${o.bossName} · tier ${o.tier} · ${o.members.length} players`,
+        when: whenLabel(o.at, now, timeZone),
+        loot: loot.length ? loot.join(" · ") : "No rewards",
+      };
+    });
 }
