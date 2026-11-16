@@ -370,5 +370,13 @@ service cloud.firestore {
       allow read: if isUser(uid);
       allow write: if false;
     }
+
+    // Raid parties (GAME_DESIGN.md 13.31): the lobby and, once fought, the result. Only the people
+    // in it (joined or invited) can read it; the list query must filter on `participants`. Only the
+    // server writes it.
+    match /raids/{raidId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow write: if false;
+    }
   }
 }

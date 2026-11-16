@@ -73,6 +73,8 @@ export interface BattleDoc {
   campaign: { cleared: number };
   /** Wins toward the Legendary and Mythic guarantees: weekly wins and Boss Tower first clears only. */
   pity: Pity;
+  /** The fight week of the player's last raid, win or lose: one a week (13.30). Missing means none yet. */
+  raid?: { weekId: string } | null;
   updatedAt: number;
 }
 

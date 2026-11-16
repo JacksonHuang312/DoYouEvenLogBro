@@ -15,9 +15,11 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   Timestamp,
+  where,
   writeBatch,
 } from "firebase/firestore";
 
@@ -835,6 +837,31 @@ describe("game data", () => {
       await assertFails(getDocs(collection(db, "users", "alice", "shop")));
       await assertFails(getDocs(collection(db, "users", "alice", "fights")));
     }
+  });
+});
+
+describe("raid parties", () => {
+  const raid = { leader: "alice", members: ["alice"], invited: ["bob"], participants: ["alice", "bob"], status: "open", tier: 1 };
+
+  test("only its participants read one, by id or by listing their own; nobody writes one", async () => {
+    await seedUser("alice", "alice", 8);
+    await seedUser("bob", "bob", 8);
+    await seedUser("carol", "carol", 8);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "raids", "alice_2026-10-11"), raid);
+    });
+    const ref = (db) => doc(db, "raids", "alice_2026-10-11");
+    await assertSucceeds(getDoc(ref(dbAs("alice"))));
+    await assertSucceeds(getDoc(ref(dbAs("bob"))));
+    await assertFails(getDoc(ref(dbAs("carol"))));
+    await assertFails(getDoc(ref(env.unauthenticatedContext().firestore())));
+    const mine = (uid) => getDocs(query(collection(dbAs(uid), "raids"), where("participants", "array-contains", uid)));
+    await assertSucceeds(mine("bob"));
+    // Listing someone else's, or everything, is refused.
+    await assertFails(getDocs(query(collection(dbAs("carol"), "raids"), where("participants", "array-contains", "alice"))));
+    await assertFails(getDocs(collection(dbAs("alice"), "raids")));
+    await assertFails(setDoc(ref(dbAs("alice")), { ...raid, tier: 5 }));
+    await assertFails(setDoc(doc(dbAs("carol"), "raids", "carol_2026-10-11"), { ...raid, leader: "carol", participants: ["carol"] }));
   });
 });
 

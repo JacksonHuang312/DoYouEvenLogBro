@@ -303,10 +303,15 @@ export const RIVAL: Identity = { uid: "e2e-rival", email: "rival@test.dev", pass
  * and clears the hero's own numbers. Call after the hero is seeded. `isPrivate` with `follows: false`
  * gives a private account the hero has not been accepted by.
  */
-export async function seedRival(board: Record<string, unknown>, { isPrivate = false, follows = true } = {}) {
+export async function seedRival(
+  board: Record<string, unknown>,
+  { isPrivate = false, follows = true, mutual = false, seed = {} as SeedOptions } = {},
+) {
   assertEmulator();
   const db = adminDb();
-  await resetHero({ who: RIVAL, gear: [] });
+  await resetHero({ gear: [], ...seed, who: RIVAL });
+  // Raids made in earlier tests would still be this week's.
+  for (const d of (await db.collection("raids").get()).docs) await d.ref.delete();
   if (isPrivate) await db.collection("users").doc(RIVAL.uid).set({ isPrivate: true }, { merge: true });
   await db.collection("publicStats").doc(RIVAL.uid).set({ board, updatedAt: Date.now() });
   await db.collection("publicStats").doc(HERO.uid).delete();
@@ -320,6 +325,16 @@ export async function seedRival(board: Record<string, unknown>, { isPrivate = fa
     // enough to put the rival on the hero's list while the rules still refuse the read.
     await following.set({ createdAt: new Date() });
     await follower.delete();
+  }
+  // The rival follows the hero back: what a raid invitation needs.
+  const back = db.collection("users").doc(RIVAL.uid).collection("following").doc(HERO.uid);
+  const backFollower = db.collection("users").doc(HERO.uid).collection("followers").doc(RIVAL.uid);
+  if (mutual) {
+    await back.set({ createdAt: new Date() });
+    await backFollower.set({ createdAt: new Date() });
+  } else {
+    await back.delete();
+    await backFollower.delete();
   }
 }
 
