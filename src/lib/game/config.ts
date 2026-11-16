@@ -807,3 +807,26 @@ export const CAMPAIGN = {
   /** Never Legendary or Mythic; Epic very rare, because there are many stages. */
   gear: { chance: 0.1, weights: { common: 60, uncommon: 30, rare: 9.5, epic: 0.5 } as Partial<Record<Rarity, number>> },
 };
+
+// ---- Party raids (GAME_DESIGN.md 13.10 and 13.29, Phase 6) ----
+
+/**
+ * Raids: 2 to 4 players against one boss. Every number here is a *draft*, to be tuned with real
+ * fights (13.11) before raids open.
+ */
+export const RAID = {
+  minParty: 2,
+  maxParty: 4,
+  /** The boss's health grows by this share of its base for each member past the first: 4 players, 4.45 × the health. */
+  hpPerExtraMember: 1.15,
+  /**
+   * The boss attacks this much faster for each member past the first, since only one of them is hit
+   * at a time. First sweep (2026-11-16, equal power, plain boss): a tank + damage + healer trio wins
+   * about 9 in 10, three Strikers about 6 in 10, and a party at 90% power about 1 in 3 or less.
+   */
+  attackRatePerExtraMember: 0.7,
+  /** A cleaving big hit lands on everyone but its target at this share. */
+  cleaveShare: 0.6,
+  /** Radiance heals the Cleric in full and everyone else standing at this share. */
+  groupHealShare: 0.5,
+};
