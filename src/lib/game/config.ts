@@ -829,4 +829,26 @@ export const RAID = {
   cleaveShare: 0.6,
   /** Radiance heals the Cleric in full and everyone else standing at this share. */
   groupHealShare: 0.5,
+
+  /** Raid bosses hit this much harder than the same boss type does solo: a party has a tank and a healer to lean on. */
+  bossAtk: 1.2,
+
+  // ---- Raid rules (13.30) ----
+  /** Every member must be within this many levels of every other (13.10). */
+  levelBand: 25,
+  /** Level needed for raid tiers 1 to 5. */
+  tierLevels: [20, 40, 55, 70, 90],
+  /** Recommended battle power per member for tiers 1 to 5, near the weekly boss's at those levels. */
+  tierPower: [150, 275, 350, 475, 600],
+  /** Each member needs this share of the tier's recommended power to enter. */
+  tierPowerShare: 0.8,
+  /** A member whose battle power is under this share of the party's total gets coins and scrap but no loot roll (4.3). */
+  minContributionShare: 0.15,
+  /** A win pays every member these, by tier: about three weekly-boss first wins. A loss pays nothing. */
+  coins: [150, 225, 300, 375, 450],
+  scrap: [30, 60, 90, 135, 180],
+  /** Each member with enough contribution rolls for gear at this chance; its rarity uses the weekly boss's split for the same tier. */
+  gearChance: 0.25,
+  /** The highest item level each tier drops (a drop is also capped by the player's own level). */
+  itemLevel: [39, 54, 69, 89, 100],
 };

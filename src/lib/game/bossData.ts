@@ -134,3 +134,25 @@ export const CAMPAIGN_CHAPTERS: CampaignChapter[] = [
     boss: { id: "king-molar", name: "King Molar", epithet: "Every tooth in the crown was a challenger.", type: "mixed", minimums: { chest: 0.75, legs: 0.75 } },
   },
 ];
+
+/**
+ * Raid bosses (GAME_DESIGN.md 13.30): one a week for everyone, in this order. A FIRST DRAFT by Claude
+ * for Jackson to review: rename, rewrite or replace any of them. They have no stat minimums (a raid
+ * checks each member's level and power) and no icons of their own yet.
+ *
+ *   cleave    Its big hit lands on the whole party, so a healer and a fourth member help.
+ *   bestWith  The party size it is meant to favour (shown in the lobby); any size from 2 to 4 may fight it.
+ */
+export interface RaidBossEntry extends BossEntry {
+  cleave?: boolean;
+  bestWith: 3 | 4;
+}
+
+export const RAID_BOSSES: RaidBossEntry[] = [
+  { id: "raid-hollow-colossus", name: "The Hollow Colossus", epithet: "Three could hide in its shadow. Bring four.", type: "brute", cleave: true, bestWith: 4 },
+  { id: "raid-mother-of-thorns", name: "Mother of Thorns", epithet: "Every root is a wound waiting.", type: "bleeder", bestWith: 3 },
+  { id: "raid-drowned-regent", name: "The Drowned Regent", epithet: "Still holding court at the bottom of the lake.", type: "timer", tweak: { hp: 1.05 }, bestWith: 4 },
+  { id: "raid-bell-breaker", name: "Karrow the Bell Breaker", epithet: "Rings once. Everyone hears it.", type: "mixed", cleave: true, bestWith: 4 },
+  { id: "raid-ashmaw-wyrm", name: "Ashmaw Wyrm", epithet: "It breathes in. Be elsewhere when it breathes out.", type: "brute", cleave: true, tweak: { heavy: { everySec: 9, telegraphSec: 3, multiplier: 2.4 } }, bestWith: 4 },
+  { id: "raid-long-night", name: "The Long Night", epithet: "It doesn't strike hard. It just doesn't end.", type: "bleeder", tweak: { hp: 1.1, bleed: { startSec: 8, perSec: 0.12 } }, bestWith: 3 },
+];
