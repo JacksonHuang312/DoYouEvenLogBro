@@ -169,3 +169,25 @@ export async function pushNow(uids: string[], push: Push): Promise<number> {
   }
   return sent;
 }
+
+/**
+ * Sends a test push to the player's own registered devices (the Settings button, 13.34), so they
+ * can check that notifications really arrive. Dead devices it finds are dropped.
+ */
+export async function sendTestPush(uid: string): Promise<{ devices: number; delivered: number }> {
+  const now = Date.now();
+  const snap = await notifyRef(uid).get();
+  const doc = docOf(snap.data(), now);
+  const tokens = Object.values(doc.tokens).map((t) => t.token);
+  if (!tokens.length) return { devices: 0, delivered: 0 };
+  const send = usingEmulators() ? emulatorSender : fcmSender;
+  const result = await send(tokens, { type: "raid", key: `test:${now}`, title: "Test notification: it works", url: "/settings" });
+  if (result.dead.length) {
+    await adminDb().runTransaction(async (tx) => {
+      let fresh = docOf((await tx.get(notifyRef(uid))).data(), now);
+      for (const token of result.dead) fresh = withoutToken(fresh, token, now);
+      tx.set(notifyRef(uid), fresh);
+    });
+  }
+  return { devices: tokens.length, delivered: result.delivered };
+}

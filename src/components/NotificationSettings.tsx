@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { errorDialog } from "@/lib/dialog";
 import { NOTIFY_TEXT, NOTIFY_TYPES, prefsOf, tokenKey, type NotifyType } from "@/lib/game/notify";
-import { disableNotifications, enableNotifications, setNotifyPrefs } from "@/lib/gameApi";
+import { disableNotifications, enableNotifications, sendTestNotification, setNotifyPrefs } from "@/lib/gameApi";
 import { devicePushToken, forgetPushToken, pushSupport, storedPushToken, type PushSupport } from "@/lib/push";
 import { useNotify } from "@/lib/useGame";
 import { useOnline } from "@/lib/useOnline";
@@ -25,6 +25,8 @@ export function NotificationSettings({ uid }: { uid: string }) {
   const [support, setSupport] = useState<PushSupport>(() => pushSupport());
   const [device, setDevice] = useState<string | null>(() => storedPushToken());
   const [busy, setBusy] = useState(false);
+  // What the last test said, shown under the button.
+  const [tested, setTested] = useState<string | null>(null);
 
   const doc = notify.data;
   const prefs = prefsOf(doc);
@@ -81,6 +83,32 @@ export function NotificationSettings({ uid }: { uid: string }) {
             className="h-5 w-5 shrink-0 accent-accent"
           />
         </label>
+        {deviceOn && (
+          <div className="flex flex-col gap-2 p-4">
+            <button
+              onClick={() =>
+                void run(async () => {
+                  setTested(null);
+                  const r = await sendTestNotification();
+                  setTested(
+                    r.delivered > 0
+                      ? `Sent to ${r.delivered} ${r.delivered === 1 ? "device" : "devices"}. It should show within a few seconds.`
+                      : "It couldn't be delivered to any device. Turn notifications off and on again, then retry.",
+                  );
+                })
+              }
+              disabled={off}
+              className="min-h-11 rounded-lg bg-surface-2 px-4 text-sm font-medium disabled:opacity-40"
+            >
+              Send a test notification
+            </button>
+            {tested && (
+              <p role="status" className="text-xs text-muted">
+                {tested}
+              </p>
+            )}
+          </div>
+        )}
         {NOTIFY_TYPES.map((type: NotifyType) => (
           <label key={type} className={`flex min-h-11 items-center justify-between gap-3 p-4 ${doc?.enabled ? "" : "opacity-50"}`}>
             <span>

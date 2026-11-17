@@ -902,3 +902,8 @@ Asked for by Jackson after stage 4: something that says you've been invited, and
 - **History:** the Battle tab's History sheet lists raids with the solo fights, newest first, 20 in all: "Victory · Raid · Karrow the Bell Breaker · tier 1 · 2 players" with your own coins, scrap and item. A raid row opens the raid result, and Done goes back to the list.
 - Tests: `raidView.test.ts` (the dot's count, the history rows), `notify.test.ts` (the new switch), `e2e/raid-screens.e2e.ts` (the dot on another tab, gone once answered; the raid row in History opening its result). The pushes themselves are not covered: the emulators have no push service.
 - Not built: raids in `npm run fight-report`, a dot on the desktop sidebar, raid boss icons, the raid balance pass.
+
+### 13.34 A test notification button (built 2026-11-16)
+Jackson had no second account at level 20 to send him a raid invitation, and the daily job doesn't run on a preview, so he had no way to see a notification arrive.
+- **Settings · Notifications:** once this device is on, a **Send a test notification** button sends "Test notification: it works" to your own registered devices at once (`POST /api/notify` `test`, `sendTestPush`), and says how many it reached, or that it couldn't be delivered. Tapping the notification opens Settings. It ignores the per-message switches (it is a test of delivery) and drops any dead device it finds.
+- `e2e/notify.e2e.ts` covers the button against the emulators, where nothing is really sent.

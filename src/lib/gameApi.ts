@@ -145,3 +145,5 @@ export const setRaidTier = (raidId: string, tier: number) => post<RaidResponse>(
 export const cancelRaid = (raidId: string) => post<RaidResponse>("/api/raid", { action: "cancel", raidId });
 /** Fights the raid (the leader only). A retry returns the same fight. */
 export const startRaid = (raidId: string) => post<RaidResponse>("/api/raid", { action: "start", raidId });
+/** Sends a test notification to your own registered devices; answers with how many it reached. */
+export const sendTestNotification = () => post<{ devices: number; delivered: number }>("/api/notify", { action: "test" });

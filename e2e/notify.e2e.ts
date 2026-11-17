@@ -35,6 +35,9 @@ test.describe("Notifications", () => {
     await expect(weekly).toBeEnabled();
     await expect(weekly).toBeChecked();
     await expect(level).toBeChecked();
+    // The test button: sent to this device (the emulators deliver without sending anything).
+    await page.getByRole("button", { name: "Send a test notification" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Sent to 1 device" })).toBeVisible();
     await shot(page, "settings-notifications");
     await expectNoOverflow(page, "Settings notifications", info);
     for (const box of [device, weekly, level]) {
